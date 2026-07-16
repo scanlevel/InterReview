@@ -1,0 +1,191 @@
+{
+  "topic": "ICT",
+  "experience": "NEW",
+  "domain": {
+    "category": "technology",
+    "expression": "i_dev_mth"
+  },
+  "classification_basis": "dataSet.answer.intent.category + dataSet.answer.intent.expression",
+  "questions": [
+    {
+      "question": "애자일 방법론을 활용하여 개발을 해 본 적이 있으신가요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_293006.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "개발 방법론 중에 본인이 가장 잘 알고 있는 방법론에 대해서 설명 부탁드릴게요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_335025.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지금 공부하고 있는 분야는 무엇인가요 왜 그것을 배우고 있고 지금까지 무엇을 배우셨는지도 말씀해 주실 수 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_299845.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이제 회사에 입사를 하게 된다면 기존과는 업무 스타일이 달라질 수 있습니다 그렇다면 기존과 다른 업무 스타일에 본인은 잘 적응할 수 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_308234.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "테스트 코드를 짜야 하는 이유에 관해서 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_326925.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님이 알고 계신 오브젝트 오리엔테이션 프로그래밍에 대해 설명해 주시겠어요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_351771.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "만약에 지원자님이 일을 하게 됐을 때 그 팀이 코드 리뷰에 대해서 보수적이고 페어를 완강하게 거부하는 곳이라면 어떻게 대처하시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_355151.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "귀하는 어떤 소스 컨트롤을 사용하고 계십니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_373842.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "애자일 방법론을 활용하여 개발을 해 보신 적이 있으신가요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_374901.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "저희가 개발을 하는 방법에도 여러 가지 분야가 있는데요 이제 뭐 본인이 잘하는 거 본인이 뭐 아직 접해보지 않은 것들이 아마 있으실 것 같아요 이제 본인이 가장 잘 알고 계시는 개발의 방법론은 어 무엇인지 말씀해 주시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_375851.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "우리 회사 입장에서는 페어 프로그래밍이 필요합니다 장점이 무엇이고 또 본인이 할 수 있는 역량에 대해서 설명을 해 보시죠",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415440.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "회사의 입장에서 페어 프로그래밍의 장점은 뭐라고 생각하시나요 왜 그것이 장점이라고 생각하시는지도 말씀 부탁드리겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415742.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이제 개발 실무도 해 보셨고 이제 개발에 대해서 뭐 전공도 하셨으니까 그 가장 잘 아시고 계시는 개발의 방법론은 무엇입니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_425550.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "귀하가 제일 잘 아는 개발 방법론이 무엇인가요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_426185.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "개발 업무를 할 때는 다양한 방법이 있습니다 실질적으로 그 논리적으로 있는 방법이 다양한데요 가장 잘 알고 있는 개발 방법론에 대해서 한번 말씀해 주시기 바랍니다 한 가지 사례를 들어서요 함 시작해 보시죠",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_426884.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자께서는 여러 가지 개발을 해 오셨던 걸로 알고 있습니다 그렇다면 개발 프로세스에서 어떤 것이 제일 재미있으셨는지 그것에 대해서 말씀해 보십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_427213.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분께 질문 하나 하겠습니다 만약에 입사한 팀이 코드 리뷰 또 클린 코드 또는 테스트 아무것도 안 한다면 이것에 대해서 어떻게 하실 건지 말씀해 보십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_427219.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인께서 작업을 할 때 어떤 프롬 프로그래밍 디자인 패턴을 선호하는지 그 이유와 그 이름을 이야기해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_427222.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님께서는 이전에 혹시 애자일 방법론을 활용하여 개발을 해 보셨나요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_449232.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "애자일 방법론에 대해 알고 계신가요 지금까지 업무를 하면서 애자일 방법론을 활용해서 개발해 보신 경험이 있으신가요 있으시다면 그 장점과 단점을 말해 보세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_55651.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dev_mth"
+      },
+      "occurrence_count": 1
+    }
+  ]
+}

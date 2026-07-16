@@ -1,0 +1,20 @@
+{
+  "topic": "ICT",
+  "experience": "EXPERIENCED",
+  "domain": {
+    "category": "attitude",
+    "expression": "i_secty"
+  },
+  "classification_basis": "dataSet.answer.intent.category + dataSet.answer.intent.expression",
+  "questions": [
+    {
+      "question": "서버 용량 확장으로 인해서 데이타 센터를 이전하게 되었는데요 이렇게 서버를 이전하는 데 있어서 최우선적으로 고려해야 할 사항은 무엇이 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Female_Experienced\\ckmk_d_ict_f_e_158683.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    }
+  ]
+}

@@ -1,0 +1,1856 @@
+{
+  "topic": "ICT",
+  "experience": "NEW",
+  "domain": {
+    "category": "background",
+    "expression": "c_person"
+  },
+  "classification_basis": "dataSet.answer.intent.category + dataSet.answer.intent.expression",
+  "questions": [
+    {
+      "question": "지원자님에 장점과 단점을 말씀해 주시고 그 장점을 특화시키고 단점을 극복하기 위해 했던 노력들도 함께 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_124780.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 시험 기간 시간이 촉박할 때 어떻게 시간 관리를 하셨는지 본인만에 시간 관리법을 설명해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_124782.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어 이제 본인이 장점과 또 단점이 있을 텐데요 장점을 어떻게 특화시켰고 단점은 어떻게 극복했는지 어 경우와 함께 자세하게 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_160663.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 협업을 할 때 사교성이 좋은 편인지 궁금합니다 또 사교성을 키우기 위해 지원자님은 어떤 노력을 하셨나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_160665.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 지원자들에 비해서 면접자님만의 차별성 장점을 어필할 수 있다면 어떤 것이 있을 것 같으세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_161187.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "우리 회사에 입사를 하고 난 후에 지원자님께 주어진 업무의 내용이나 강도가 예상했던 것과 전혀 다르다면 지원자님은 이 경우 어떻게 하시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_165180.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 지금까지 인생을 사시면서 가장 후회되는 일이 있다면 어떤 것인지 궁금하거든요 한 가지만 뽑아서 말씀해 주시면 감사하겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_174742.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "평소에 개인 작업을 많이 하시는 편인가요 그렇다면 그렇게 할 수 있는 원동력은 과연 어디서 나온다고 생각하시나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_176301.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 생각하는 본인의 장점과 단점은 무엇입니까 그리고 그것을 특화시키기 위한 노력이나 극복하기 위한 노력을 하셨다면 그것도 함께 말씀을 해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_204737.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어 본인이 생각하는 본인의 장단점이 있겠지만 그런 본인의 생각이 아닌 다른 사람이 생각하는 지원자님의 장단점과 또 그렇게 생각하시는 이유도 함께 말씀해 주시길 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_204837.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람들이 생각하는 지원자님의 장점과 단점은 뭐라고 하나요 이유도 함께 말씀해 주시길 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_233635.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "일을 하다 보면 업무량이 과도하게 많아질 수도 있습니다 혹시 그럴 때에도 잘 버틸 자신이 있나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_236635.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인은 시험 기간 시간이 촉박할 때 어떻게 시간 관리를 하셨습니까 시간 관리법이 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_236638.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 성격상 장점과 단점에 대해 각각 말씀해 주시고 이때 구체적인 예시도 같이 들어주시면 좋겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_251839.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아닌 지원자님의 다른 주변 사람들이 생각하는 지원자님의 단점과 장점을 모두 생각나는 대로 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_257359.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "혼자 일하는 것과 팀으로 일하는 것이 있습니다 이 둘 중에서 어떤 것을 더 선호하시나요 이유와 함께 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_257532.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 팀장의 업무에 더 잘 맞을 것 같은지 팀원으로서의 업무에 더 잘 맞을 것 같은지 이유와 함께 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_257785.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 성격상 장점과 단점에 대해 각각 말씀해 주세요 구체적인 예시를 들어서 말씀해 주시면 더욱 좋습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_269238.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님께서는 협업을 할 때 사교성이 좋은 편인지 또 사교성을 키우기 위해 어떤 노력을 하셨는지 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_272105.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 단점이 있다면 말씀해 주세요 또한 이것을 보완하기 위해서 그동안 해 오셨던 노력이 있다면 그것도 함께 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_272673.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 할 때 사교성이 좋은 편이신가요 그렇다면 사교성을 키우기 위해서는 어떤 노력을 해 보셨나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_290926.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "남을 잘 이끄는 리더형과 남을 잘 따르는 팔로워형이 있다면 본인은 어느 유형에 가까운가요 그렇게 생각하시는 이유도 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_291191.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람이 생각하는 지원자님의 장점과 단점은 무엇이라고 생각하시나요 또 그렇게 생각하시는 이유도 함께 말씀해 주시길 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_291320.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람이 생각하는 지원자님의 장단점은 무엇이라고 생각하시나요 그렇게 생각하시는 이유도 함께 구체적으로 들어볼 수 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_291856.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 지원자들에 비해서 지원자님만이 가진 차별성이나 장점을 어필한다면 어떤 것이 있을까요 구체적으로 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_291862.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 지원자들에 비해서 지원자님만이 가진 차별성이나 장점을 어필한다면 어떤 것들이 있을까요 구체적으로 설명해 주실 수 있나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_292059.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 성격상 장점과 단점을 말씀해 주시는데 최대한 구체적인 예시와 함께 말씀해 주시면 더욱 좋겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_292106.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "우리 회사에 입사를 해서 일을 하다 보면 현 지역이 아닌 다른 지역에서 업무를 수행하게 될 수도 있습니다 지원자님께서는 타 지역 근무도 문제없이 가능하신가요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_292118.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "남을 잘 이끄는 리더형과 남을 잘 따르는 팔로워형 중에 지원자님께서는 본인이 어떤 유형에 속한다고 생각하시나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_293008.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 장단점을 말씀해 주시고 그것을 특화하고 극복하기 위한 노력도 함께 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_297029.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 단점이 있다면 말씀해 주세요 또한 이것을 보완하기 위해서 어떤 노력을 하셨는지도 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_304160.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "남들과 다른 본인만의 경쟁력을 말씀해 주세요 그리고 그 경쟁력을 키우기 위해 어떤 노력을 해 보셨는지도 함께 얘기해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_304162.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 성격상 장점과 단점에 대해서 각각 말씀해 주시기 바랍니다. 지원자님께서 구체적인 예시를 들어주시는 것도 좋을 것 같습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_312263.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분 본인이 가지고 계시는 단점이 있으시다면 그게 무엇인지에 대해서 저희에게 이야기를 해 주시고 단점을 극복하기 위해서 해왔던 노력이 있으시다면 함께 답변 부탁드리도록 하겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_317870.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장단점을 말씀해 주세요 그리고 그것들을 각각 특화 시키고 극복하기 위해 어떤 노력들을 했는지 그 부분도 같이 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_321748.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아니고 지원자 분을 바라보고 있는 다른 사람들의 어 다른 사람들이 지원자분을 볼 때 장점 그리고 단점에 대해서 모두 이야기해 주시면 되겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_321752.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람들이 생각하는 지원자님의 장단점은 무엇이라고 생각하시나요 그렇게 생각하시는 이유에 대해서도 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_321959.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분의 성격상 장점 그리고 단점에 대해서 각각 이야기해 주시면 좋겠습니다 구체적인 예시를 들어서 답변해 주셔도 좋겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_328165.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "프로그래밍 언어에 대해서 거부감은 없으신가요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_329007.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 의견을 주장하실 때 강하게 주장하는 편이십니까 어떤 스타일로 자신의 의견을 주장하시는지 말씀해 보세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_329008.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님이 생각할 때 자신의 성격상의 장점과 단점에 대해서 각각 말씀을 해 주시기 바랍니다 그리고 구체적인 예시를 들어서 설명해 주셔도 좋습니다 답변 부탁드리겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_329080.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 단점과 장점을 말씀해 주세요 그리고 그 장점을 특화 시키고 단점을 극복하기 위해 했던 노력도 함께 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_330432.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인은 남을 잘 이끄는 리더형이신가요 아니면 남을 잘 따르는 팔로워형이신가요 어떤 유형이고 또 그렇게 생각하는 이유는 무엇인지 설명해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_330576.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "만약 본인이 하고 싶은 직무가 아닌 다른 직무를 받게 된다면 어떻게 하시겠습니까 그래도 괜찮으신가요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_335024.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 성격상 장점과 단점에 대해서 각각 말씀해 주시기 바랍니다 지원자님께서 구체적인 예시를 들어주셔도 좋을 것 같습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_336244.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분께서 이 직무에 지원하신 이유가 무엇인지에 대해서 말씀해 주셨으면 좋겠고 본인이 이 직무상에서 왜 적합한 인재라고 생각하시는지에 대해서도 설명해 주시면 좋겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_336248.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어 본인의 장점과 단점이 있으실 텐데 그것을 설명해 주시고 또 그것을 특화시키고 극복하기 위해서 해왔던 노력들도 함께 말씀해 주시길 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_336251.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장단점을 말씀해 주세요 그리고 그것들을 택화시키고 극복하기 위해 노력한 점도 함께 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_343984.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 단점이 있다면 말씀해 주실 수 있을까요 그리고 그것을 어떻게 보완하셨나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_345738.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 할 때 사교성이 좋은 편이신지 알고 싶습니다 또 사교성을 키우기 위해서 어떤 노력을 하셨습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_354017.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람들이 얘기하는 본인의 장점 단점은 뭐라고 생각하시나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_354022.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님이 생각할 때 협업을 할 때 가장 중요한 것은 무엇이라고 생각하십니까 그리고 왜 그것을 가장 중요하게 생각하는지 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_355403.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인 생각이 아닌 지원자님 주변 사람들이 얘기하는 지원자님의 장점과 단점에 대해서 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_356641.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "일을 하다 보면 업무량이 과도하게 많아질 수가 있습니다 그래도 지원자님께서는 잘 버티실 수 있습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_356989.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점을 설명해 주시고 그것을 극복시키거나 특화시키기 위한 노력도 함께 설명 부탁드리겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_366705.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 성격 상의 장점과 단점에 대해서 각각 말씀을 해 주시기 바랍니다 구체적인 예시를 들어서 설명해 주시면 더 좋겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_366859.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "우리 회사에 입사를 딱 했더니 강도가 예상했던 것과 전혀 다르면 어떻게 행동하실 건가요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_370365.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지금 본인이 내일 죽는다는 사실을 알게 된다면 뭘 하실 것인지 궁금합니다 이 면접을 끝까지 보실 건가요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_370368.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님께서는 지금부터 삼 년 뒤까지 삼 년 내 주요 성장 계획이나 목표가 있다면 무엇인지 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_370369.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아니라 지원자 분을 바라보는 다른 주변 사람들이 생각하는 지원자 분의 장점과 단점을 모두 말해주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_370371.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "남들과 다른 지원자님만의 경쟁력이 있다면 한 번 설명해 주세요 그리고 그것을 키우기 위해 어떤 노력을 하셨나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_370925.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분이 지금 본인이 내일 죽는다는 사실을 안다면 당장 뭘 하실지 궁금합니다 이 면접을 끝까지 계속 보실 건가요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_371434.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아닌 지원자님의 다른 주변 사람들이 생각하는 자신의 단점과 장점은 뭐라고 생각하는지 모두 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_379663.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 협업을 할 때 사교성이 좋은 편이신지 궁금합니다 또 그러한 사교성을 키우기 위해서 어떤 노력을 해 오셨나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_382328.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "저희 회사에 들어오면 기존과 업무 스타일이 많이 달라질 수 있습니다 이처럼 다른 업무 스타일에 잘 적응하실 수 있나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_382990.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "팀으로 일하는 것과 혼자 일하는 것 중에 개인적으로 무엇을 더 선호하시는지 궁금합니다 그리고 그것을 더 선호하시는 이유도 함께 말씀해 주시기를 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_384056.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아니라 지원자분을 바라보는 다른 주변 사람들이 생각하는 지원자분의 잔 당점과 장점을 이야기해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_384251.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 성격상 장점과 단점에 대해서 이야기를 해 주시면 감사하겠습니다 구체적인 예시를 들어주셔도 좋을 것 같습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_384638.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장단점을 설명해 주시고 이를 특화시키고 극복하기 위한 노력도 함께 말해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_387394.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서 생각하시기에 본인의 단점이 있다면 그것을 말씀해 주시고 또 그것을 보완하기 위해서 하신 노력이 있다면 함께 말씀해 주시길 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_387405.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람들이 생각하는 지원자님의 장점 단점은 뭐라고 생각하시나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_389142.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "자신이 가지고 있는 상위 일 퍼센트의 능력이 있다면 그 능력에 대해서 최대한 자세하게 설명해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_389560.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "대학 생활을 하면서 가장 힘들었던 경험은 무엇이었습니까 그리고 그것을 어떻게 극복했는지도 함께 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_389970.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분 본인의 장점과 단점을 설명해 주시고 그것을 특화시키고 극복하기 위한 노력도 같이 말해주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_392523.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점을 설명해 주시기 바라고요 그것을 특화시키고 극복하기 위한 노력도 함께 이야기 해 주시면 감사하겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_392525.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장단점을 설명해 주시고 장점을 특화시키며 단점을 극복하기 위해 했던 노력도 함께 말해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_396269.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 평소에 스트레스를 받으면 어떻게 하시나요 또 그런 방법으로 스트레스를 대처하시는 이유도 함께 말씀해 주시기를 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_404691.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점을 설명해 주시길 바랍니다 또 그것을 특화시키고 극복하기 위해서 하셨던 노력도 함께 말씀해 주시길 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_409494.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "전에 회사도 잘 다니고 계셨는데 왜 전에 있는 회사를 그만두고 저희 회사에 개발을 하러 오셨는지 그 이유와 함께 말씀해 주시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_411586.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람들이 이야기하는 지원자님의 장점 단점은 뭐라고 생각하시나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_419032.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분께서 우리 회사에 들어온다면 기존과는 업무 스타일이 달라질 수 있습니다 기존과 다른 업무 스타일에 잘 적응하실 수 있으신지 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_431682.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아니고 지원자분을 바라보는 다른 주변 사람들이 생각하는 지원자분의 단점 그리고 장점을 이야기 해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_436720.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람들이 생각하는 지원자분 본인의 장점 그리고 단점들이 있을 것입니다 그것은 뭐라고 생각하시는지 답변 부탁드립니다 그 이유까지도 함께 이야기해 주신다면 좋겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_276537.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 지원자들에 비해서 지원자님만이 가진 장점이나 차별성이 있으신가요 있다면 구체적으로 어필해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_280472.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "남을 잘 이끄는 리더형과 남을 잘 따르는 팔로워형 중에 본인이 어떤 유형인지 궁금합니다 그리고 그렇게 말씀하시는 이유도 함께 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_280645.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 지원자에 비해서 지원자님만이 가진 차별성이나 장점은 무엇인가요 구체적으로 본인의 장점을 어필해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_281388.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "남들과 다른 본인만의 경쟁력을 말씀해 주세요 그리고 그 경쟁력을 키우기 위해서는 어떤 노력을 했는지도 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_282426.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 단점이 있다면 말씀해 주시고 이것을 보완하기 위해 어떤 노력들을 해 왔는지 함께 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_285197.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 성격상 장점과 단점에 대해서 각각 제시해 주시기 바랍니다 지원자님께서 구체적인 예시를 들어서 말씀해 주시는 것도 좋을 것 같습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_299654.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 성격에서 장점과 단점에 대해서 알아가고 싶은데요 엠비티아이나 심리 테스트 사주 등 다양한 예시를 이용해서 말씀해 주셔도 좋습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_306409.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점을 설명해 주시고 그것을 특화시키고 극복하기 위해서 해 오셨던 노력도 구체적으로 말씀해 주실 수 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_312297.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 지원자들에 비해 지원자님만이 가진 차별성과 장점을 어필한다면 어떤 것이 있을지 궁금한데요 지원자님께서 직접 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_312695.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장단점을 설명해 주세요 그리고 그것들을 각각 특화 시키고 극복하기 위해 했던 노력도 함께 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_322285.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서 기존에 해 온 업무 스타일이 있으실 텐데요 만약 우리 회사에 들어와서 기존과는 다른 업무 스타일이 적용된다면 그 업무 스타일에도 잘 적응할 수 있으시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_322291.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 성격상 장점과 단점을 각각 말씀해 주세요 이때 구체적인 예시를 함께 들어주시는 것도 좋습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_322859.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님의 단점이 있다면 말씀해 주시고 그것을 보완하기 위해 노력했던 부분도 함께 얘기해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_330530.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점을 설명해 주세요 또한 그것을 특화시키고 극복하기 위해서 해 오셨던 노력도 함께 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_334680.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님의 장단점에 대해 설명해 주시고 그것을 특화시키고 극복시키기 위한 노력이 있었다면 함께 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_340410.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점을 설명해 주세요 그것을 특화시키고 극복하기 위해서 어떤 노력들을 해 오셨는지도 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_341110.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 성격상 장단점에 대해 각각 말씀해 주실 수 있나요 구체적인 예시를 들어주셔도 좋습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_345727.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람들이 생각하는 지원자님의 장점 단점은 무엇이라고 하나요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_355146.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아닌 지원자님 주변 사람들이 얘기하는 지원자님의 장단점을 모두 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_360763.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분께서 여러 사람들과 함께 일을 하시다 보면 구성원들과 갈등이 생길 일이 있을 수 있습니다 이때 어떻게 해결하시는지 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_360765.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 장점과 단점에 대해서 궁금한데요 그것을 특화시키고 또한 극복하기 위한 노력들까지 함께 답변해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_362002.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 장점과 단점에 대해서 설명을 해 주시고 지원자님의 장점을 어떻게 특화시켰고 또한 단점을 어떻게 극복했는지까지도 함께 답변해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_362280.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서 생각하시는 본인의 장점과 단점을 설명해 주시고 또 그것을 특화시키고 극복하기 위해서 해 오셨던 노력도 함께 말씀해 주시길 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_375240.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 지원자들에 비해서 본인만이 가진 차별성이나 장점을 어필한다면 어떤 것이 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_379979.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람이 생각하는 지원자님의 장점과 단점은 무엇이라고 생각하시는지 궁금합니다 또 그렇게 생각하시는 이유도 함께 말씀해 주시길 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_381882.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점을 설명해 주시구요 그것을 특화시키고 극복하기 위한 노력도 함께 이야기해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_385445.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람들은 지원자님의 장점이나 단점이 뭐라고 말들을 하나요 생각나는 게 있다면 말씀해 주시고 이유도 함께 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_385450.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아니라 지원자님의 다른 주변 사람들이 생각하는 지원자님의 장단점이 무엇이 있는지 모두 말씀해 주시기를 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_391112.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 성격상 장점과 단점에 대해서 각각 말씀해 주시기를 바랍니다 구체적인 예시를 들어서 어 말씀해 주시면 좋습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_394634.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서 생각하시기에 본인의 단점이 있다면 말씀해 주시고 또 그것을 보완하기 위해서 지금까지 하신 노력이 있다면 말씀해 주시기를 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_395370.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 의견을 주장하실 때 강하게 주장하는 편이십니까 아니면 어떤 스타일로 자신의 의견을 주장하시는지 궁금한데요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_399080.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원장님의 성격 상 장점과 단점에 대해 각각 말씀해 주십시오 구체적인 예시를 들어주셔도 좋을 것 같습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_401115.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인만의 단점이 있으시다면 말씀해 주시기를 바랍니다 또 본인이 그것을 보완하기 위해서 개인적으로 한 노력이 있다면 함께 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_401780.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 생각이 아닌 지원자님 주변 사람들이 얘기하는 지원자님의 장점 단점을 한 번 얘기해 주실 수 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_402099.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점에 대해서 각각 설명해 주시기 바랍니다 그리고 그것을 특화시키고 극복하기 위한 노력도 함께 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_405137.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 성격 상 장단점에 대해 각각 말씀해 주시기 바랍니다 구체적인 예시를 들어 주셔도 좋습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_405530.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "여태까지 속해 있었던 조직이나 단체 속에서 지원자님은 주로 어떤 역할을 하는 사람이었는지 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_408258.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아닌 지원자님의 다른 지인들이 생각하는 지원자님의 장단점을 모두 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_409068.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점을 설명해 주시기를 바랍니다 또 본인이 개인적으로 그것을 특화시키고 극복하기 위해서 하셨던 노력들도 함께 말씀해 주시길 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_409079.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "타인이 생각하는 지원자님의 장단점은 무엇입니까 이유도 함께 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_409409.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아닌 지원자님의 다른 주변 사람들이 생각하는 지원자님의 장단점을 모두 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_412166.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점에 대해서 설명 부탁드리고요 그것을 특화시키고 극복하기 위한 노력 함께 이야기 해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_412262.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이 직무에 지원했던 이유가 무엇인지 궁금하고 지원자님께서 이 직업에 적합한 지도 한 번 얘기해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_412607.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아닌 다른 주변 사람들이 생각하는 본인의 단점과 장점을 모두 말씀해 주실 수 있나요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_414755.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 이 직무에 지원하신 이유가 무엇이고 본인께서 이 직무에 적합하다고 생각하시는지 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_414757.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "타인이 생각하는 지원자님의 장단점은 무엇이라고 생각하십니까 이유도 함께 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415435.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님 주변 사람들이 얘기하는 지원자님의 장점과 단점에 대해서 한 번 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415485.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 단점과 장점에 대해서 얘기해 주시고 그것을 극복하거나 특화시키기 위해 했던 노력도 같이 얘기해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415487.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점을 설명해 주시길 바랍니다 또 그것을 특화시키고 극복하기 위해서 해왔던 노력도 함께 말씀해 주시길 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415506.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "저희 회사에 들어오게 된다면 가장 가고 싶으신 부서와 왜 그렇게 생각하셨는지 이유와 함께 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415508.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 지원자들과 비교되는 지원자님만의 차별점 장점이 있다면 어떤 것이 있겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415740.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "타인이 생각하는 지원자님의 장단점은 무엇이라고 생각하시나요 이유도 함께 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415900.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인 생각이 아닌 지원자님 주변 사람들이 얘기하는 지원자님의 장점과 단점에 대해서 한 번 얘기해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_416433.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 할 때 사교성이 좋은 편이신지 궁금한데요 사교성을 키우기 위해 어떤 노력을 하셨나요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_423091.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 지금까지 살면서 이룬 성과 중 가장 큰 성과는 무엇인지 말씀해 주세요 자랑 한 번 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_425500.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 지원자님의 의견을 주장하실 때 강하게 하시는 편입니까 의견을 주장하실 때 어떤 스타일로 주장하시는지 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_425685.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "저희 회사에 들어와 지원자님이 하고 싶은 업무가 있으신가요 있으시다면 이유와 함께 말씀해 주실 수 있나요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_425729.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님의 친한 주변 친구들 중 한 명을 골라 구체적이고 자세하게 칭찬 세 가지를 해주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_426955.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 장점과 단점에 대해서 얘기해 주시고 그것을 특화시키거나 극복하기 위해 했던 노력도 같이 얘기해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_427223.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "상사가 회사의 이익에 반하는 행동을 하는 것을 직접 목격한다면 그때 어떻게 하시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_427448.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 친구 가운데 한 명을 골라서 칭찬을 해 주시기 바랍니다 그 친구에 대한 구체적이고 자세한 칭찬일수록 좋습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_429025.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "타인이 생각하는 지원자님의 장점과 단점은 뭐라고 생각하시나요 이유도 함께 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_430518.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 장단점을 설명해 주시고 그것을 특화시키고 극복하기 위한 노력도 함께 말씀해 주실 수 있나요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_430932.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "타인이 생각하는 지원자님의 장점과 단점은 무엇이라고 생각하시나요 이유도 함께 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_431503.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님의 성격의 장단점에 대해 구체적인 예시를 들어 각각 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_432654.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 단점이 있다면 말씀해 주실 수 있을까요 그리고 그것을 보완하기 위해서 어떤 노력들을 하셨는지 같이 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_432736.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람이 생각하는 지원자님만의 장점과 단점은 어떤 것일까요 이유도 함께 설명 부탁드리겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_433006.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지금까지 인생을 살면서 가장 후회되는 일이 있으신지 궁금합니다 있으시다면 그것은 어떤 일인가요 한 가지만 골라서 말씀해 주시기를 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_435318.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아닌 지원자님의 다른 주변 사람들은 지원자님의 장점과 단점을 뭐라고 말하나요 생각나는 대로 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_435422.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 자신이 협업을 할 때 사교성이 좋은 편이라고 생각하십니까 그리고 사교성을 키우기 위해 어떤 노력을 하셨는지 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_439330.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람이 생각하는 지원자님의 장단점은 뭐라고 생각하십니까 이유도 함께 말씀해 주시기 부탁드리겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_441368.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님의 장단점에 대해 말씀해 주시고 그것을 특화시키고 극복시키기 위한 노력이 있었다면 함께 설명 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_442951.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이제까지 살면서 전혀 몰랐던 일을 새로운 환경에서 맡아본 경험이 있다면 그 경험에 대해서 말씀해 주시겠어요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_445909.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "남들과는 다른 자신만의 경쟁력을 설명 부탁드리겠습니다 경쟁력을 키우기 위해서 어떤 노력을 해야 되는지도 설명 부탁드리겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_448448.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 본인이 교번 근무에 잘 적응할 수 있다고 생각하십니까 그렇다면 그 근거도 함께 제시해 주십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_448449.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 장점과 단점에 대해서 설명해 주시고 그것을 특화시키고 본인이 극복하기 위한 노력도 함께 이야기해 주셨으면 좋겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_448903.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 생각이 아니라 본인 주변의 다른 사람들이 생각하는 지원자님의 장단점을 전부 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_448910.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "남을 잘 이끌어주는 리더형 인재와 남을 잘 따르는 팔로워형 인재 본인은 둘 중 어떤 유형인지 이유는 무엇인지에 대해서 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_449388.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 할 때 사회성이 좋은 편이신지 궁금한데요 또 사회성을 키우기 위해서 어떠한 노력을 하셨습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_459474.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람이 생각하는 지원자님의 장단점은 뭐라고 생각하십니까 이유도 함께 말씀해 주십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_468460.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람이 생각하는 지원자님의 장단점은 무엇이라고 생각하십니까 이유도 함께 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_492653.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지금까지 살아오면서 가장 힘들었던 경험에 대해서 말씀해 주시고 그것을 어떻게 극복하셨는지도 답변해 주시면 감사하겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_494823.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님의 성격 상 장단점을 각각 말씀해 주시는데 구체적인 예시를 들어주시면 더 좋겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_496979.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님의 장단점에 대해 설명해 주시고 그것을 특화시키고 극복시키기 위한 노력이 있었다면 함께 설명 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_500098.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님 주변 친구분들 중 한 명을 골라서 칭찬 부탁드리겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_500693.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "업무를 진행하다 보면 어 정해진 시간 안에 그 업무를 해야 해 해결해야 할 때가 올 텐데 어 시간이 촉박한 경우에는 어떻게 시간 관리를 해서 그 문제를 해결할 수 있을까요 본인만의 어떤 그런 관리법이 있는지 있나요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_36833.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어 지금 지원하는 어떤 해당 직무가 있을 텐데 그 직무와 관련한 자신의 어떤 강점이 있다면 그 강점이 무엇이라고 생각하는지 말씀해 보세요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_41454.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 성격에 있어서 장점하고 단점 한 가지씩 말씀해 보시겠습니까",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_41458.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 성격에서 가장 좋은 점이라고 생각하는 것과 개선해야 되거나 좀 바꿔야 될 점이 있다고 생각하는 점은 무엇입니까",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_50344.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 단점은 무엇인지 그리고 이를 보완하기 위해서 어떠한 노력을 했는지 설명해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_50484.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인은 숫자와 창의 중 어떤 곳에 더 가까운지 한번 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_66423.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어떤 문제에 부딪쳤을 때 혼자 해결하는 편이신지 아니면 여러 사람들에게 이야기를 해서 같이 해결하는 편이신지 궁금합니다",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_66433.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인은 리더형인지 팔로워형인지 설명해 주시겠습니까",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_66463.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "저희 업무 특성상 스케줄에 없던 일이 생길 때가 많은 편인데요 그럴 땐 어떻게 대처하실 건가요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_66853.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이제 업무를 하다 보면 야근을 하게 되거나 또 잔업이나 뭐 외근을 할 수가 있는데 그 야근이나 잔업 외근이 많아도 괜찮으실까요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_67004.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분께 질문하겠습니다 지원자분의 생각 말고 다른 주변 사람들이 생각하는 지원자분의 단점과 장점을 말씀해 주십시오",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_67005.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자가 생각하는 지원자의 강점과 단점에 대해 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_67924.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "조직 단체 속에서 본인은 주로 어떤 역할을 하는 사람이었는지",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_67927.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어떤 문제에 부딪쳤을 때 혼자서 해결하시는 편입니까 아니면 여러 사람들과 이야기를 나누어서 해결하시는 편입니까",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_12774.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인은 리더형인지 팔로우형인지 설명해라.",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_12776.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 직무를 수행함에 있어 어떤 장점이 있는지",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_12886.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 사람이 생각하는 지원자님의 장점 단점은 뭐라고 생각하시나요 그 이유도 함께 장점 단점 따로따로 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_152443.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서 생각하시기에 본인의 강점이 있다면 말씀해 주시고 이를 보완하기 위해 한 노력이 있으시다면 함께 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_152447.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인 스스로 생각할 때 본인의 장점과 단점에 대해서 말씀해 주시기 바랍니다 그리고 장점을 특화시키기 위해서 어떤 노력을 해 왔는지 혹은 단점을 극복하기 위해 어떤 노력을 했는지 말씀을 해 주십시오",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_165915.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "남들과는 다른 본인만에 경쟁력이 있는지 설명해 주세요 그 경쟁력을 키우기 위해서 어떤 노력을 하셨는지도 궁금합니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_168480.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 생각하는 성격상 강점과 단점에 대해서 각각 말씀해 주시길 바랍니다 지원자께서는 구체적인 예시를 들어서 말씀해 주셔도 좋을 것 같습니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_173440.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 생각하는 게 아니라 다른 사람이 생각하는 지원자님의 장점 단점 뭐라고 생각을 하시는지 이유와 함께 말씀을 해 주시기 바랍니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_179321.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서 본인의 생각이 아닌 지원자님의 다른 주변 사람들이 생각하는 지원자님만의 장 단점과 장점에 모두 말씀과 설명 부탁드립니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_181068.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어 본인의 장점과 단점을 설명해 주시고 어 그것을 특화시키고 극복하기 위한 노력도 함께 말씀 부탁드립니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_181207.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 단점이 있다면 말씀해 주세요 그리고 이를 보완하기 위해 지원자님께서 한 노력이 있다면 함께 말씀해 주세요 듣고 싶습니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_183657.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "업무와 무관한 일을 시켜도 잘 수행할 수 있으 잘 수행할 수 있나요 말씀해 주시겠어요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2382.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "팀으로 협업해서 일하는 것과 그 다음에 혼자 뭐 작업을 하는 것 둘 중에 어느 것을 선호하는 하 하시나요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2388.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "디자인을 하시는 분들은 각자의 개성이 있으실 것 같애요 선생님께서는 어떤 프로그래밍 디자인 패턴을 개인적으로 선호하고 계신지 설명해 주시겠습니까",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2468.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "업무 중 스케 스케줄에 없던 일이 생길 때가 많다. 어떻게 대처할 것인가",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2471.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이직을 생각하는 동료에게 뭐라고 조언해 줄 건지 말씀해 주시겠어요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2472.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "코딩에서 가장 흥미로운 점은 무엇입니까 설명해 주시겠습니까",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2601.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 뭐 지금까지 여러 가지 경험을 해 오셨는데 현재 여기 뭐 입사하기 전에 지금도 현재 면접 보고 있는 이 중에서도 현재 진행하고 있는 프로젝트가 있다면 구체적으로 말씀해 주실 수 있을까요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2602.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어 남들과 함께 협업하는 과제 그리고 혼자서 하는 과제 중에서 어떤 것을 더 선호하는지 또 그 이유도 자세히 들어볼 수 있을까요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2609.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "우리 지원자 자신만의 커뮤니케이션이 있다면 어떤 것이 있을지 얘기해 주시면 감사하겠습니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_82414.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분께 질문 드리겠습니다 사람은 누구나 단점이 있다고 합니다 그렇다면 지원자의 단점과 이것을 보완하기 위해서 한 노력에 대해서 말씀해 보십시오",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_87706.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 강점과 단점에 대해서 한번 말씀해 주시겠어요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_9715.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님은 어떤 문제에 부딪쳤을 때 보통 혼자 해결하시는 편이세요 아니면 여러 사람들에게 이야기를 하는 편이세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_9851.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_person"
+      },
+      "occurrence_count": 1
+    }
+  ]
+}

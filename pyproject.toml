@@ -1,0 +1,23 @@
+[project]
+name = "interreview"
+version = "0.1.0"
+description = "ICT interview practice application backed by a bundled question bank"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "av>=16.1.0",
+    "mediapipe>=0.10.35",
+    "numpy>=2.5.1",
+    "opencv-python>=5.0.0.93",
+    "pandas>=3.0.3",
+    "streamlit>=1.59.1",
+    "streamlit-webrtc>=0.75.0",
+]
+
+[project.optional-dependencies]
+# Install this extra only on a host sized for the 2.1B Kanana model.
+kanana = [
+    "torch>=2.5.0",
+    "torchvision>=0.28.0",
+    "transformers==4.55.0",
+]

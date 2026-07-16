@@ -1,0 +1,272 @@
+{
+  "topic": "ICT",
+  "experience": "NEW",
+  "domain": {
+    "category": "etc",
+    "expression": "c_sincere_co"
+  },
+  "classification_basis": "dataSet.answer.intent.category + dataSet.answer.intent.expression",
+  "questions": [
+    {
+      "question": "지원자님께서는 만약 이 면접에서 최종 탈락하신다면 어떤 점이 부족해서 탈락했다고 생각을 하시겠는지 설명 부탁드리겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_124776.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "우리 회사에 입사하였더니 업무 내용이나 강도가 예상했던 것과 전혀 다르다면 어떻게 하실 것인가요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_190945.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "네 이전 직장에서 퇴사한 것에 대해 어 후회를 해 보신 적은 있는지요 어 있다면 왜 후회를 하셨는지 함께 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_194560.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인은 십 년 후 미래는 어떨 것 같은지 상상해 보신 적 있으실까요 우선 저희 회사에는 계속 다니고 계실 것 같아요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_311895.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "일을 하다 보면 다른 지역에서 일을 해야 될 수도 있어요 다른 지역에서 근무하는 것도 문제가 없습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_328171.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 혹시 자신의 전공과 관련해서 최근 부족하다고 느끼고 따로 공부하고 있는 분야가 있으신가요 있다면 어떤 분야인지 말씀 부탁드리겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_342311.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 전공과 관련해 최근 부족하다고 느끼고 따로 학습을 하고 있는 분야가 있습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_345739.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 교번 근무에 잘 적응할 수 있다고 생각하십니까 그렇다면 그 근거도 함께 설명 부탁드리겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_346637.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "다른 계열사도 많이 있지만 특별히 이 계열사에 지원하신 이유가 있나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_354216.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 단점이 있다면 말씀해 주세요 또한 이것을 보완하기 위해서 어떤 노력들을 해 오셨는지 구체적으로 말씀해 주실 수 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_273892.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이 직무에 지원한 이유가 무엇인지 말씀해 주세요 그리고 본인이 왜 적합한 인재라고 생각하시는지도 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_327628.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "우리 회사에 입사를 딱 했더니 업무 내용이나 강도가 예상했던 것과 전혀 다르다면 어떻게 하실 것 같습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_387490.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서 이 직무에 지원한 이유가 무엇인지 궁금합니다 그리고 본인이 왜 적합한 인재인지도 설명해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_402238.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 이 분야에 지원하시기 위해서 어떤 노력들을 하셨을까요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_412604.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "타 계열사도 많이 있습니다만 해당 계열사에 지원해주신 특별한 이유가 있으신가요 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415503.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "우리 면접자님은 어떻게 해서 개발이 왜 좋은지에 대해서 말씀해 주실 수 있으신가요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_427229.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이제까지 살면서 제일 후회되는 일이 있었다면 그것이 무엇이었는지 한 가지만 골라서 얘기해 주시겠어요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_443443.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지금 학습하고 계신 분야가 무엇인가요 왜 그걸 공부하고 있고 지금까지 무엇을 배웠는지도 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_445912.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "일을 하게 되면 중국으로 출장을 가야 할 일이 생길 수도 있는데요 그러한 중국 출장도 괜찮다고 생각하시는지 여쭤보고 싶습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_452315.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "해외에 파견 근무를 나가게 되신다면 어느 나라에서 일을 하고 싶으신가요 그리고 그 이유도 무엇인지 함께 말씀해 주시기를 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_466344.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자가 가지고 있는 상위 일 퍼센트 능력에 대해 최대한 자세히 설명해 주세요.",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_17481.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "만약 지원자님이 게임 속에 있는 상황이라면 어떤 역할을 할 것인지 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_66913.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이제 업무를 하다 보면 야근을 하게 되거나 또 잔업이나 뭐 외근을 할 수가 있는데 그 야근이나 잔업 외근이 많아도 괜찮으실까요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_67004.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자께서 우리 회사에 입사하게 된다면 가장 가고 싶은 부서와 또 왜 그렇게 생각하셨는지 이유를 함께 설명해 주시기 바랍니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_177448.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "전공을 어떻게 직무에서 활용할 수 있습니까",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2385.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이전 직장에서 수행했던 직무가 당사 직무에 어떤 도움을 줄 수 있는가",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2389.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "야근이나 또 잔업 외근이 많아도 괜찮으신가요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_4210.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "전공 분야를 직무에 어떻게 활용할 수 있나요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_4213.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 원하는 일을 못하게 되는 경우 어떻게 하시겠습니까 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_65054.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    }
+  ]
+}

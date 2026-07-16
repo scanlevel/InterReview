@@ -1,0 +1,65 @@
+{
+  "topic": "ICT",
+  "experience": "EXPERIENCED",
+  "domain": {
+    "category": "etc",
+    "expression": "c_sincere_co"
+  },
+  "classification_basis": "dataSet.answer.intent.category + dataSet.answer.intent.expression",
+  "questions": [
+    {
+      "question": "어 만약에 지원자님이 하고 싶은 직무 말고 다른 직무를 맡게 되신다면 어 어떻게 하시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_183431.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "회사에 입사하게 된다면 지원자님께서 하고 싶은 업무가 있으십니까 있으시다면 왜 그 업무가 하고 싶은지 함께 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_249204.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "입사후 근무를 하면서 지원자님께서 지원한 분야가 본인과 잘 맞지 않는다는 사실을 깨닫는다면 그때는 어떻게 하실 생각이십니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_249207.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "전에 직장을 다니셨는데 수행했던 직무가 우리 회사에 어떤 도움을 줄 수 있다고 생각을 하십니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_86336.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 지원한 분야에 에 대해 알고 있는 것을 어 일 분 정도로 간략하게 소개해 보실 수 있겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_87113.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "입사하게 되면 구체적으로 어떤 업무를 하게 될 것이라고 생각합니까",
+      "source_file": "val\\label\\VL_05.ICT_Female_Experienced\\ckmk_d_ict_f_e_3021.json",
+      "answer_intent": {
+        "category": "etc",
+        "expression": "c_sincere_co"
+      },
+      "occurrence_count": 1
+    }
+  ]
+}

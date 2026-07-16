@@ -1,0 +1,92 @@
+{
+  "topic": "ICT",
+  "experience": "EXPERIENCED",
+  "domain": {
+    "category": "technology",
+    "expression": "i_prg"
+  },
+  "classification_basis": "dataSet.answer.intent.category + dataSet.answer.intent.expression",
+  "questions": [
+    {
+      "question": "대학 시절에 배운 그 전공 과목 중에서 가장 기억에 남는 과목을 한 가지만 골라서 말씀해 주시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_Experienced\\ckmk_d_ict_f_e_177673.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_prg"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 다룰 수 있는 설계 프로그램이 있다면 말씀해 주시고 각각 어느 정도 다룰 수 있는지 자세히 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_Experienced\\ckmk_d_ict_f_e_178547.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_prg"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "학교에서 배운 본인의 전공 과목 중에서 가장 기억에 남는 과목 한 가지만 골라서 설명해 주시겠어요",
+      "source_file": "train\\label\\TL_05.ICT_Female_Experienced\\ckmk_d_ict_f_e_184513.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_prg"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지금까지 살면서 어려운 문제를 직면했을 때 그것을 해결하기 위해서 어떤 아이디어를 제한하였거나 또는 어떻게 하셨는지 그 과정을 자세하게 설명해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_Experienced\\ckmk_d_ict_f_e_197266.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_prg"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "그동안에 업무 관련하여서 많은 경험이 있으실 텐데 그중에서 가장 자신 있는 프로그래밍에 대해서 한번 말씀해 주십시오",
+      "source_file": "train\\label\\TL_05.ICT_Female_Experienced\\ckmk_d_ict_f_e_277549.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_prg"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "당신이 다룰 수 있는 프로그램은 많이 있습니까 당신이 다룰 수 있는 프로그램이 무엇이고 그것을 어떠한 수준으로 사용할 것이며 직무에 어떻게 적용할 것인지 상세하게 말씀해 주십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_165216.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_prg"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "남들과는 다른 본인만의 경쟁력을 설명해 주세요 그리고 본인이 그 경쟁력을 키우기 위해서 어떤 노력을 했는지도 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_172041.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_prg"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님 오브젯 어리엔테이션 프로그래밍에 대해서 설명 부탁드릴게요",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_265747.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_prg"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "최근 공부하고 있는 분야가 있으신가요 있다면 그것을 왜 공부하는지 지금까지는 어떤 것들을 배웠는지도 함께 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_287150.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_prg"
+      },
+      "occurrence_count": 1
+    }
+  ]
+}
