@@ -38,10 +38,9 @@ def render_setup_page() -> None:
                 "video": st.session_state["camera_enabled"],
                 "audio": st.session_state["mic_enabled"],
             },
-            rtc_configuration={"iceServers": []},
+            rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
             video_frame_callback=video_frame_callback,
             async_processing=True,
-            desired_playing_state=True,
         )
 
     st.divider()

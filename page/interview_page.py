@@ -71,7 +71,7 @@ def render_candidate_camera() -> None:
         audio_buffer.add_frame(frame)
         return frame
 
-    webrtc_streamer(
+    ctx = webrtc_streamer(
         key="candidate-camera",
         mode=WebRtcMode.SENDRECV,
         media_stream_constraints={
@@ -79,19 +79,27 @@ def render_candidate_camera() -> None:
             "audio": mic_enabled,
         },
         rtc_configuration={
-            "iceServers": []
+            "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
         },
         video_frame_callback=video_frame_callback,
         audio_frame_callback=audio_frame_callback if mic_enabled else None,
         async_processing=True,
-        desired_playing_state=True,
     )
+
+    playing = bool(ctx.state.playing)
+    if playing:
+        st.caption("🟢 스트림 재생 중 (카메라·마이크 연결됨)")
+    else:
+        st.warning(
+            "🔴 스트림이 재생되지 않았습니다. 위 영상 영역의 **START** 버튼을 누르고 "
+            "카메라·마이크 권한을 허용해 주세요. (녹음은 스트림이 재생돼야 동작합니다.)"
+        )
 
     if not mic_enabled:
         st.caption("마이크가 꺼져 있어 답변 음성이 기록되지 않습니다.")
 
 
-def render_stt_panel() -> None:
+def _render_stt_panel_body() -> None:
     audio_buffer = get_audio_buffer()
     stt_status = get_stt_status(audio_buffer)
 
@@ -101,7 +109,7 @@ def render_stt_panel() -> None:
 
     with col1:
         if stt_status["recording"]:
-            st.success("녹음중입니다")
+            st.success("🔴 녹음중입니다")
         elif stt_status["status"] == "buffered":
             st.info("녹음 완료")
         else:
@@ -113,6 +121,23 @@ def render_stt_panel() -> None:
     with col3:
         st.metric("녹음 시간", stt_status["duration_text"])
 
+    mic_enabled = st.session_state.get("mic_enabled", True)
+    frames_seen = stt_status.get("frames_seen", 0)
+    st.caption(
+        f"진단 · 마이크 사용={mic_enabled} · 콜백 수신 프레임(총)={frames_seen} · "
+        f"리샘플 오류={stt_status.get('resample_errors', 0)}"
+    )
+    if stt_status["recording"] and stt_status["buffered_samples"] == 0:
+        if not mic_enabled:
+            st.error("설정에서 마이크가 꺼져 있어 오디오가 기록되지 않습니다.")
+        elif frames_seen == 0:
+            st.warning(
+                "마이크 오디오 트랙이 서버에 도달하지 않았습니다. "
+                "브라우저 마이크 권한 허용 여부와 카메라 위젯의 재생 상태를 확인해 주세요."
+            )
+        else:
+            st.info("오디오 프레임은 수신 중입니다. 발화가 감지되면 버퍼가 쌓입니다.")
+
     current_index = st.session_state["current_question_index"]
     current_question = st.session_state["questions"][current_index]
     transcript = st.session_state["answers"].get(current_question["id"], "")
@@ -122,6 +147,13 @@ def render_stt_panel() -> None:
 
     with st.expander("STT Feature JSON", expanded=False):
         st.json(stt_status)
+
+
+if hasattr(st, "fragment"):
+    render_stt_panel = st.fragment(run_every="1s")(_render_stt_panel_body)
+else:
+    def render_stt_panel() -> None:
+        _render_stt_panel_body()
 
 
 def _render_vision_panel_body() -> None:

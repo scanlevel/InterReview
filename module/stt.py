@@ -48,6 +48,12 @@ class AudioBuffer:
         self._lock = threading.Lock()
         self._frames: list[np.ndarray] = []
         self._recording = False
+        # Lifetime diagnostics: how many frames the webrtc callback delivered
+        # at all, and how many failed to resample. These tell "callback never
+        # fired" (no audio track) apart from "resample failed" (format issue).
+        self._frames_seen = 0
+        self._resample_errors = 0
+        self._last_error = ""
         # Reused across frames; the resampler keeps internal buffer state.
         self._resampler = av.AudioResampler(
             format="s16",
@@ -81,12 +87,14 @@ class AudioBuffer:
         """Resample and append one WebRTC audio frame. Safe to call from the
         webrtc worker thread; a no-op while not recording."""
         with self._lock:
+            self._frames_seen += 1
             if not self._recording:
                 return
             try:
                 resampled = self._resampler.resample(frame)
-            except Exception:
-                # A malformed frame should never break the capture stream.
+            except Exception as error:  # noqa: BLE001 - never break the stream
+                self._resample_errors += 1
+                self._last_error = f"{type(error).__name__}: {error}"
                 return
             # PyAV >= 10 returns a list of frames; older returns one frame.
             if not isinstance(resampled, list):
@@ -99,6 +107,14 @@ class AudioBuffer:
     def sample_count(self) -> int:
         with self._lock:
             return sum(int(array.shape[-1]) for array in self._frames)
+
+    def diagnostics(self) -> dict[str, Any]:
+        with self._lock:
+            return {
+                "frames_seen": self._frames_seen,
+                "resample_errors": self._resample_errors,
+                "last_error": self._last_error,
+            }
 
     def duration_sec(self) -> float:
         return self.sample_count() / TARGET_SAMPLE_RATE
@@ -148,6 +164,7 @@ def get_stt_status(audio_buffer: AudioBuffer | None) -> dict[str, Any]:
         "duration_text": _format_duration(duration),
         "buffered_samples": audio_buffer.sample_count(),
         "status": "recording" if recording else ("buffered" if duration > 0 else "idle"),
+        **audio_buffer.diagnostics(),
     }
 
 
