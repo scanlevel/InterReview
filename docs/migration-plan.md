@@ -86,16 +86,39 @@ InterReview/  (new_framework)
   - [x] `services/stt.py` (CLOVA 프록시, multipart 수신) + `POST /stt`
   - [ ] `services/llm.py` (Anthropic, JSON 스키마 강제)
   - [ ] `services/evaluate.py` **LLM 평가 경로** ★ — 키 확보 후 (룰기반 fallback 유지)
-- **Phase 2 — 프론트 캡처**
-  - [ ] `lib/recorder.ts` (MediaRecorder, 질문별 blob)
-  - [ ] `lib/gaze.ts` (MediaPipe Tasks for Web, 시선 요약)
-  - [ ] interview 페이지: 캠 미리보기 + 녹음 + 시선 오버레이
+- **Phase 2 — 프론트 캡처** *(A·B 완료, C 인계)*
+  - [x] A: setup → questions → interview(텍스트) → evaluate → 리포트 세로 슬라이스
+  - [x] B: `lib/recorder.ts`(녹음 + 16kHz WAV 변환) + 캠 미리보기 + `/stt` 전사
+  - [ ] C: `lib/gaze.ts` (MediaPipe Tasks for Web, 시선 요약) — **다른 담당자 인계**(§8)
 - **Phase 3 — 흐름 완성**
-  - [ ] setup/input → interview → analysis 전체 배선
-  - [ ] 로딩/에러/무응답 처리
+  - [x] setup → interview → analysis 전체 배선 (InterviewApp 상태기계)
+  - [x] 로딩/에러/무응답/권한거부 처리 (STT 실패 시 직접입력 fallback)
 - **Phase 4 — 검증**
-  - [ ] e2e 리허설 1회 완주
-  - [ ] 키 없는 환경 graceful degradation
+  - [ ] e2e 리허설 1회 완주 (실제 음성 포함)
+  - [x] 키 없는 환경 graceful degradation (룰기반 평가 + STT not_configured)
+
+## 8. 시선 추적(Milestone C) 인계 계약
+
+브라우저에서 시선을 계산해 **질문별 요약**을 `eye_tracking`에 실으면 끝난다.
+백엔드·평가·요청 스키마는 이미 이 필드를 받도록 준비돼 있다.
+
+- **넣을 곳:** `frontend/components/InterviewView.tsx`의 `submit()` — 지금 각
+  answer의 `eye_tracking: null`을 질문별 요약 객체로 교체.
+- **계약(필드, 전부 optional):**
+  ```ts
+  eye_tracking: {
+    front_gaze_ratio: number,     // 정면 응시 프레임 비율 0..1
+    face_detected_ratio: number,  // 얼굴 검출 프레임 비율 0..1
+    std_gaze: number,             // 시선 좌표 표준편차(흔들림), >0.15면 감점
+  }
+  ```
+  (타입은 `frontend/lib/types.ts`의 `EyeTrackingSummary`.)
+- **평가 반영:** 백엔드 `services/evaluate.py._score_delivery()`가 이 세 값으로
+  "전달 태도" 점수·코멘트를 산출. 값이 없으면 `na`로 처리.
+- **참고 로직:** 옛 Streamlit `module/eyetracking.py`(정면 응시 판정 등)와
+  `face_landmarker.task`(동일 모델, 브라우저용은 `@mediapipe/tasks-vision`의
+  FaceLandmarker로 로드) 재사용.
+- **캡처 시점:** 질문별 녹음 구간 동안 프레임을 누적해 요약 → 그 질문 answer에 매핑.
 
 ## 7. 열린 결정 / 리스크
 
