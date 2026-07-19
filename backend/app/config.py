@@ -23,17 +23,28 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Frontend origins allowed to call the API (comma-separated in the env).
-    cors_origins: list[str] = Field(
-        default=["http://localhost:3000"],
+    # Frontend origins allowed to call the API, comma-separated. Kept as a str
+    # (not list[str]) because pydantic-settings JSON-decodes list-typed env
+    # values, which would reject a plain "http://localhost:3000". Split via
+    # ``cors_origin_list``.
+    cors_origins: str = Field(
+        default="http://localhost:3000",
         alias="CORS_ORIGINS",
     )
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        """Parse ``cors_origins`` into a clean list of origins."""
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     # --- CLOVA Speech (STT) — filled in during the STT port ---
     clova_speech_invoke_url: str | None = Field(default=None, alias="CLOVA_SPEECH_INVOKE_URL")
     clova_speech_secret: str | None = Field(default=None, alias="CLOVA_SPEECH_SECRET")
     clova_speech_language: str = Field(default="ko-KR", alias="CLOVA_SPEECH_LANGUAGE")
-    clova_speech_timeout: float = Field(default=60.0, alias="CLOVA_SPEECH_TIMEOUT")
+    # HTTP wait for CLOVA to return the transcript (NOT a limit on answer/audio
+    # length). Sync recognition of a long answer can take a while, so keep this
+    # generous. Tune via CLOVA_SPEECH_TIMEOUT.
+    clova_speech_timeout: float = Field(default=180.0, alias="CLOVA_SPEECH_TIMEOUT")
 
     # --- LLM (evaluation / personalization) — filled in during the LLM port ---
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
