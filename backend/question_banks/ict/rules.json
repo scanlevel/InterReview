@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "subject": "ICT",
+  "selection": {
+    "questions_per_interview": 6,
+    "strategy": "one_random_question_per_group"
+  },
+  "groups": [
+    {
+      "id": "resume",
+      "name": "자기소개·이력",
+      "domains": [
+        {"category": "background", "expression": "c_person"},
+        {"category": "background", "expression": "c_private"}
+      ]
+    },
+    {
+      "id": "values_personality",
+      "name": "가치관·성향",
+      "domains": [
+        {"category": "background", "expression": "c_value"},
+        {"category": "personality", "expression": "c_chl"},
+        {"category": "personality", "expression": "c_imp"}
+      ]
+    },
+    {
+      "id": "job_technology",
+      "name": "직무·기술",
+      "domains": [
+        {"category": "attitude", "expression": "i_hwsw_prfi"},
+        {"category": "attitude", "expression": "i_tech_orien"},
+        {"category": "attitude", "expression": "i_secty"},
+        {"category": "technology", "expression": "i_prg"},
+        {"category": "technology", "expression": "i_dev_mth"}
+      ]
+    },
+    {
+      "id": "problem_solving",
+      "name": "문제 해결",
+      "domains": [
+        {"category": "technology", "expression": "i_dis_coping"}
+      ]
+    },
+    {
+      "id": "collaboration_organization",
+      "name": "협업·조직생활",
+      "domains": [
+        {"category": "personality", "expression": "c_adp"},
+        {"category": "personality", "expression": "c_cop"},
+        {"category": "personality", "expression": "c_confl_mg"},
+        {"category": "etc", "expression": "c_sincere_co"}
+      ]
+    },
+    {
+      "id": "motivation_commitment",
+      "name": "지원동기·직무몰입",
+      "domains": [
+        {"category": "etc", "expression": "c_sincere_job"}
+      ]
+    }
+  ]
+}

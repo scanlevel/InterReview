@@ -1,0 +1,47 @@
+{
+  "topic": "ICT",
+  "experience": "EXPERIENCED",
+  "domain": {
+    "category": "background",
+    "expression": "c_value"
+  },
+  "classification_basis": "dataSet.answer.intent.category + dataSet.answer.intent.expression",
+  "questions": [
+    {
+      "question": "우리 신용보증기금에 대해서 잘 알고 계시죠 우리 대한민국의 금윤 금융정책 기관인데 어 우리가 확대해야 할 업무 영역이 있다면 어떤 거라고 생각하시나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_Experienced\\ckmk_d_ict_f_e_197270.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_value"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "공동체의 가치에 입각해서 무형 문화유산의 보호에 있어 적용되는 사회적 관념이 무엇이라고 생각하시나요",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_165222.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_value"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "동물 실험이 인간에게 주는 이익에 관해서 말씀해 보실 수 있을까요 또한 동물 실험에 대한 지원자님의 솔직한 입장도 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_229114.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_value"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "공동체로서 무형문화유산의 보호에 있어 적용되는 사회적 관념은 무엇이라 생각하나요",
+      "source_file": "train\\label\\TL_05.ICT_Male_Experienced\\ckmk_d_ict_m_e_42889.json",
+      "answer_intent": {
+        "category": "background",
+        "expression": "c_value"
+      },
+      "occurrence_count": 1
+    }
+  ]
+}

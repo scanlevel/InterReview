@@ -1,0 +1,785 @@
+{
+  "topic": "ICT",
+  "experience": "NEW",
+  "domain": {
+    "category": "personality",
+    "expression": "c_cop"
+  },
+  "classification_basis": "dataSet.answer.intent.category + dataSet.answer.intent.expression",
+  "questions": [
+    {
+      "question": "지원자님께서 지금까지 경험하신 여러 대외 활동 중에 무엇을 배웠고 어떤 자세로 임했는지 말씀해 주실 수 있으십니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_148485.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 하는 과제가 있고 혼자서 진행할 수 있는 과제가 있다고 했을 때 지원자분께서는 둘 중에 무엇을 더 선호하시는지 궁금합니다 그와 같은 이유도 함께 이야기해 주시면 좋겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_177773.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "만약 협업을 할 때 가장 중요하게 생각하는 부분이 무엇인가요 그리고 왜 그것을 가장 중요하게 생각하는 것인지 그 이유로 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_178295.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이 일을 하다 보면 협업을 할 일이 많이 생길 수 있는데 이전 직장에서나 대학에서 협업을 할 때 어려운 점은 없으셨나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_191124.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님의 단점이 있다면 말씀해 주시고 이를 보완하기 위해서 했던 노력이 있다면 함께 말씀해 주세요 솔직한 답변 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_250393.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지금까지 협업을 진행하면서 가장 어려웠던 것과 또 그런 어려움을 어떻게 해결했는지 함께 말씀해 주실 수 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_250397.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어 지원자님께서 협업을 할 때 가장 중요하게 생각하는 것이 무엇인지 궁금합니다 그리고 이제 그것을 중요하게 생각하시는 이유도 함께 어 설명해 주시기를 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_250401.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "혼자 일하는 것과 팀으로 일하는 것이 있습니다 이 둘 중에서 어떤 것을 더 선호하시나요 이유와 함께 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_257532.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 창의성과 팀워크 중에 더 중요한 것은 무엇이라고 생각하시나요 그렇게 생각하시는 근거도 함께 들어서 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_277292.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님이 이제까지 인생에서 겪은 갈등들 중 가장 심각했던 갈등은 무엇이었나요 한 가지만 골라서 말씀해 주시겠어요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_290931.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "창의성과 팀워크 중에서 더 중요한 것은 무엇이라고 생각하시나요 근거와 함께 구체적으로 설명해 주실 수 있나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_291154.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "열심히는 하지만 지원자님이 원하는 만큼 따라오지 못하는 팀 동료가 있을 수도 있는데요 지원자님께서는 이럴 때 어떻게 하시는 편인지 답변해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_291702.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지금까지 여러 대외 활동을 해 보셨을 텐데요 대외 활동에서 지원자님은 무엇을 배웠고 어떤 자세로 임했었는지 말씀해 주실 수 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_291857.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "열심히는 하지만 지원자님이 원하는 만큼 따라오지 못하는 동료들이 발생할 수도 있습니다 지원자님께서는 이럴 때 어떻게 대처하실 것 같은지 답변해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_292058.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 협업을 할 때 사교성이 좋은 편이신지 궁금한데요 또 지원자님께서 사교성을 키우기 위해서 어떤 노력을 하셨는지도 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_302101.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "혼자 하는 과제와 협업하는 과제 중 어느 것을 더 선호하시는지 그 이유와 함께 얘기해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_312397.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님이 생각할 때 본인은 협업하는 과제와 혼자 하는 과제 중에 어떤 쪽을 더 선호하십니까 그리고 왜 그 쪽을 더 선호하는지 그 이유도 함께 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_328296.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 할 때 가장 중요하게 생각하시는 것은 무엇인가요 또한 왜 그것을 가장 중요하다고 생각하시는지도 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_329081.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "팀으로 일하는 것과 혼자 일하는 것 중에 어떤 것을 더 선호하시나요 그리고 그것을 더 선호하시는 이유도 함께 말씀해 주시기를 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_330425.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업 할 일이 많이 있는데 이전 직장이나 대학에서 협업할 때 어려움은 없으셨나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_341385.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업할 때 가장 중요하게 생각하시는 것은 무엇입니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_348114.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 할 때 사교성이 좋은 편이신지 알고 싶습니다 또 사교성을 키우기 위해서 어떤 노력을 하셨습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_354017.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 팀워크와 창의성 중에서 어떤 것이 더 중요하다고 생각을 하시나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_354803.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님이 생각할 때 협업을 할 때 가장 중요한 것은 무엇이라고 생각하십니까 그리고 왜 그것을 가장 중요하게 생각하는지 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_355403.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 팀워크와 창의성 중에서 무엇이 더 중요하다고 생각을 하십니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_366711.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업하는 과제와 혼자 하는 과제 중에서 어떤 것을 더 선호하십니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_371439.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님이 생각할 때 창의성과 팀워크 중 무엇이 더 중요한가요 근거를 들어서 함께 설명해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_377255.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 팀으로 일하는 것을 선호하시나요 아니면 혼자서 일하는 것을 더 선호하시나요 이유도 함께 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_381921.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "창의성과 팀워크 중에서 더 중요한 것은 무엇이라고 생각하세요 근거도 함께 들어서 가능한 구체적으로 설명해 주실 수 있을까요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_265602.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지금까지 다양한 협업을 해 보셨을 텐데요 지원자님이 생각할 때 협업을 할 때 가장 중요하다고 생각하는 것은 무엇이었습니까 또 그것을 왜 가장 중요하게 생각하는지도 함께 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_285129.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "창의성과 팀워크 중에서 더 중요한 것은 무엇이라고 생각하시나요 근거를 함께 들어서 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_289741.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님께서는 창의성과 팀워크 중에 더 중요한 것은 무엇이라고 생각하시나요 면접자님의 근거도 함께 들어서 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_290472.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 창의성과 팀워크 중에 더 중요한 것은 무엇이라고 생각하시나요 지원자님께서 그렇게 생각하시는 근거도 함께 들어서 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_306405.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "팀으로 일하는 것과 혼자 일하는 것 중에서 무엇을 더 선호하십니까 이유도 함께 말해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_323893.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 창의성과 팀워크 중에서 무엇이 더 중요하다고 생각하십니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_373633.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어떤 문제에 부딪쳤을 때 본인은 홀로 해결하시는 편인지 아니면 여러 사람들에게 이야기를 하시는 편인지 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_373838.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 할 때 중요하게 생각하시는 건 무엇입니까 왜 그게 중요하다고 생각하시는지 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_375117.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님 본인께서 생각하기에 가장 좋은 개발 문화 라는 것이 있으실까요 어떤 문화가 개발하기에 가장 좋은 문화일까요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_375850.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 협업을 할 때 어떤 점이 가장 중요하다고 생각을 하십니까 그리고 왜 그것을 가장 중요하게 생각하시는지 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_382070.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "평소 사람들과 협업을 하며 가장 어려웠던 점이 있었다면 무엇이었습니까 어떻게 극복하셨는지도 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_402236.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "창의성과 팀워크 중 더 중요하다고 여기는 것은 무엇입니까 근거도 함께 들어서 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_405527.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "과거에 본인이 직면한 어려운 문제를 해결하시기 위해서 어떤 아이디어들을 제안하셨고 또 무엇을 하셨는지 그 과정을 말해주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_408826.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 해야 할 일이 많이 생길 수 있는데요 지원자님께서는 이전 직장이나 대학교에서 협업을 할 때 어려웠던 점은 없으셨는지 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_408948.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 할 일이 많이 생길 수도 있는데 이전 직장에서나 대학에서 협업을 할 때 어려운 점은 없으셨습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_416436.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님께서 지금까지 협업을 하면서 가장 어려웠던 점은 무엇이었는지 또 그 어려움을 어떻게 해결해 나가셨는지 함께 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_424145.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 하실 때 가장 중요하게 여기시는 것이 무엇입니까 왜 그것을 가장 중요하게 여기시는지 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_424271.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 생각하기에 좋은 개발 문화라는 것은 어떤 것이라고 생각하세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_425634.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "사람들과 협업을 하며 가장 어려웠던 점이 있다면 무엇인지 이를 어떻게 극복하셨는지 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_427003.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 하실 때 가장 중요하게 생각하는 것이 무엇입니까 왜 그것을 가장 중요하게 생각하시는지 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_427134.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 할 일이 많이 발생할 수 있습니다 이전 직장 또는 대학에서 협업을 할 때 어려운 점은 없으셨나요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_429123.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "만약 본인이 어떤 게임 속의 캐릭터라면 어떤 게임에서 어떤 캐릭터를 맡아서 수행해 보고 싶으신가요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_432587.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "업무 특성 상 협업을 할 일이 많이 생길 수 있습니다 면접자님께서는 이전 직장에서나 대학에서 협업을 할 때 어려웠던 점은 없으셨는지 궁금합니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_432656.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 팀으로 일하는 것과 혼자 일하는 것들 중에서 어떤 쪽을 더 선호하시는 편입니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_444992.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님께서는 팀으로 근무하시는 것과 혼자 근무하시는 것 중 무엇을 더 선호하시나요 이유와 근거를 들어 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_445911.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 할 때 제일 중요하게 생각하시는 것은 무엇인가요 그리고 그것을 가장 중요하게 생각하시는 이유는 무엇인가요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_478153.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자님이 그동안 진행했던 프로젝트들 가운데 가장 기억에 남는 프로젝트가 있다면 무엇인지 한 가지만 골라서 설명 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_499107.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "직무를 수행함에 있어서 어려움이 생겼다면 그것을 어떻게 헤쳐나가겠습니까",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_36834.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "팀으로 일하는 것과 혼자 일하는 것 중 어느 것을 선호하는가요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_37123.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "열심히는 하지만 본인이 생각하는 만큼 따라가지 못하는 팀원이 있을 수 있는데 이럴 땐 어떻게 하실 겁니까",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_41635.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인은 창의성과 팀워크 둘 중에 더 중요한 게 뭐라고 생각하세요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_49393.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 협업을 하면서 가장 중요하게 생각하는 점이 있다면 어떤 점이 있는지 말씀해 주실 수 있나요",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_66974.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자는 대외 활동을 할 때 어떤 자세로 임하시나요 대외 활동을 통해서 얻은 것이 있다면 무엇이고 배운 점은 어떤 것인지 말씀해 주시기 바랍니다",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_67629.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "과연 좋은 개발자는 어떤 개발자일까요 본인이 생각하는 좋은 개발자가 갖춰야 할 요소를 세 가지 정도만 말씀해 보시겠습니까",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_67630.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인은 리더형인지 팔로우형인지 설명해라.",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_12776.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서 회사에 들어와서 선배를 만나게 된다면 어떤 모습의 선배를 만나고 싶으신가요 지원자님께서 생각하시는 그 이유도 함께 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_144455.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서 창의성과 팀워크 중 더 중요한 것은 무엇이라고 생각하십니까 지원자님이 근거도 함께 들어서 설명과 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_144462.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님이 어떤 문제에 부딪쳤을 때 혼자 해결하는 편입니까 아니면 여러 사람들에게 이야기를 하는 편입니까",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_152445.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 사람들과 협업을 하며 가장 어려웠던 점이 있다면 무엇이었나요 또 그것을 어떻게 극복했는지도 궁금합니다 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_159460.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 다양한 협업 상황에 처해 있을 때 이러한 협업을 할 때 가장 중요하게 생각하시는 것지 하시는 것이 무엇인지 말씀해 주실 수 있나요 또 왜 그것을 가장 중요하게 생각하는지 한 번 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_168473.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "창의성과 팀워크 중에 더 중요한 것이 무엇이라고 생각을 하시는지 근 근거도 함께 들어서 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_168478.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님이 협업을 할 때 가장 중요하다고 생각되는 것이 무엇인지 말씀해 주시고 왜 그것을 가장 중요하게 생각하시는지도 함께 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_174533.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업하는 과제와 혼자 하는 과제 중 어떤 것을 더 선호하는 편인가요 그리고 그것을 선호하는 이유도 같이 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_174540.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자께서는 만약 열심히 하지만 본인이 원하는 만큼 따라오지 못하는 팀 동료들이 있을 수 있습니다 이러한 경우 어떻게 하실 것인지 말씀해 주시길 바랍니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_179319.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님께서는 팀으로 일하는 것과 혼자 일하는 것 중 어떤 쪽을 더 선호하시나요 이유도 함께 말씀해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_183654.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "전공을 어떻게 직무에서 활용할 수 있습니까",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2385.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "팀으로 협업해서 일하는 것과 그 다음에 혼자 뭐 작업을 하는 것 둘 중에 어느 것을 선호하는 하 하시나요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2388.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "전공 분야를 직무에 어떻게 활용할 수 있나요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2476.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어 남들과 함께 협업하는 과제 그리고 혼자서 하는 과제 중에서 어떤 것을 더 선호하는지 또 그 이유도 자세히 들어볼 수 있을까요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2609.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "협업을 하면서 본인이 가장 어려워하는 점이 있다면",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_28012.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "팀 프로젝트 할 때 의사소통에 문제가 있으면 어떻게 해결하십니까",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_4214.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분은 대학 생활 때 대외 활동에 참여해 본 경험이 있으십니까 있으시다면 그 대외 활동은 무엇이었는지 또한 대외 활동에서 무엇을 배우고 어떤 자세로 임하였는지 말씀해 주시기 바랍니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_72109.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "사내 스터디에서 어떤 것을 공부하고 싶은가요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_8198.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분께서는 본인이 생각하실 때 창의성과 팀워크 중에 어떤 것이 더 중요하다고 생각하시나요 또한 왜 그렇게 생각하는지 이유에 관해서도 말씀해 주시기 바랍니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_82546.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "입사 후 쉬운 일 어려운 일이 있을 때 이 일에 대한 분배를 어떻게 하실 건가요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_9716.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "여태 까지 협업을 하면서 가장 어려웠던 것과 그것을 어떻게 해결했는지 말씀해 주세요.",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_9717.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "팀 프로젝트를 할 때 의사소통에 문제가 있으면 어떻게 해결할 것인가",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_9903.json",
+      "answer_intent": {
+        "category": "personality",
+        "expression": "c_cop"
+      },
+      "occurrence_count": 1
+    }
+  ]
+}

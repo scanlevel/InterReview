@@ -39,6 +39,34 @@ class AnswerItem(BaseModel):
     eye_tracking: EyeTrackingSummary | None = None
 
 
+class Question(BaseModel):
+    """One generated interview question, tagged with its rule-bank origin."""
+
+    id: str
+    category: str  # rule group name, e.g. "자기소개·이력"
+    rule_group: str  # rule group id, e.g. "resume"
+    subcategory: str  # "<category>::<expression>" from the source domain
+    experience: str  # NEW | EXPERIENCED
+    text: str
+    source_file: str | None = None
+    occurrence_count: int = 1
+
+
+class GenerateQuestionsRequest(BaseModel):
+    """Payload for ``POST /questions``."""
+
+    profile: dict[str, Any] = Field(default_factory=dict)
+    # Optional fixed seed for reproducible selection (mainly for tests).
+    seed: int | None = None
+
+
+class GenerateQuestionsResponse(BaseModel):
+    """Response of ``POST /questions``."""
+
+    experience: str
+    questions: list[Question]
+
+
 class EvaluateRequest(BaseModel):
     """Payload for ``POST /evaluate``."""
 

@@ -1,0 +1,299 @@
+{
+  "topic": "ICT",
+  "experience": "NEW",
+  "domain": {
+    "category": "technology",
+    "expression": "i_dis_coping"
+  },
+  "classification_basis": "dataSet.answer.intent.category + dataSet.answer.intent.expression",
+  "questions": [
+    {
+      "question": "저희 회사가 외주를 받아서 작업을 진행하는데 혹시 의뢰하신 고객님께서 저희가 제작한 홈페이지 화면이 로딩 속도가 느리다고 요청해 왔어요 이런 경우에는 지원자분께서 어떻게 대처하실 것인지 저에게 말씀해 주실 수 있나요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_165176.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "자 어떤 애플리케이션에서 버그가 발생했습니다 그러면 지원자께서는 그 자신만의 노하우로 버그를 찾아내는 그런 프로세스가 있습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_260372.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "가장 근래 업무 중에서 문제가 발생했을 때 어떻게 해결하셨는지 사례를 들어 말씀 주실 수 있으실까요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_270296.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "근무를 하던 중 업데이트한 내용에 문제가 생겼을 경우 면접자님께서는 어떻게 행동할 것인지 구체적으로 설명해 주시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_341391.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분에게 질문 하나 해 보겠습니다 만약에 고객님께서 우리가 제작하는 홈페이지 화면이 로딩 속도가 느리다고 요청해 왔습니다 그럴 때는 지원자께서 어떻게 해결이나 대처할 것인지 말씀하십시오",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_366861.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어플리케이션에서 버그를 찾아서 테스트하는 자신만의 프로세스가 있으세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_371130.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "왜 테스트 코드를 꼭 짜야 할까요 그 이유에 대해서 알고 계실까요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_377253.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "업데이트한 내용에 문제가 생겼다면 그 경우 어떻게 행동할 것인지를 구체적으로 설명해 보시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_271321.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어떤 버전 관리 시스템을 이용해 보셨나요 그 시스템에 대해서 간략히 설명해 주시겠어요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_276974.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 많은 종류의 소프트웨어를 개발을 하셨는데요 이 개발이 언제나 순탄치는 않았을 겁니다 중에서 소프트웨어 개발 중에 문제가 발생했을 때 어떻게 해결하십니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_290053.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분께 질문 하나 하겠습니다 만약에 지원자께서 업데이트한 내용에 문제가 생겼을 경우에는 어떻게 행동할 것인지 그것을 구체적으로 설명해 주십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_315621.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인은 어 여러 가지 테스트하기 쉬운 코드 중에 어 어떤 코드에 해당된다고 생각을 하십니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_324017.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "애플리케이션에서 버그를 찾아 테스트하는 자신만의 프로세서가 있습니까 말씀해 보세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_328966.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "귀하는 특기 사항에 컴퓨터를 잘 다룬다고 하셨는데 애플리케이션에서 버그를 찾아서 테스트하는 자신만의 프로세스가 있습니까 프로세스가 있다면 간단하게 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_340406.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "데이터 센터를 이전하게 되었습니다 서버를 이전하는데 꼭 필요한 사항이 무엇일지 당신이 생각하는 서버를 이전하는 데 고려할 사항에 대해서 말씀해 주십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_341401.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "어 본인이 전 회사에서 근무하면서 음 가장 최근 업무 중에 어 문제 하게 핵 문제를 해결했던 사례가 있으시면 거기에 대해서 자세하게 설명해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_349149.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "업데이트한 내용에 문제가 생겼을 경우 어떻게 행동할 것인지 구체적으로 설명해 주시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_390608.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "우리가 제작한 홈페이지 화면 로딩 속도가 느리다고 고객님께 요청이 들어왔습니다 이를 어떻게 해결할 것인지 알려주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_391424.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자님은 좋은 개발자는 어떤 요소를 가지고 있어야 한다고 생각하나요 좋은 개발자의 요소를 세 가지 정도만 구체적으로 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_410791.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "좋은 개발자는 어떤 요소를 가지고 있어야 하나요 좋은 개발자의 요소를 세 가지만 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_410983.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "업데이트한 내용에 문제가 생겼을 경우 어떻게 행동할 것인지 구체적으로 설명해 주십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_416442.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 입사한 팀이 코드 리뷰 뭐 클린 코드 테스트 이런 걸 아무것도 안 하면 앞으로 본인은 어떻게 하실 건지 말씀해 주시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_423402.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "당신은 테스트 코드에 대해서 잘 알고 있나요 테스트 코드는 왜 짜야 하는 것일까요 테스트 코드의 정의와 그것을 수행해야 하는 이유에 대해서 함께 말해 주십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_425432.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "회사에서 건 집에서 건 또는 다른 지인들을 만났을 때 가끔씩 어떤 실수를 하곤 하는데요 최근에 경험했던 그런 실수가 있다면 말씀 좀 해주시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_426666.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "우리 홈페이지 로딩 속도가 느리다는 사용자 피드백이 왔습니다 어떤 방식으로 해결해 주실 건가요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_431505.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "소프트웨어 개발 중에 문제가 발생했을 때 어떻게 해결하시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_466332.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "최근에 경험했던 기억에 남는 에러 음 실수 실수에 대해서 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_473031.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지금 공부하고 있는 분야는 무엇입니까 왜 그걸 공부하는지 지금까지 무엇을 배웠는지도 말씀해 주십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_496204.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "쿼리가 들어올 때 어떻게 해야 효과적으로 저장할 수 있는지 발표해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_496207.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "면접자분은 어플리케이션을 사용할 때 버그를 찾아서 테스트하는 자신만의 프로세스가 있습니까",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_177300.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "개발 프로세스 내에서 어떤 파트를 진행할 때 가장 흥미로웠는지 또 그 이유는 무엇이었는지 말씀해 주시기 바랍니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_181204.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "업데이트한 내용에 문제가 생겼을 경우에 어떻게 행동할 것인지 구체적으로 설명해 주세요",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_51517.json",
+      "answer_intent": {
+        "category": "technology",
+        "expression": "i_dis_coping"
+      },
+      "occurrence_count": 1
+    }
+  ]
+}

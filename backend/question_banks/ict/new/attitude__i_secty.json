@@ -1,0 +1,281 @@
+{
+  "topic": "ICT",
+  "experience": "NEW",
+  "domain": {
+    "category": "attitude",
+    "expression": "i_secty"
+  },
+  "classification_basis": "dataSet.answer.intent.category + dataSet.answer.intent.expression",
+  "questions": [
+    {
+      "question": "정보 보안에 대해서 알고 계신 이슈 한 가지를 말씀해 주시고 여기에 대한 본인의 의견을 말씀해 주시면 감사하겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_311894.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "에이치티티피와 에이치티티피에스 통신 방식의 차이에 대해 설명해 주시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_332135.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자가 인지하고 계시는 정보 보안에 관련된 이슈를 한 가지 언급하고 언급하신 이슈에 관한 지원자의 생각을 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_347824.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자는 정보 보안 관련하여 알고 있는 이슈 한 가지를 언급하시고 이에 관한 본인의 생각을 말씀해 주시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_383086.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "귀하께서 알고 계신 정보 보안 관련하여 알고 있는 이슈 한 가지를 언급하고 이에 대한 본인의 생각을 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_383230.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "정보보안 관련하여 알고 있는 이슈 한 가지를 언급하시고 이에 관한 본인의 생각을 말씀해 주시면 감사하겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_389971.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "프록시 서버가 필요한 이유에 대해 설명해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Female_New\\ckmk_d_ict_f_n_392257.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "요즘 정보 보안 관련하여서 알고 있는 이슈 한 가지를 이야기해 보시고 그에 관해서 본인의 생각은 어떠하신지도 한번 말씀 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_276267.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분의 전공과 관련해서 본인이 최근 부족함을 느끼고 따로 공부를 하는 분야가 있으신지 궁금합니다 있으시다고 하다면 그것이 무엇인지에 대해서 답변 부탁드립니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_330442.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "요즘 정보화 시대에 정보 보안에 대해서 정말 중요하게들 생각하는데요 정보 보안 관련해서 알고 있는 이슈 한 가지를 언급하시고 이에 관한 본인의 생각을 말씀해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_340408.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "최근 들어 업무 중에 문제해결 사례에 대해 말씀해 주시겠어요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_341272.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "그동안 진행한 프로젝트들 가운데에서 가장 기억에 남는 프로젝트가 있다면 어떤 점에서 기억에 남는지 설명 부탁드리도록 하겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_357176.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "운영체제 커널을 분석해 본 경험이 있습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_389565.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "브이피엔 연결이 무엇인지 아 설명을 좀 해주시고 어 그리고 브이피엔 연결을 어느 때 어디서 사용해야 되는지 어 간략하게 설명을 좀 해주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_395224.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자는 개발 프로세스에서 어떤 게 제일 재미있었는지 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_395364.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자가 생각하는 이상적인 개발 환경이란 무엇인가요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_408823.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "브이피엔 연결이 무엇을 의미하는지 그리고 어디에 사용하는지 알고 계십니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_415489.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "이력서에 귀하께서는 컴퓨터를 잘 다룬다 라고 적어주셨는데 브이피엔 연결이 무엇을 의미하는지 그리고 어디에 사용하는지 알고 계십니까 그렇다면 브이피엔 연결에 대해서 본인의 의견을 말씀해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_417255.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "프록시 서버가 필요한 이유에 대해서 설명해 주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_425416.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "브이피엔 연결이 무엇을 의미하고 그리고 그걸 어디에서 사용하는지 알고 있습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_425623.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "정보 보안과 관련하여 알고 있는 이슈를 한 가지 언급해 주세요 이에 관한 본인의 생각을 말씀해 주시겠습니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_426665.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "질문 하나 하겠습니다 정보 보안 관련하여 알고 계시는 이슈 한 가지를 언급해 주시고 이에 관한 지원자의 생각을 말씀해 주시면 감사하겠습니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_427218.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "당신은 프록시 서버가 무엇인지 알고 있습니까 프록시 서버의 정의 프록시 서버의 장단점 프록시 서버의 중요성 프록시 서버의 필요한 이유에 대해서 말해주세요",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_429048.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "안드로이드 아이오에스를 비교 설명해 주시기 바랍니다",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_429049.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "브이피엔 연결이 무엇을 의미하는지와 어디에서 사용하시는지를 알고 계십니까",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_468808.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자께서 생각하시는 에이치티티피 와 에이치티티피에스의 통신 방식의 차이에 대해 아시는 게 있으면 설명 한번 해 주십시오",
+      "source_file": "train\\label\\TL_05.ICT_Male_New\\ckmk_d_ict_m_n_475689.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인이 속할 팀에서 어떤 업무를 수행 중인지 파악하고 계십니까",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_41637.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "프록시 서버란 무엇인지 알고 있습니까 프록시 서버의 정의와 프록시 서버의 장단점 그리고 프로시 서버가 필요한 이유에 대해서도 상세하게 말해 주십시오",
+      "source_file": "val\\label\\VL_05.ICT_Female_New\\ckmk_d_ict_f_n_51632.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "지원자분은 최근 정보 보안 관련하여 알고 있는 이슈가 있으십니까 있으시다면 그 이슈에 집중해서 한 가지를 언급해 주시고 이에 관한 본인의 생각을 말씀해 주시기 바랍니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_165921.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    },
+    {
+      "question": "본인의 업무가 소프트웨어 쪽이겠지만 소프트웨어뿐만이 아니라 하드웨어 쪽도 관심이 있고 어떤 실무 능력이 요구되는데요 이런 실무 능력을 갖추기 위해서 노력했던 경험에 대해서 개인적인 경험을 말씀해 주시면 감사하겠습니다",
+      "source_file": "val\\label\\VL_05.ICT_Male_New\\ckmk_d_ict_m_n_2475.json",
+      "answer_intent": {
+        "category": "attitude",
+        "expression": "i_secty"
+      },
+      "occurrence_count": 1
+    }
+  ]
+}
