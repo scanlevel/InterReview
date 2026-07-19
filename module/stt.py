@@ -171,6 +171,10 @@ def transcribe_wav(wav_bytes: bytes, *, language: str | None = None) -> dict[str
         "completion": "sync",
         "wordAlignment": False,
         "fullText": True,
+        # The interview domain has speaker recognition disabled; CLOVA requires
+        # this to be stated explicitly or it rejects the request with 400
+        # "speaker detect is off".
+        "diarization": {"enable": False},
     }
 
     try:
