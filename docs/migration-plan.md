@@ -115,9 +115,9 @@ InterReview/  (new_framework)
   (타입은 `frontend/lib/types.ts`의 `EyeTrackingSummary`.)
 - **평가 반영:** 백엔드 `services/evaluate.py._score_delivery()`가 이 세 값으로
   "전달 태도" 점수·코멘트를 산출. 값이 없으면 `na`로 처리.
-- **참고 로직:** 옛 Streamlit `module/eyetracking.py`(정면 응시 판정 등)와
-  `face_landmarker.task`(동일 모델, 브라우저용은 `@mediapipe/tasks-vision`의
-  FaceLandmarker로 로드) 재사용.
+- **참고 로직:** `docs/reference/eyetracking.py`(옛 Streamlit 정면 응시 판정 등)와
+  `frontend/public/face_landmarker.task`(동일 모델, 브라우저용은
+  `@mediapipe/tasks-vision`의 FaceLandmarker로 `"/face_landmarker.task"` 로드) 재사용.
 - **캡처 시점:** 질문별 녹음 구간 동안 프레임을 누적해 요약 → 그 질문 answer에 매핑.
 
 ## 7. 열린 결정 / 리스크
