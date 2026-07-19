@@ -76,6 +76,17 @@ class EvaluateRequest(BaseModel):
     answers: list[AnswerItem] = Field(default_factory=list)
 
 
+class TranscriptResponse(BaseModel):
+    """Result of ``POST /stt`` — transcription of one answer's audio."""
+
+    transcript: str
+    # ok | no_speech | empty | not_configured | error
+    status: str
+    error: str | None = None
+    confidence: float | None = None
+    segment_count: int | None = None
+
+
 class EvaluationItem(BaseModel):
     """A single scored dimension of one answer."""
 

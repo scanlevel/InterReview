@@ -80,11 +80,12 @@ InterReview/  (new_framework)
   - [x] `new_framework` 브랜치/워크트리 (base `LeeJW`)
   - [x] FastAPI 스켈레톤 + `/health` + config + CORS
   - [x] Next.js 스캐폴드 + `/health` 호출로 연결 확인 (CORS 검증됨)
-- **Phase 1 — 백엔드 코어**
-  - [ ] `services/stt.py` (CLOVA 프록시, multipart 수신)
+- **Phase 1 — 백엔드 코어** *(진행 중)*
+  - [x] `services/questions.py` (룰 기반 이식) + `POST /questions`
+  - [x] `services/evaluate.py` **룰기반 평가** + `POST /evaluate` (키 없이 동작)
+  - [x] `services/stt.py` (CLOVA 프록시, multipart 수신) + `POST /stt`
   - [ ] `services/llm.py` (Anthropic, JSON 스키마 강제)
-  - [ ] `services/evaluate.py` **실제 LLM 평가** ★ — pytest/curl로 단독 검증
-  - [ ] `services/questions.py` (룰 기반 이식)
+  - [ ] `services/evaluate.py` **LLM 평가 경로** ★ — 키 확보 후 (룰기반 fallback 유지)
 - **Phase 2 — 프론트 캡처**
   - [ ] `lib/recorder.ts` (MediaRecorder, 질문별 blob)
   - [ ] `lib/gaze.ts` (MediaPipe Tasks for Web, 시선 요약)
