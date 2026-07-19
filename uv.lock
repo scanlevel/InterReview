@@ -772,6 +772,7 @@ dependencies = [
     { name = "numpy" },
     { name = "opencv-python" },
     { name = "pandas" },
+    { name = "requests" },
     { name = "streamlit" },
     { name = "streamlit-webrtc" },
 ]
@@ -790,6 +791,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.5.1" },
     { name = "opencv-python", specifier = ">=5.0.0.93" },
     { name = "pandas", specifier = ">=3.0.3" },
+    { name = "requests", specifier = ">=2.31.0" },
     { name = "streamlit", specifier = ">=1.59.1" },
     { name = "streamlit-webrtc", specifier = ">=0.75.0" },
     { name = "torch", marker = "extra == 'kanana'", specifier = ">=2.5.0" },
