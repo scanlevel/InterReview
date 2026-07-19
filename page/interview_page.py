@@ -4,7 +4,7 @@ import av
 import streamlit as st
 from streamlit_webrtc import WebRtcMode, webrtc_streamer
 
-from module.stt import get_stt_status
+from module.stt import get_audio_buffer, get_stt_status, transcribe_wav
 
 
 def render_virtual_interviewer(question: dict) -> None:
@@ -53,6 +53,9 @@ def render_candidate_camera() -> None:
             st.code(st.session_state["eye_tracker_error"])
         return
 
+    audio_buffer = get_audio_buffer()
+    mic_enabled = st.session_state.get("mic_enabled", True)
+
     def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
         image = frame.to_ndarray(format="bgr24")
 
@@ -63,26 +66,42 @@ def render_candidate_camera() -> None:
             format="bgr24",
         )
 
-    webrtc_streamer(
+    def audio_frame_callback(frame: av.AudioFrame) -> av.AudioFrame:
+        # Runs in the webrtc worker thread; only touch the buffer object here.
+        audio_buffer.add_frame(frame)
+        return frame
+
+    ctx = webrtc_streamer(
         key="candidate-camera",
         mode=WebRtcMode.SENDRECV,
         media_stream_constraints={
             "video": True,
-            "audio": False,
+            "audio": mic_enabled,
         },
         rtc_configuration={
-            "iceServers": []
+            "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
         },
         video_frame_callback=video_frame_callback,
+        audio_frame_callback=audio_frame_callback if mic_enabled else None,
         async_processing=True,
-        desired_playing_state=True,
     )
 
+    playing = bool(ctx.state.playing)
+    if playing:
+        st.caption("🟢 스트림 재생 중 (카메라·마이크 연결됨)")
+    else:
+        st.warning(
+            "🔴 스트림이 재생되지 않았습니다. 위 영상 영역의 **START** 버튼을 누르고 "
+            "카메라·마이크 권한을 허용해 주세요. (녹음은 스트림이 재생돼야 동작합니다.)"
+        )
 
-def render_stt_panel() -> None:
-    stt_status = get_stt_status(
-        recording=st.session_state["recording"]
-    )
+    if not mic_enabled:
+        st.caption("마이크가 꺼져 있어 답변 음성이 기록되지 않습니다.")
+
+
+def _render_stt_panel_body() -> None:
+    audio_buffer = get_audio_buffer()
+    stt_status = get_stt_status(audio_buffer)
 
     st.subheader("STT 상태")
 
@@ -90,21 +109,51 @@ def render_stt_panel() -> None:
 
     with col1:
         if stt_status["recording"]:
-            st.success("녹음중입니다")
+            st.success("🔴 녹음중입니다")
+        elif stt_status["status"] == "buffered":
+            st.info("녹음 완료")
         else:
             st.warning("대기중입니다")
 
     with col2:
-        if stt_status["speaking"]:
-            st.info("마이크 발화 감지")
-        else:
-            st.caption("조용함")
+        st.metric("버퍼 샘플", f"{stt_status['buffered_samples']:,}")
 
     with col3:
         st.metric("녹음 시간", stt_status["duration_text"])
 
+    mic_enabled = st.session_state.get("mic_enabled", True)
+    frames_seen = stt_status.get("frames_seen", 0)
+    st.caption(
+        f"진단 · 마이크 사용={mic_enabled} · 콜백 수신 프레임(총)={frames_seen} · "
+        f"리샘플 오류={stt_status.get('resample_errors', 0)}"
+    )
+    if stt_status["recording"] and stt_status["buffered_samples"] == 0:
+        if not mic_enabled:
+            st.error("설정에서 마이크가 꺼져 있어 오디오가 기록되지 않습니다.")
+        elif frames_seen == 0:
+            st.warning(
+                "마이크 오디오 트랙이 서버에 도달하지 않았습니다. "
+                "브라우저 마이크 권한 허용 여부와 카메라 위젯의 재생 상태를 확인해 주세요."
+            )
+        else:
+            st.info("오디오 프레임은 수신 중입니다. 발화가 감지되면 버퍼가 쌓입니다.")
+
+    current_index = st.session_state["current_question_index"]
+    current_question = st.session_state["questions"][current_index]
+    transcript = st.session_state["answers"].get(current_question["id"], "")
+    if transcript:
+        st.caption("최근 변환된 답변")
+        st.write(transcript)
+
     with st.expander("STT Feature JSON", expanded=False):
         st.json(stt_status)
+
+
+if hasattr(st, "fragment"):
+    render_stt_panel = st.fragment(run_every="1s")(_render_stt_panel_body)
+else:
+    def render_stt_panel() -> None:
+        _render_stt_panel_body()
 
 
 def _render_vision_panel_body() -> None:
@@ -150,9 +199,15 @@ else:
 
 
 def save_current_features(question_id: str) -> None:
-    stt_status = get_stt_status(
-        recording=st.session_state["recording"]
-    )
+    audio_buffer = get_audio_buffer()
+    audio_buffer.stop()
+
+    wav_bytes = audio_buffer.to_wav_bytes()
+    if wav_bytes:
+        with st.spinner("답변을 텍스트로 변환하는 중입니다..."):
+            stt_result = transcribe_wav(wav_bytes)
+    else:
+        stt_result = {"transcript": "", "status": "empty", "error": None}
 
     eye_tracker = st.session_state.get("eye_tracker")
 
@@ -163,13 +218,10 @@ def save_current_features(question_id: str) -> None:
     else:
         eye_status = eye_tracker.snapshot()
 
-    st.session_state["answers"][question_id] = stt_status.get(
-        "transcript",
-        "",
-    )
+    st.session_state["answers"][question_id] = stt_result.get("transcript", "")
 
     st.session_state["question_features"][question_id] = {
-        "stt": stt_status,
+        "stt": stt_result,
         "eye_tracking": eye_status,
     }
 
@@ -181,7 +233,9 @@ def move_to_question(
     save_current_features(current_question_id)
 
     st.session_state["current_question_index"] = next_index
-    st.session_state["recording"] = True
+    st.session_state["recording"] = False
+
+    get_audio_buffer().reset()
 
     eye_tracker = st.session_state.get("eye_tracker")
     if eye_tracker is not None:
@@ -293,6 +347,7 @@ def render_interview_page() -> None:
                 st.rerun()
         else:
             if st.button("녹음 시작", use_container_width=True):
+                get_audio_buffer().start()
                 st.session_state["recording"] = True
                 st.rerun()
 
