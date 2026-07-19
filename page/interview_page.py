@@ -55,13 +55,8 @@ def render_candidate_camera() -> None:
 
     def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
         image = frame.to_ndarray(format="bgr24")
-
-        annotated_image, _ = eye_tracker.process_bgr_frame(image)
-
-        return av.VideoFrame.from_ndarray(
-            annotated_image,
-            format="bgr24",
-        )
+        eye_tracker.process_bgr_frame(image)
+        return frame
 
     webrtc_streamer(
         key="candidate-camera",

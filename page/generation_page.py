@@ -78,6 +78,6 @@ def render_generation_page() -> None:
         st.session_state["recording"] = True
         eye_tracker = st.session_state.get("eye_tracker")
         if eye_tracker is not None:
-            eye_tracker.reset()
+            eye_tracker.reset(restart_timeline=True)
         st.session_state["page"] = "interview"
         st.rerun()
