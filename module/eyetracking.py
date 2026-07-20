@@ -52,6 +52,15 @@ BLENDSHAPES = (
 
 MIN_BLINK_SECONDS = 0.05
 MAX_BLINK_SECONDS = 0.8
+MIN_EYE_WIDTH_PX = 8.0
+# ponytail: heuristic validity gates, tune against recorded sessions if needed.
+MAX_EYE_DISAGREEMENT = 0.4
+MAX_HEAD_YAW_DEG = 25.0
+MAX_HEAD_PITCH_DEG = 20.0
+# Cap the per-frame dt so stream stalls do not pollute time-based ratios.
+MAX_FRAME_GAP_SECONDS = 0.5
+# A center dwell longer than this breaks direction-change continuity.
+MAX_CENTER_LINK_SECONDS = 1.0
 
 
 def _model_path_for_mediapipe(path: Path) -> Path:
@@ -66,46 +75,50 @@ def _model_path_for_mediapipe(path: Path) -> Path:
     return target
 
 
-def _xy(landmarks, index: int) -> np.ndarray:
+def _xy(landmarks, index: int, scale: np.ndarray) -> np.ndarray:
+    """Landmark in pixel coordinates so distances are isotropic."""
     point = landmarks[index]
-    return np.array((point.x, point.y), dtype=np.float32)
+    return np.array((point.x, point.y), dtype=np.float32) * scale
 
 
-def _distance(landmarks, pair: tuple[int, int]) -> float:
-    return float(np.linalg.norm(_xy(landmarks, pair[0]) - _xy(landmarks, pair[1])))
+def _distance(landmarks, pair: tuple[int, int], scale: np.ndarray) -> float:
+    return float(np.linalg.norm(_xy(landmarks, pair[0], scale) - _xy(landmarks, pair[1], scale)))
 
 
-def _eye_features(landmarks, eye: dict[str, Any]) -> dict[str, float] | None:
+def _eye_features(landmarks, eye: dict[str, Any], scale: np.ndarray) -> dict[str, float] | None:
     """Return scale- and roll-normalized gaze, EAR, lid and brow distances."""
-    corner0, corner1 = (_xy(landmarks, index) for index in eye["corners"])
+    corner0, corner1 = (_xy(landmarks, index, scale) for index in eye["corners"])
     width = float(np.linalg.norm(corner1 - corner0))
-    if width < 1e-6:
+    if width < MIN_EYE_WIDTH_PX:
         return None
 
-    top, bottom = (_xy(landmarks, index) for index in eye["lid"])
+    top, bottom = (_xy(landmarks, index, scale) for index in eye["lid"])
     x_axis = (corner1 - corner0) / width
     y_axis = np.array((-x_axis[1], x_axis[0]), dtype=np.float32)
     if np.dot(bottom - top, y_axis) < 0:
         y_axis = -y_axis
 
     center = (corner0 + corner1 + top + bottom) / 4
-    iris = np.mean([_xy(landmarks, index) for index in eye["iris"]], axis=0)
-    height = max(abs(float(np.dot(bottom - top, y_axis))), width * 0.05)
+    iris = np.mean([_xy(landmarks, index, scale) for index in eye["iris"]], axis=0)
     delta = iris - center
 
     vertical = eye["vertical"]
-    ear = (_distance(landmarks, vertical[0]) + _distance(landmarks, vertical[1])) / (2 * width)
-    iris_z = float(np.mean([landmarks[index].z for index in eye["iris"]]))
-    eye_z = float(np.mean([landmarks[index].z for index in (*eye["corners"], *eye["lid"])]))
+    ear = (
+        _distance(landmarks, vertical[0], scale) + _distance(landmarks, vertical[1], scale)
+    ) / (2 * width)
 
-    return {
+    features = {
+        # Both axes are normalized by eye width so vertical gaze does not get
+        # amplified when the lids narrow (squint / half-closed eyes).
         "local_x": float(np.dot(delta, x_axis) / width),
-        "local_y": float(np.dot(delta, y_axis) / height),
-        "local_z": iris_z - eye_z,
+        "local_y": float(np.dot(delta, y_axis) / width),
         "ear": ear,
-        "lid_opening": _distance(landmarks, eye["lid"]) / width,
-        "brow_eye_distance": _distance(landmarks, eye["brow_lid"]) / width,
+        "lid_opening": _distance(landmarks, eye["lid"], scale) / width,
+        "brow_eye_distance": _distance(landmarks, eye["brow_lid"], scale) / width,
     }
+    if not all(math.isfinite(value) for value in features.values()):
+        return None
+    return features
 
 
 def _blendshape_scores(result) -> dict[str, float]:
@@ -115,21 +128,38 @@ def _blendshape_scores(result) -> dict[str, float]:
     return {name: round(scores.get(name, 0.0), 4) for name in BLENDSHAPES}
 
 
+def _head_pose_degrees(result) -> dict[str, float] | None:
+    """Euler angles from the facial transformation matrix (R = Rz·Ry·Rx)."""
+    matrixes = getattr(result, "facial_transformation_matrixes", None)
+    if matrixes is None or len(matrixes) == 0:
+        return None
+    r = np.asarray(matrixes[0], dtype=np.float64)[:3, :3]
+    sy = math.hypot(r[0, 0], r[1, 0])
+    return {
+        "yaw": round(math.degrees(math.atan2(-r[2, 0], sy)), 1),
+        "pitch": round(math.degrees(math.atan2(r[2, 1], r[2, 2])), 1),
+        "roll": round(math.degrees(math.atan2(r[1, 0], r[0, 0])), 1),
+    }
+
+
 def _empty_sample(
     face_detected: bool,
     blendshapes: dict[str, float] | None = None,
     timestamp: float = 0.0,
+    head_pose: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     return {
         "timestamp": timestamp,
         "face_detected": face_detected,
         "face_frame_valid": False,
+        "head_pose": head_pose,
         "left_eye": None,
         "right_eye": None,
         "gaze_x": None,
         "gaze_y": None,
         "gaze_speed": None,
         "gaze_direction": None,
+        "ear": None,
         "eyes_closed": None,
         "blendshapes": blendshapes or {},
     }
@@ -155,11 +185,15 @@ class EyeTrackingState:
     gaze_center: tuple[float, float]
     gaze_threshold: tuple[float, float]
     ear_threshold: float
-    started_at: float = field(default_factory=time.perf_counter)
     processed_frames: int = 0
     face_detected_frames: int = 0
     valid_gaze_samples: int = 0
-    front_gaze_samples: int = 0
+    last_add_at: float | None = None
+    observed_seconds: float = 0.0
+    face_seconds: float = 0.0
+    valid_seconds: float = 0.0
+    gaze_seconds: float = 0.0
+    front_seconds: float = 0.0
     gaze_mean: list[float] = field(default_factory=lambda: [0.0, 0.0])
     gaze_m2: list[float] = field(default_factory=lambda: [0.0, 0.0])
     gaze_min: list[float] = field(default_factory=lambda: [math.inf, math.inf])
@@ -169,6 +203,7 @@ class EyeTrackingState:
     speed_count: int = 0
     max_speed: float = 0.0
     last_direction: str | None = None
+    center_since: float | None = None
     direction_changes: int = 0
     closed_since: float | None = None
     blink_count: int = 0
@@ -180,9 +215,16 @@ class EyeTrackingState:
     last_sample: dict[str, Any] | None = None
 
     def add(self, sample: dict[str, Any], now: float) -> None:
+        dt = 0.0
+        if self.last_add_at is not None:
+            dt = min(max(now - self.last_add_at, 0.0), MAX_FRAME_GAP_SECONDS)
+        self.last_add_at = now
+        self.observed_seconds += dt
+
         self.processed_frames += 1
         if sample["face_detected"]:
             self.face_detected_frames += 1
+            self.face_seconds += dt
 
         if sample["blendshapes"]:
             self.blendshape_samples += 1
@@ -190,10 +232,16 @@ class EyeTrackingState:
                 self.blendshape_totals[name] = self.blendshape_totals.get(name, 0.0) + value
 
         if not sample["face_frame_valid"]:
+            # Losing the eyes breaks blink continuity too: a closure observed
+            # before the gap must not pair with an opening observed after it.
+            self.closed_since = None
             self.last_gaze = None
             self.last_direction = None
+            self.center_since = None
             self.last_sample = sample
             return
+
+        self.valid_seconds += dt
 
         left, right = sample["left_eye"], sample["right_eye"]
         self.eye_feature_samples += 1
@@ -223,8 +271,11 @@ class EyeTrackingState:
         if closed:
             self.last_gaze = None
             self.last_direction = None
+            self.center_since = None
             self.last_sample = sample
             return
+
+        self.gaze_seconds += dt
 
         x, y = sample["gaze_x"], sample["gaze_y"]
         direction = _direction(x, y, self.gaze_center, self.gaze_threshold)
@@ -250,10 +301,17 @@ class EyeTrackingState:
             self.gaze_max[axis] = max(self.gaze_max[axis], value)
 
         if direction == "center":
-            self.front_gaze_samples += 1
-        elif self.last_direction is not None and direction != self.last_direction:
-            self.direction_changes += 1
-        if direction != "center":
+            self.front_seconds += dt
+            if self.center_since is None:
+                self.center_since = now
+            elif now - self.center_since > MAX_CENTER_LINK_SECONDS:
+                # A long front-gaze dwell ends the previous look-away episode;
+                # the next deviation is a new event, not a "direction change".
+                self.last_direction = None
+        else:
+            self.center_since = None
+            if self.last_direction is not None and direction != self.last_direction:
+                self.direction_changes += 1
             self.last_direction = direction
 
         self.last_sample = sample
@@ -261,18 +319,24 @@ class EyeTrackingState:
     def snapshot(self) -> dict[str, Any]:
         frames, valid = self.processed_frames, self.valid_gaze_samples
         eye_count, blend_count = self.eye_feature_samples, self.blendshape_samples
-        elapsed = max(time.perf_counter() - self.started_at, 1e-6)
 
         def eye_mean(name: str) -> float | None:
             return round(self.eye_totals.get(name, 0.0) / eye_count, 4) if eye_count else None
 
         return {
-            "total_frames": frames,
             "processed_frames": frames,
             "face_detected_frames": self.face_detected_frames,
-            "face_detected_ratio": round(self.face_detected_frames / frames, 3) if frames else 0.0,
+            "observed_seconds": round(self.observed_seconds, 2),
+            "valid_observation_seconds": round(self.valid_seconds, 2),
+            "face_detected_ratio": (
+                round(self.face_seconds / self.observed_seconds, 3)
+                if self.observed_seconds else 0.0
+            ),
             "valid_gaze_samples": valid,
-            "front_gaze_ratio": round(self.front_gaze_samples / valid, 3) if valid else 0.0,
+            "front_gaze_ratio": (
+                round(self.front_seconds / self.gaze_seconds, 3)
+                if self.gaze_seconds else 0.0
+            ),
             "avg_gaze_x": round(self.gaze_mean[0], 4) if valid else None,
             "avg_gaze_y": round(self.gaze_mean[1], 4) if valid else None,
             "std_gaze_x": round(math.sqrt(self.gaze_m2[0] / valid), 4) if valid else None,
@@ -287,7 +351,10 @@ class EyeTrackingState:
             },
             "blink": {
                 "count": self.blink_count,
-                "per_minute": round(self.blink_count * 60 / elapsed, 2),
+                "per_minute": (
+                    round(self.blink_count * 60 / self.valid_seconds, 2)
+                    if self.valid_seconds else 0.0
+                ),
                 "mean_duration_ms": (
                     round(self.blink_duration_total * 1000 / self.blink_count, 1)
                     if self.blink_count else None
@@ -311,7 +378,7 @@ class EyeTracker:
         self,
         *,
         gaze_center: tuple[float, float] = (0.0, 0.0),
-        gaze_threshold: tuple[float, float] = (0.18, 0.20),
+        gaze_threshold: tuple[float, float] = (0.18, 0.10),
         ear_threshold: float = 0.20,
     ) -> None:
         if any(value <= 0 for value in (*gaze_threshold, ear_threshold)):
@@ -338,7 +405,7 @@ class EyeTracker:
             min_face_presence_confidence=0.5,
             min_tracking_confidence=0.5,
             output_face_blendshapes=True,
-            output_facial_transformation_matrixes=False,
+            output_facial_transformation_matrixes=True,
         )
         self.landmarker = vision.FaceLandmarker.create_from_options(options)
 
@@ -351,6 +418,19 @@ class EyeTracker:
                 self.gaze_threshold,
                 self.ear_threshold,
             )
+
+    def calibrate_center(self, minimum_samples: int = 10) -> bool:
+        """현재까지 누적된 평균 시선을 정면 기준점으로 설정한다.
+
+        설정 페이지에서 "화면 중앙을 응시해 주세요" 안내 후 호출하는 용도.
+        유효 샘플이 부족하면 False를 반환하고 아무것도 바꾸지 않는다.
+        """
+        with self.lock:
+            if self.state.valid_gaze_samples < minimum_samples:
+                return False
+            self.gaze_center = (self.state.gaze_mean[0], self.state.gaze_mean[1])
+            self.state.gaze_center = self.gaze_center
+            return True
 
     def process_bgr_frame(self, frame_bgr: np.ndarray) -> tuple[np.ndarray, dict[str, Any]]:
         with self.lock:
@@ -376,25 +456,48 @@ class EyeTracker:
 
             landmarks = result.face_landmarks[0]
             blendshapes = _blendshape_scores(result)
-            eyes = {name: _eye_features(landmarks, eye) for name, eye in EYES.items()}
-            if any(feature is None for feature in eyes.values()):
-                sample = _empty_sample(True, blendshapes, elapsed)
+            head_pose = _head_pose_degrees(result)
+
+            # Gaze is measured relative to the head; with the head turned away
+            # the iris offset no longer maps to screen gaze, so drop the frame.
+            head_turned = head_pose is not None and (
+                abs(head_pose["yaw"]) > MAX_HEAD_YAW_DEG
+                or abs(head_pose["pitch"]) > MAX_HEAD_PITCH_DEG
+            )
+
+            height, width = frame_bgr.shape[:2]
+            scale = np.array((width, height), dtype=np.float32)
+            eyes = {name: _eye_features(landmarks, eye, scale) for name, eye in EYES.items()}
+            left, right = eyes["left"], eyes["right"]
+
+            eyes_disagree = (
+                left is not None
+                and right is not None
+                and (
+                    abs(left["local_x"] - right["local_x"]) > MAX_EYE_DISAGREEMENT
+                    or abs(left["local_y"] - right["local_y"]) > MAX_EYE_DISAGREEMENT
+                )
+            )
+
+            if head_turned or left is None or right is None or eyes_disagree:
+                sample = _empty_sample(True, blendshapes, elapsed, head_pose)
                 self.state.add(sample, now)
                 return frame_bgr, sample
 
-            left, right = eyes["left"], eyes["right"]
             gaze_x = (left["local_x"] + right["local_x"]) / 2
             gaze_y = (left["local_y"] + right["local_y"]) / 2
             sample = {
                 "timestamp": elapsed,
                 "face_detected": True,
                 "face_frame_valid": True,
+                "head_pose": head_pose,
                 "left_eye": {key: round(value, 4) for key, value in left.items()},
                 "right_eye": {key: round(value, 4) for key, value in right.items()},
                 "gaze_x": round(gaze_x, 4),
                 "gaze_y": round(gaze_y, 4),
                 "gaze_speed": None,
                 "gaze_direction": None,
+                "ear": None,
                 "eyes_closed": None,
                 "blendshapes": blendshapes,
             }
@@ -413,8 +516,33 @@ class EyeTracker:
 
 
 def _self_check() -> None:
-    state = EyeTrackingState((0.0, 0.0), (0.18, 0.20), 0.20)
-    now = time.perf_counter()
+    from types import SimpleNamespace
+
+    # 1. pixel-space features: EAR must not depend on the image aspect ratio.
+    def pt(x: float, y: float) -> SimpleNamespace:
+        return SimpleNamespace(x=x, y=y)
+
+    landmarks = [pt(0.0, 0.0)] * 478
+    scale = np.array((1000.0, 500.0), dtype=np.float32)  # 2:1 frame
+    placements = {  # eye 100px wide, lids 30px apart, iris dead center
+        33: (100, 100), 133: (200, 100),
+        159: (150, 85), 145: (150, 115),
+        160: (130, 85), 144: (130, 115),
+        158: (170, 85), 153: (170, 115),
+        105: (150, 60),
+    }
+    for index in EYES["left"]["iris"]:
+        placements[index] = (150, 100)
+    for index, (px, py) in placements.items():
+        landmarks[index] = pt(px / scale[0], py / scale[1])
+    features = _eye_features(landmarks, EYES["left"], scale)
+    assert features is not None
+    assert abs(features["ear"] - 0.3) < 1e-3, features["ear"]
+    assert abs(features["local_x"]) < 1e-3 and abs(features["local_y"]) < 1e-3
+
+    # 2. blink counting and time-based accumulation
+    state = EyeTrackingState((0.0, 0.0), (0.18, 0.10), 0.20)
+    t0 = 100.0
 
     def sample(ear: float, gaze_x: float) -> dict[str, Any]:
         eye = {"ear": ear, "lid_opening": ear, "brow_eye_distance": 0.4}
@@ -427,14 +555,30 @@ def _self_check() -> None:
             "gaze_y": 0.0,
         }
 
-    state.add(sample(0.3, 0.0), now)
-    state.add(sample(0.1, 0.0), now + 0.1)
-    state.add(sample(0.3, 0.3), now + 0.2)
+    state.add(sample(0.3, 0.0), t0)
+    state.add(sample(0.1, 0.0), t0 + 0.1)
+    state.add(sample(0.3, 0.3), t0 + 0.2)
     result = state.snapshot()
     assert result["processed_frames"] == 3
     assert result["valid_gaze_samples"] == 2
     assert result["blink"]["count"] == 1
     assert result["gaze_movement"]["range_x"] == 0.3
+    assert abs(result["valid_observation_seconds"] - 0.2) < 1e-6
+
+    # 3. losing the face mid-closure must not produce a blink
+    state.add(sample(0.1, 0.0), t0 + 0.3)          # eyes close
+    state.add(_empty_sample(False), t0 + 0.4)       # face lost
+    state.add(sample(0.3, 0.0), t0 + 0.5)           # eyes open again
+    assert state.blink_count == 1
+
+    # 4. a long center dwell breaks direction-change continuity
+    state2 = EyeTrackingState((0.0, 0.0), (0.18, 0.10), 0.20)
+    state2.add(sample(0.3, 0.3), t0)                # right
+    state2.add(sample(0.3, -0.3), t0 + 0.1)         # left -> 1 change
+    state2.add(sample(0.3, 0.0), t0 + 0.2)          # center
+    state2.add(sample(0.3, 0.0), t0 + 1.5)          # center dwell > 1s
+    state2.add(sample(0.3, 0.3), t0 + 1.6)          # right, new episode
+    assert state2.direction_changes == 1, state2.direction_changes
 
 
 if __name__ == "__main__":
