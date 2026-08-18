@@ -7,7 +7,8 @@ the evaluation output stays compatible while the frontend is rebuilt.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -85,6 +86,79 @@ class TranscriptResponse(BaseModel):
     error: str | None = None
     confidence: float | None = None
     segment_count: int | None = None
+
+
+class BenchmarkSource(BaseModel):
+    dataset: str
+    source_sample_id: str | None = None
+    source_split: str | None = None
+    experience: str | None = None
+
+
+class BenchmarkQuestion(BaseModel):
+    text: str
+    group: str | None = None
+    group_name: str | None = None
+
+
+class BenchmarkAnswer(BaseModel):
+    text: str
+    word_count: int = 0
+
+
+class BenchmarkAudio(BaseModel):
+    question_wav: str
+    answer_wav: str
+
+
+class BenchmarkCandidate(BaseModel):
+    """Inspectable Q-A/audio pair; scoring fields are intentionally absent."""
+
+    sample_id: str
+    source: BenchmarkSource
+    question: BenchmarkQuestion
+    answer: BenchmarkAnswer
+    audio: BenchmarkAudio
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class BenchmarkSamplePage(BaseModel):
+    items: list[BenchmarkCandidate]
+    total: int
+    offset: int
+    limit: int
+
+
+class AnnotatorRegistrationRequest(BaseModel):
+    name: str = Field(min_length=1)
+    affiliation_or_major: str | None = None
+    interview_experience: str | None = None
+    evaluation_experience: str | None = None
+    note: str | None = None
+
+
+class BenchmarkScores(BaseModel):
+    relevance: Literal[0, 1, 2]
+    specificity: Literal[0, 1, 2]
+    coherence: Literal[0, 1, 2]
+    specialized: Literal[0, 1, 2]
+
+
+class SaveBenchmarkAnnotationRequest(BaseModel):
+    annotator_id: UUID
+    rubric_version: str = Field(min_length=1)
+    target_mode: Literal["pilot", "full"] = "full"
+    scores: BenchmarkScores
+    confidence: Literal[0, 1, 2]
+    note: str = ""
+
+
+class SaveAdjudicationRequest(BaseModel):
+    adjudicator_id: UUID
+    rubric_version: str = Field(min_length=1)
+    target_mode: Literal["pilot", "full"] = "full"
+    scores: BenchmarkScores
+    note: str = ""
 
 
 class EvaluationItem(BaseModel):

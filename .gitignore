@@ -12,3 +12,6 @@ wheels/
 # Deployment and local-only state
 .streamlit/secrets.toml
 data/
+
+# Portable ICT dataset audio is local-only and can be very large.
+backend/data/ict_qa_dataset/audio/

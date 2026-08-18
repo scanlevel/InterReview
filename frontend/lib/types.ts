@@ -66,3 +66,84 @@ export interface TranscriptResponse {
   confidence?: number | null;
   segment_count?: number | null;
 }
+
+export interface BenchmarkCandidate {
+  sample_id: string;
+  source: {
+    dataset: string;
+    source_sample_id?: string | null;
+    source_split?: string | null;
+    experience?: string | null;
+  };
+  question: {
+    text: string;
+    group?: string | null;
+    group_name?: string | null;
+  };
+  answer: {
+    text: string;
+    word_count: number;
+  };
+  audio: {
+    question_wav: string;
+    answer_wav: string;
+  };
+  metadata: Record<string, unknown>;
+}
+
+export interface BenchmarkSamplePage {
+  items: BenchmarkCandidate[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export type BenchmarkScore = 0 | 1 | 2;
+export type BenchmarkMode = "pilot" | "full";
+
+export interface AnnotatorSummary {
+  annotator_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface RubricMetric {
+  code: string;
+  name: string;
+  levels: Record<"0" | "1" | "2", string>;
+  note?: string;
+}
+
+export interface BenchmarkRubric {
+  version: string;
+  confidence_scale: Record<"0" | "1" | "2", string>;
+  common: Record<"relevance" | "specificity" | "coherence", RubricMetric>;
+  specialized: Record<string, RubricMetric & { group_name: string; metric: string }>;
+}
+
+export interface BenchmarkAssignment {
+  sample: BenchmarkCandidate & { benchmark?: Record<string, unknown> };
+  annotation_count: number;
+  needs_reevaluation: boolean;
+  rubric_version: string;
+}
+
+export interface AnnotationProgress {
+  annotator_completed: number;
+  needs_reevaluation: number;
+  target_samples: number;
+  global_completed_annotations: number;
+  global_required_annotations: number;
+  global_progress: number;
+}
+
+export interface UnresolvedBenchmarkItem {
+  sample: BenchmarkCandidate;
+  annotations: Array<{
+    annotator_id: string;
+    scores: Record<"relevance" | "specificity" | "coherence" | "specialized", BenchmarkScore>;
+    confidence: BenchmarkScore;
+    note: string;
+  }>;
+  unresolved_fields: string[];
+}

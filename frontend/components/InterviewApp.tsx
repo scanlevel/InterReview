@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { evaluateInterview, generateQuestions } from "@/lib/api";
 import type {
   AnswerItem,
@@ -11,8 +11,17 @@ import type {
 import SetupView from "@/components/SetupView";
 import InterviewView from "@/components/InterviewView";
 import AnalysisView from "@/components/AnalysisView";
+import DeviceSetupView, {
+  type DeviceSetupResult,
+} from "@/components/DeviceSetupView";
 
-type Phase = "setup" | "generating" | "interview" | "evaluating" | "analysis";
+type Phase =
+  | "setup"
+  | "generating"
+  | "device-setup"
+  | "interview"
+  | "evaluating"
+  | "analysis";
 
 export default function InterviewApp() {
   const [phase, setPhase] = useState<Phase>("setup");
@@ -20,6 +29,19 @@ export default function InterviewApp() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [report, setReport] = useState<EvaluationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deviceSetup, setDeviceSetup] = useState<DeviceSetupResult | null>(null);
+  const deviceStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(
+    () => () => deviceStreamRef.current?.getTracks().forEach((track) => track.stop()),
+    [],
+  );
+
+  function stopDevices() {
+    deviceStreamRef.current?.getTracks().forEach((track) => track.stop());
+    deviceStreamRef.current = null;
+    setDeviceSetup(null);
+  }
 
   async function handleStart(nextProfile: Profile) {
     setError(null);
@@ -28,11 +50,17 @@ export default function InterviewApp() {
     try {
       const res = await generateQuestions(nextProfile);
       setQuestions(res.questions);
-      setPhase("interview");
+      setPhase("device-setup");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setPhase("setup");
     }
+  }
+
+  function handleDevicesReady(result: DeviceSetupResult) {
+    deviceStreamRef.current = result.stream;
+    setDeviceSetup(result);
+    setPhase("interview");
   }
 
   async function handleFinish(answers: AnswerItem[]) {
@@ -40,6 +68,7 @@ export default function InterviewApp() {
     setPhase("evaluating");
     try {
       const result = await evaluateInterview(profile, answers);
+      stopDevices();
       setReport(result);
       setPhase("analysis");
     } catch (e) {
@@ -49,6 +78,7 @@ export default function InterviewApp() {
   }
 
   function handleReset() {
+    stopDevices();
     setReport(null);
     setQuestions([]);
     setError(null);
@@ -72,8 +102,23 @@ export default function InterviewApp() {
 
       {phase === "generating" && <Busy label="질문을 생성하는 중입니다…" />}
 
-      {phase === "interview" && (
-        <InterviewView questions={questions} onFinish={handleFinish} />
+      {phase === "device-setup" && (
+        <DeviceSetupView
+          onReady={handleDevicesReady}
+          onCancel={() => {
+            setQuestions([]);
+            setPhase("setup");
+          }}
+        />
+      )}
+
+      {phase === "interview" && deviceSetup && (
+        <InterviewView
+          questions={questions}
+          stream={deviceSetup.stream}
+          calibration={deviceSetup.calibration}
+          onFinish={handleFinish}
+        />
       )}
 
       {phase === "evaluating" && <Busy label="답변을 평가하는 중입니다…" />}

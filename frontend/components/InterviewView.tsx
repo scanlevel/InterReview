@@ -2,14 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import { transcribe } from "@/lib/api";
+import {
+  createBrowserGazeTracker,
+  type BrowserGazeTracker,
+  type GazeCalibration,
+  type GazeDebugFrame,
+} from "@/lib/gaze";
 import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorder";
-import type { AnswerItem, Question } from "@/lib/types";
+import type { AnswerItem, EyeTrackingSummary, Question } from "@/lib/types";
+import GazeDebugOverlay from "@/components/GazeDebugOverlay";
 
 export default function InterviewView({
   questions,
+  stream,
+  calibration,
   onFinish,
 }: {
   questions: Question[];
+  stream: MediaStream;
+  calibration: GazeCalibration | null;
   onFinish: (answers: AnswerItem[]) => void;
 }) {
   const [index, setIndex] = useState(0);
@@ -18,45 +29,68 @@ export default function InterviewView({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [gazeStatus, setGazeStatus] = useState<
+    "loading" | "ready" | "unavailable"
+  >("loading");
+  const [eyeTracking, setEyeTracking] = useState<
+    Record<string, EyeTrackingSummary | null>
+  >({});
+  const [debugGaze, setDebugGaze] = useState(true);
+  const [gazeDebugFrame, setGazeDebugFrame] =
+    useState<GazeDebugFrame | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<AnswerRecorder | null>(null);
+  const gazeTrackerRef = useRef<BrowserGazeTracker | null>(null);
+  const debugGazeRef = useRef(true);
 
   const question = questions[index];
   const isLast = index === questions.length - 1;
   const current = transcripts[question.id] ?? "";
-
-  // Acquire camera + mic once for the whole interview.
+  // Reuse the stream already approved and checked on the device setup screen.
   useEffect(() => {
     let cancelled = false;
+    let gazeTracker: BrowserGazeTracker | null = null;
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
         recorderRef.current = createRecorder(stream);
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          try {
+            gazeTracker = await createBrowserGazeTracker(
+              videoRef.current,
+              (frame) => {
+                if (debugGazeRef.current) setGazeDebugFrame(frame);
+              },
+              calibration ?? undefined,
+            );
+            if (cancelled) {
+              gazeTracker.close();
+              return;
+            }
+            gazeTrackerRef.current = gazeTracker;
+            setGazeStatus("ready");
+          } catch {
+            if (!cancelled) setGazeStatus("unavailable");
+          }
+        }
         setMediaError(null);
       } catch (e) {
-        setMediaError(
-          "카메라·마이크를 사용할 수 없습니다. 권한을 허용하거나, 아래에 직접 답변을 입력하세요. " +
-            (e instanceof Error ? `(${e.message})` : ""),
-        );
+        if (!cancelled) {
+          setGazeStatus("unavailable");
+          setMediaError(
+            "카메라·마이크를 사용할 수 없습니다. 권한을 허용하거나, 아래에 직접 답변을 입력하세요. " +
+              (e instanceof Error ? `(${e.message})` : ""),
+          );
+        }
       }
     })();
     return () => {
       cancelled = true;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+      gazeTracker?.close();
+      gazeTrackerRef.current = null;
     };
-  }, []);
+  }, [calibration, stream]);
 
   function setTranscript(value: string) {
     setTranscripts((prev) => ({ ...prev, [question.id]: value }));
@@ -68,6 +102,7 @@ export default function InterviewView({
 
     if (!isRecording) {
       setNotice(null);
+      gazeTrackerRef.current?.start();
       recorder.start();
       setIsRecording(true);
       return;
@@ -75,6 +110,8 @@ export default function InterviewView({
 
     // Stop -> convert -> transcribe.
     setIsRecording(false);
+    const gazeSummary = gazeTrackerRef.current?.stop() ?? null;
+    setEyeTracking((prev) => ({ ...prev, [question.id]: gazeSummary }));
     setIsTranscribing(true);
     try {
       const raw = await recorder.stop();
@@ -106,7 +143,7 @@ export default function InterviewView({
       question: q.text,
       category: q.category,
       transcript: (transcripts[q.id] ?? "").trim(),
-      eye_tracking: null, // Milestone C fills this from the browser gaze tracker
+      eye_tracking: eyeTracking[q.id] ?? null,
     }));
     onFinish(items);
   }
@@ -124,15 +161,48 @@ export default function InterviewView({
 
       <p className="text-lg leading-relaxed">{question.text}</p>
 
-      <div className="overflow-hidden rounded-lg bg-black">
+      <div
+        className={`relative overflow-hidden rounded-lg border-2 bg-black ${
+          debugGaze && isRecording && gazeDebugFrame?.isFront === true
+            ? "border-emerald-500"
+            : debugGaze && isRecording && gazeDebugFrame?.isFront === false
+              ? "border-red-500"
+              : "border-transparent"
+        }`}
+      >
         <video
           ref={videoRef}
           autoPlay
           muted
           playsInline
-          className="aspect-video w-full object-cover"
+          className="aspect-video w-full -scale-x-100 object-cover"
         />
+
+        {debugGaze && (
+          <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} />
+        )}
       </div>
+
+      <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+        <input
+          type="checkbox"
+          checked={debugGaze}
+          onChange={(event) => {
+            const enabled = event.target.checked;
+            debugGazeRef.current = enabled;
+            setDebugGaze(enabled);
+            if (!enabled) setGazeDebugFrame(null);
+          }}
+        />
+        시선 디버그 오버레이
+      </label>
+
+      <p className="text-xs text-gray-500">
+        {gazeStatus === "loading" && "시선 분석을 준비하고 있습니다."}
+        {gazeStatus === "ready" && "녹음 중 시선 데이터를 함께 기록합니다."}
+        {gazeStatus === "unavailable" &&
+          "시선 분석을 사용할 수 없어 음성·텍스트 답변만 기록합니다."}
+      </p>
 
       {mediaError && (
         <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/40">
@@ -181,7 +251,7 @@ export default function InterviewView({
         <button
           type="button"
           onClick={() => setIndex((i) => Math.max(0, i - 1))}
-          disabled={index === 0}
+          disabled={index === 0 || isRecording || isTranscribing}
           className="rounded-md border border-gray-300 px-4 py-2 text-sm disabled:opacity-40 dark:border-gray-700"
         >
           이전
@@ -191,7 +261,8 @@ export default function InterviewView({
           <button
             type="button"
             onClick={submit}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            disabled={isRecording || isTranscribing}
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
           >
             제출하고 평가받기
           </button>
@@ -199,7 +270,8 @@ export default function InterviewView({
           <button
             type="button"
             onClick={() => setIndex((i) => Math.min(questions.length - 1, i + 1))}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            disabled={isRecording || isTranscribing}
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
           >
             다음
           </button>

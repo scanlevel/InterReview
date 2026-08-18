@@ -68,7 +68,7 @@ export default function SetupView({
         type="submit"
         className="mt-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
       >
-        면접 시작
+        다음: 카메라·마이크 설정
       </button>
     </form>
   );

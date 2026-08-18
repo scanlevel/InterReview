@@ -86,10 +86,11 @@ InterReview/  (new_framework)
   - [x] `services/stt.py` (CLOVA 프록시, multipart 수신) + `POST /stt`
   - [ ] `services/llm.py` (Anthropic, JSON 스키마 강제)
   - [ ] `services/evaluate.py` **LLM 평가 경로** ★ — 키 확보 후 (룰기반 fallback 유지)
-- **Phase 2 — 프론트 캡처** *(A·B 완료, C 인계)*
+- **Phase 2 — 프론트 캡처** *(A·B·C 완료)*
   - [x] A: setup → questions → interview(텍스트) → evaluate → 리포트 세로 슬라이스
   - [x] B: `lib/recorder.ts`(녹음 + 16kHz WAV 변환) + 캠 미리보기 + `/stt` 전사
-  - [ ] C: `lib/gaze.ts` (MediaPipe Tasks for Web, 시선 요약) — **다른 담당자 인계**(§8)
+  - [x] C: `lib/gaze.ts` (MediaPipe Tasks for Web, 질문별 시선 요약)
+  - [x] D: 면접 전 카메라·마이크 선택 + 중앙·네 모서리 5점 시선 캘리브레이션 + STT 사전 점검
 - **Phase 3 — 흐름 완성**
   - [x] setup → interview → analysis 전체 배선 (InterviewApp 상태기계)
   - [x] 로딩/에러/무응답/권한거부 처리 (STT 실패 시 직접입력 fallback)
