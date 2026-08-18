@@ -1,94 +1,56 @@
-# InterReview 배포 패키지
+# InterReview
 
-이 폴더는 `question_banks`와 `InterReview` 앱만으로 실행할 수 있는 독립
-배포본입니다. 다음 항목이 모두 포함되어 있습니다.
+AI 모의면접 서비스. 지원자가 가상 면접관의 질문을 받고 → 카메라·마이크로
+답변하고 → 답변 내용과 태도를 AI가 평가한다.
 
-- Streamlit 기반 모의면접 앱
-- ICT 질문은행: `question_banks/ict`
-- MediaPipe 얼굴 랜드마크 모델: `face_landmarker.task`
+**아키텍처:** Next.js(프론트) + FastAPI(백엔드). 캠·마이크·시선 캡처는
+브라우저가 담당하고, 서버는 STT/LLM 호출과 시크릿 보관만 맡는다.
+(Streamlit 기반 구버전에서 전환 — 배경은 `docs/migration-plan.md` 참고.)
 
-상위 폴더의 분석 데이터나 원본 데이터는 앱 실행에 필요하지 않습니다.
+## 구조
 
-## 로컬에서 실행하기
+```
+backend/    FastAPI + uv — /questions /stt /evaluate /health
+frontend/   Next.js (App Router, TS, Tailwind) — 면접 UI
+docs/       migration-plan.md, reference/(구 로직 참고)
+```
 
-Python 3.12와 uv를 설치한 뒤 아래 명령을 실행합니다.
+## 실행
 
-```powershell
-cd InterReview
+### 백엔드 (FastAPI)
+
+```bash
+cd backend
+cp .env.example .env      # CLOVA 키 등 채우기 (.env는 git-ignore)
 uv sync
-uv run streamlit run app.py
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
-브라우저에서 `http://localhost:8501`을 엽니다.
+- `POST /questions` — 프로필 → 룰 기반 6문항
+- `POST /stt` — 오디오 blob(multipart) → CLOVA Speech 전사
+- `POST /evaluate` — {프로필, 답변들} → 평가 리포트
+- 테스트: `uv run pytest`
 
-기본 설정에서는 질문은행 원문을 사용하며 Kanana 모델을 다운로드하지
-않습니다. 따라서 일반 CPU 환경이나 Streamlit Community Cloud에서도 먼저
-실행할 수 있습니다.
+필수/선택 환경변수는 `backend/.env.example` 참고. 주요 키:
+`CLOVA_SPEECH_INVOKE_URL`, `CLOVA_SPEECH_SECRET` (STT),
+`ANTHROPIC_API_KEY` (LLM 평가 — 없으면 룰기반으로 자동 fallback).
 
-## Docker로 배포하기
+### 프론트엔드 (Next.js)
 
-Windows에서는 Docker Desktop을 설치하고 WSL 2 백엔드를 사용하면 됩니다.
-현재 Docker Desktop은 WSL 2.1.5 이상, 64비트 Windows, 하드웨어 가상화가
-필요하며, WSL 2.7 이상이 설치된 이 PC는 WSL 조건을 충족합니다.
-
-Docker Desktop 설치 후 PowerShell에서 설치 여부를 확인합니다.
-
-```powershell
-docker --version
-docker info
+```bash
+cd frontend
+npm install
+npm run dev               # http://localhost:3000
 ```
 
-`docker info`가 정상적으로 출력되면 아래 명령으로 앱을 빌드하고 실행합니다.
+백엔드 주소는 `frontend/.env.local`의 `NEXT_PUBLIC_API_BASE`
+(기본 `http://localhost:8000`).
 
-```powershell
-docker build -t interreview .
-docker run --rm -p 8501:8501 interreview
-```
+> 캠·마이크 권한은 **localhost 또는 HTTPS**에서만 열린다. 배포 시 HTTPS 필수.
 
-컨테이너가 실행된 뒤 `http://localhost:8501`에 접속합니다.
+## 상태 (2026-07-19)
 
-외부 주소로 서비스할 때는 카메라 권한을 위해 HTTPS가 필요합니다. 사용자의
-네트워크 환경에 따라 WebRTC 연결을 위해 TURN 서버 설정이 추가로 필요할 수
-있습니다.
-
-## Kanana 개인화 기능 사용하기
-
-Kanana 2.1B 모델은 용량이 크고 최초 실행 시 모델을 내려받으므로 기본값은
-비활성화되어 있습니다. 충분한 메모리와 GPU가 있는 서버에서만 아래처럼
-선택적으로 활성화하는 것을 권장합니다.
-
-```powershell
-uv sync --extra kanana
-$env:KANANA_ENABLED = "true"
-$env:KANANA_DEVICE = "cuda"
-uv run streamlit run app.py
-```
-
-CPU에서 실행할 경우에는 다음과 같이 설정할 수 있습니다.
-
-```powershell
-$env:KANANA_DEVICE = "cpu"
-$env:KANANA_DTYPE = "float32"
-```
-
-Kanana를 사용할 수 없을 때도 질문은행 기반 질문 생성은 자동으로
-fallback 방식으로 계속 동작합니다.
-
-## 질문은행 교체하기
-
-기본 질문은행은 `question_banks/ict`에 있습니다. 다른 질문은행을 마운트할
-때는 `rules.json`이 직접 들어 있는 폴더를 `QUESTION_BANK_ROOT` 환경변수로
-지정합니다.
-
-```powershell
-$env:QUESTION_BANK_ROOT = "D:\data\question_banks\ict"
-uv run streamlit run app.py
-```
-
-## 배포 시 참고사항
-
-- 면접 답변과 분석 결과는 사용자별 Streamlit 세션에 보관됩니다.
-- 서버 파일에 공용 면접 결과를 저장하지 않으므로 여러 사용자가 동시에
-  접속해도 서로의 답변이 섞이지 않습니다.
-- 카메라와 마이크를 사용하는 기능은 브라우저 권한 허용이 필요합니다.
-- 배포 플랫폼에서 사용할 Python 진입점은 `app.py`입니다.
+- ✅ 백엔드 코어: 질문 생성 / STT(CLOVA) / 룰기반 평가
+- ✅ 프론트: setup → 면접(캠+녹음+STT) → 평가 리포트
+- ⏸️ 시선 추적(Milestone C): 인계 예정 — 계약은 `docs/migration-plan.md` §8
+- ⏳ LLM 평가 경로: `ANTHROPIC_API_KEY` 확보 후 (현재는 룰기반)
