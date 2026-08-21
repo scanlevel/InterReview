@@ -19,12 +19,9 @@ export const HEATMAP_ROWS = 8;
 type Point = { x: number; y: number };
 export type GazePoint = { x: number; y: number };
 
-export interface FivePointGazeSamples {
-  center: GazePoint;
-  topLeft: GazePoint;
-  topRight: GazePoint;
-  bottomRight: GazePoint;
-  bottomLeft: GazePoint;
+export interface GazeCalibrationSample {
+  gaze: GazePoint;
+  target: GazePoint;
 }
 
 export interface GazeCalibration {
@@ -37,7 +34,6 @@ export interface GazeDebugFrame {
   gaze: GazePoint | null;
   screenPoint: GazePoint | null;
   isFront: boolean | null;
-  summary: EyeTrackingSummary | null;
 }
 
 const EYES = [
@@ -114,10 +110,6 @@ function gazeFromLandmarks(
   return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
 }
 
-function round(value: number): number {
-  return Math.round(value * 1000) / 1000;
-}
-
 function clamp(value: number, low = 0, high = 1): number {
   return Math.max(low, Math.min(high, value));
 }
@@ -126,23 +118,40 @@ function ordered(low: number, center: number, high: number): boolean {
   return (low < center && center < high) || (low > center && center > high);
 }
 
+function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const orderedValues = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(orderedValues.length / 2);
+  return orderedValues.length % 2
+    ? orderedValues[middle]
+    : (orderedValues[middle - 1] + orderedValues[middle]) / 2;
+}
+
+function calibrationAxis(
+  samples: GazeCalibrationSample[],
+  axis: "x" | "y",
+): GazeCalibration["x"] | null {
+  const levels = [0.1, 0.5, 0.9];
+  const values = levels.map((level) =>
+    median(
+      samples
+        .filter((sample) => Math.abs(sample.target[axis] - level) <= 0.02)
+        .map((sample) => sample.gaze[axis])
+        .filter(Number.isFinite),
+    ),
+  );
+  if (values.some((value) => value === null)) return null;
+  const [low, center, high] = values as [number, number, number];
+  return ordered(low, center, high) ? { low, center, high } : null;
+}
+
 export function createGazeCalibration(
-  samples: FivePointGazeSamples,
+  samples: GazeCalibrationSample[],
 ): GazeCalibration | null {
-  const x = {
-    low: (samples.topLeft.x + samples.bottomLeft.x) / 2,
-    center: samples.center.x,
-    high: (samples.topRight.x + samples.bottomRight.x) / 2,
-  };
-  const y = {
-    low: (samples.topLeft.y + samples.topRight.y) / 2,
-    center: samples.center.y,
-    high: (samples.bottomLeft.y + samples.bottomRight.y) / 2,
-  };
-  if (!ordered(x.low, x.center, x.high) || !ordered(y.low, y.center, y.high)) {
-    return null;
-  }
-  return { x, y };
+  if (samples.length < 24) return null;
+  const x = calibrationAxis(samples, "x");
+  const y = calibrationAxis(samples, "y");
+  return x && y ? { x, y } : null;
 }
 
 function mapAxis(value: number, axis: GazeCalibration["x"]): number {
@@ -164,16 +173,7 @@ export function applyGazeCalibration(
 }
 
 export class GazeAccumulator {
-  private processed = 0;
-  private faceDetected = 0;
   private valid = 0;
-  private front = 0;
-  private meanX = 0;
-  private meanY = 0;
-  private m2X = 0;
-  private m2Y = 0;
-  private rawMeanX = 0;
-  private rawMeanY = 0;
   private calibration?: GazeCalibration;
   private readonly heatmap = new Array<number>(
     HEATMAP_COLUMNS * HEATMAP_ROWS,
@@ -183,25 +183,12 @@ export class GazeAccumulator {
     this.calibration = calibration;
   }
 
-  add(faceDetected: boolean, gaze: GazePoint | null): void {
-    this.processed += 1;
-    if (faceDetected) this.faceDetected += 1;
+  add(gaze: GazePoint | null): void {
     if (!gaze) return;
 
     this.valid += 1;
-    this.rawMeanX += (gaze.x - this.rawMeanX) / this.valid;
-    this.rawMeanY += (gaze.y - this.rawMeanY) / this.valid;
-    if (this.isFront(gaze)) {
-      this.front += 1;
-    }
 
     const measured = this.screenPoint(gaze);
-    const dx = measured.x - this.meanX;
-    const dy = measured.y - this.meanY;
-    this.meanX += dx / this.valid;
-    this.meanY += dy / this.valid;
-    this.m2X += dx * (measured.x - this.meanX);
-    this.m2Y += dy * (measured.y - this.meanY);
 
     const column = Math.min(
       HEATMAP_COLUMNS - 1,
@@ -228,11 +215,6 @@ export class GazeAccumulator {
     );
   }
 
-  meanGaze(minimumSamples = 10): GazePoint | null {
-    if (this.valid < minimumSamples) return null;
-    return { x: this.rawMeanX, y: this.rawMeanY };
-  }
-
   screenPoint(gaze: GazePoint): GazePoint {
     if (this.calibration) return applyGazeCalibration(gaze, this.calibration);
     // Keep the uncalibrated view broad and normalized for the heatmap.
@@ -243,32 +225,57 @@ export class GazeAccumulator {
   }
 
   snapshot(): EyeTrackingSummary | null {
-    if (!this.processed) return null;
-    const gazeStdX = this.valid ? Math.sqrt(this.m2X / this.valid) : null;
-    const gazeStdY = this.valid ? Math.sqrt(this.m2Y / this.valid) : null;
-    const stdGaze =
-      gazeStdX === null || gazeStdY === null
-        ? null
-        : Math.hypot(gazeStdX, gazeStdY);
-    return {
-      face_detected_ratio: round(this.faceDetected / this.processed),
-      front_gaze_ratio: this.valid ? round(this.front / this.valid) : null,
-      valid_gaze_ratio: round(this.valid / this.processed),
-      std_gaze: stdGaze === null ? null : round(stdGaze),
-      mean_gaze_x: this.valid ? round(this.meanX - 0.5) : null,
-      mean_gaze_y: this.valid ? round(this.meanY - 0.5) : null,
-      gaze_std_x: gazeStdX === null ? null : round(gazeStdX),
-      gaze_std_y: gazeStdY === null ? null : round(gazeStdY),
-      gaze_heatmap: this.valid
-        ? {
+    return this.valid
+      ? {
+          gaze_heatmap: {
             columns: HEATMAP_COLUMNS,
             rows: HEATMAP_ROWS,
             counts: [...this.heatmap],
             total: this.valid,
-          }
-        : null,
-    };
+          },
+        }
+      : null;
   }
+}
+
+const XNNPACK_INFO = "Created TensorFlow Lite XNNPACK delegate for CPU.";
+let infoFilterUsers = 0;
+let previousConsoleError: typeof console.error | null = null;
+let filteredConsoleError: typeof console.error | null = null;
+
+/** MediaPipe sends this informational WASM line through console.error. */
+function acquireMediapipeInfoFilter(): () => void {
+  if (typeof console === "undefined") return () => undefined;
+  if (infoFilterUsers === 0) {
+    previousConsoleError = console.error;
+    filteredConsoleError = (...args: Parameters<typeof console.error>) => {
+      if (
+        args.some(
+          (arg) => typeof arg === "string" && arg.includes(XNNPACK_INFO),
+        )
+      ) {
+        return;
+      }
+      previousConsoleError?.(...args);
+    };
+    console.error = filteredConsoleError;
+  }
+  infoFilterUsers += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    infoFilterUsers -= 1;
+    if (
+      infoFilterUsers === 0 &&
+      filteredConsoleError &&
+      console.error === filteredConsoleError
+    ) {
+      console.error = previousConsoleError ?? console.error;
+      previousConsoleError = null;
+      filteredConsoleError = null;
+    }
+  };
 }
 
 export class BrowserGazeTracker {
@@ -277,29 +284,36 @@ export class BrowserGazeTracker {
   private active = false;
   private lastTimestamp = 0;
   private nextSampleAt = 0;
+  private smoothedGaze: GazePoint | null = null;
   private readonly video: HTMLVideoElement;
   private readonly landmarker: FaceLandmarker;
   private readonly onDebugFrame?: (frame: GazeDebugFrame) => void;
   private calibration?: GazeCalibration;
+  private readonly releaseInfoFilter: () => void;
+  private closed = false;
 
   constructor(
     video: HTMLVideoElement,
     landmarker: FaceLandmarker,
     onDebugFrame?: (frame: GazeDebugFrame) => void,
     calibration?: GazeCalibration,
+    releaseInfoFilter: () => void = () => undefined,
   ) {
     this.video = video;
     this.landmarker = landmarker;
     this.onDebugFrame = onDebugFrame;
     this.calibration = calibration;
+    this.releaseInfoFilter = releaseInfoFilter;
     this.accumulator = new GazeAccumulator(calibration);
   }
 
   start(): void {
+    if (this.closed) return;
     this.stop();
     this.accumulator = new GazeAccumulator(this.calibration);
     this.lastTimestamp = 0;
     this.nextSampleAt = 0;
+    this.smoothedGaze = null;
     this.active = true;
     this.processFrame();
   }
@@ -314,12 +328,14 @@ export class BrowserGazeTracker {
   }
 
   close(): void {
+    if (this.closed) return;
     this.stop();
-    this.landmarker.close();
-  }
-
-  meanGaze(minimumSamples = 10): GazePoint | null {
-    return this.accumulator.meanGaze(minimumSamples);
+    try {
+      this.landmarker.close();
+    } finally {
+      this.releaseInfoFilter();
+      this.closed = true;
+    }
   }
 
   setCalibration(calibration: GazeCalibration): void {
@@ -341,28 +357,46 @@ export class BrowserGazeTracker {
       try {
         const result = this.landmarker.detectForVideo(this.video, timestamp);
         const landmarks = result.faceLandmarks[0];
-        const gaze = landmarks
+        const rawGaze = landmarks
           ? gazeFromLandmarks(
               landmarks,
               this.video.videoWidth,
               this.video.videoHeight,
             )
           : null;
-        this.accumulator.add(Boolean(landmarks), gaze);
+        const gaze = this.smoothGaze(rawGaze);
+        this.accumulator.add(gaze);
         this.onDebugFrame?.({
           faceDetected: Boolean(landmarks),
           gaze,
           screenPoint: gaze ? this.accumulator.screenPoint(gaze) : null,
           isFront: gaze ? this.accumulator.isFront(gaze) : null,
-          summary: this.accumulator.snapshot(),
         });
       } catch {
         // A dropped/invalid video frame should not stop the interview loop.
-        this.accumulator.add(false, null);
+        this.smoothedGaze = null;
+        this.accumulator.add(null);
       }
     }
     this.animationFrame = requestAnimationFrame(this.processFrame);
   };
+
+  private smoothGaze(gaze: GazePoint | null): GazePoint | null {
+    if (!gaze) {
+      this.smoothedGaze = null;
+      return null;
+    }
+    if (!this.smoothedGaze) {
+      this.smoothedGaze = gaze;
+      return gaze;
+    }
+    const alpha = 0.25;
+    this.smoothedGaze = {
+      x: this.smoothedGaze.x + alpha * (gaze.x - this.smoothedGaze.x),
+      y: this.smoothedGaze.y + alpha * (gaze.y - this.smoothedGaze.y),
+    };
+    return this.smoothedGaze;
+  }
 }
 
 export async function createBrowserGazeTracker(
@@ -370,14 +404,26 @@ export async function createBrowserGazeTracker(
   onDebugFrame?: (frame: GazeDebugFrame) => void,
   calibration?: GazeCalibration,
 ): Promise<BrowserGazeTracker> {
-  const vision = await FilesetResolver.forVisionTasks(WASM_ROOT);
-  const landmarker = await FaceLandmarker.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: MODEL_PATH },
-    runningMode: "VIDEO",
-    numFaces: 1,
-    minFaceDetectionConfidence: 0.5,
-    minFacePresenceConfidence: 0.5,
-    minTrackingConfidence: 0.5,
-  });
-  return new BrowserGazeTracker(video, landmarker, onDebugFrame, calibration);
+  const releaseInfoFilter = acquireMediapipeInfoFilter();
+  try {
+    const vision = await FilesetResolver.forVisionTasks(WASM_ROOT);
+    const landmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: MODEL_PATH },
+      runningMode: "VIDEO",
+      numFaces: 1,
+      minFaceDetectionConfidence: 0.5,
+      minFacePresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    });
+    return new BrowserGazeTracker(
+      video,
+      landmarker,
+      onDebugFrame,
+      calibration,
+      releaseInfoFilter,
+    );
+  } catch (error) {
+    releaseInfoFilter();
+    throw error;
+  }
 }

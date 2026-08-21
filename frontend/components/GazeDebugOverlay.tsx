@@ -52,14 +52,6 @@ export default function GazeDebugOverlay({
             gaze x={frame.gaze.x.toFixed(3)} y={frame.gaze.y.toFixed(3)}
           </p>
         )}
-        {frame?.summary && (
-          <p>
-            face {frame.summary.face_detected_ratio?.toFixed(2)} · valid{" "}
-            {frame.summary.valid_gaze_ratio?.toFixed(2) ?? "-"} · front{" "}
-            {frame.summary.front_gaze_ratio?.toFixed(2) ?? "-"} · std{" "}
-            {frame.summary.std_gaze?.toFixed(3) ?? "-"}
-          </p>
-        )}
       </div>
     </div>
   );

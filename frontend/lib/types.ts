@@ -27,14 +27,6 @@ export interface GenerateQuestionsResponse {
 }
 
 export interface EyeTrackingSummary {
-  front_gaze_ratio?: number | null;
-  face_detected_ratio?: number | null;
-  std_gaze?: number | null;
-  mean_gaze_x?: number | null;
-  mean_gaze_y?: number | null;
-  gaze_std_x?: number | null;
-  gaze_std_y?: number | null;
-  valid_gaze_ratio?: number | null;
   gaze_heatmap?: GazeHeatmap | null;
 }
 
@@ -89,13 +81,6 @@ export interface MeasurementSummary {
   average_silence_duration_sec: number | null;
   average_silence_ratio: number | null;
   average_long_pause_count: number | null;
-  average_face_detected_ratio: number | null;
-  average_valid_gaze_ratio: number | null;
-  average_front_gaze_ratio: number | null;
-  average_mean_gaze_x: number | null;
-  average_mean_gaze_y: number | null;
-  average_gaze_std_x: number | null;
-  average_gaze_std_y: number | null;
 }
 
 export interface QuestionResult {

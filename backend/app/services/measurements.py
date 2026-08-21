@@ -20,7 +20,6 @@ def measurement_summary(request: MeasurementRequest) -> MeasurementSummary:
     """Average only measurements that exist; never invent missing values."""
     answers = request.answers
     speech = [answer.speech_metrics for answer in answers if answer.speech_metrics]
-    gaze = [answer.eye_tracking for answer in answers if answer.eye_tracking]
     return MeasurementSummary(
         average_answer_length_eojeol=_mean(
             [
@@ -42,27 +41,6 @@ def measurement_summary(request: MeasurementRequest) -> MeasurementSummary:
         average_long_pause_count=_mean(
             [float(item.long_pause_count) for item in speech]
         ),
-        average_face_detected_ratio=_mean(
-            [item.face_detected_ratio for item in gaze if item.face_detected_ratio is not None]
-        ),
-        average_valid_gaze_ratio=_mean(
-            [item.valid_gaze_ratio for item in gaze if item.valid_gaze_ratio is not None]
-        ),
-        average_front_gaze_ratio=_mean(
-            [item.front_gaze_ratio for item in gaze if item.front_gaze_ratio is not None]
-        ),
-        average_mean_gaze_x=_mean(
-            [item.mean_gaze_x for item in gaze if item.mean_gaze_x is not None]
-        ),
-        average_mean_gaze_y=_mean(
-            [item.mean_gaze_y for item in gaze if item.mean_gaze_y is not None]
-        ),
-        average_gaze_std_x=_mean(
-            [item.gaze_std_x for item in gaze if item.gaze_std_x is not None]
-        ),
-        average_gaze_std_y=_mean(
-            [item.gaze_std_y for item in gaze if item.gaze_std_y is not None]
-        ),
     )
 
 
@@ -72,16 +50,6 @@ def _display(value: float | None, suffix: str = "") -> str:
 
 def _summary_text(summary: MeasurementSummary) -> str:
     """Describe the reference and measured values without ranking the user."""
-    face_detected = (
-        summary.average_face_detected_ratio * 100
-        if summary.average_face_detected_ratio is not None
-        else None
-    )
-    valid_gaze = (
-        summary.average_valid_gaze_ratio * 100
-        if summary.average_valid_gaze_ratio is not None
-        else None
-    )
     return (
         f"{summary.reference_source} 기준 평균 답변시간은 약 "
         f"{summary.reference_average_total_duration_sec:.1f}초입니다. "
@@ -89,12 +57,7 @@ def _summary_text(summary: MeasurementSummary) -> str:
         f"{_display(summary.average_total_duration_sec, '초')}, "
         f"평균 실제 발화시간은 {_display(summary.average_speech_duration_sec, '초')}, "
         f"평균 무음시간은 {_display(summary.average_silence_duration_sec, '초')}입니다. "
-        f"평균 시선 측정값은 얼굴 검출 {_display(face_detected, '%')}, "
-        f"유효 시선 {_display(valid_gaze, '%')}, "
-        f"평균 위치 ({_display(summary.average_mean_gaze_x)}, "
-        f"{_display(summary.average_mean_gaze_y)}), "
-        f"표준편차 ({_display(summary.average_gaze_std_x)}, "
-        f"{_display(summary.average_gaze_std_y)})입니다."
+        "시선은 질문별 Heatmap으로 표시합니다."
     )
 
 

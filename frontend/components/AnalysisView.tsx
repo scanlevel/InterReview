@@ -85,17 +85,7 @@ function GazePanel({ summary }: { summary: EyeTrackingSummary | null | undefined
     return <p className="text-sm text-gray-500">시선 측정값이 없습니다.</p>;
   }
   return (
-    <div className="flex flex-col gap-3">
-      <Heatmap heatmap={summary.gaze_heatmap} />
-      <div>
-        <MetricRow label="평균 시선 위치 (중앙 기준 x)" value={fixed(summary.mean_gaze_x)} />
-        <MetricRow label="평균 시선 위치 (중앙 기준 y)" value={fixed(summary.mean_gaze_y)} />
-        <MetricRow label="시선 표준편차 x" value={fixed(summary.gaze_std_x)} />
-        <MetricRow label="시선 표준편차 y" value={fixed(summary.gaze_std_y)} />
-        <MetricRow label="유효 시선 프레임" value={percent(summary.valid_gaze_ratio)} />
-        <MetricRow label="얼굴 검출 프레임" value={percent(summary.face_detected_ratio)} />
-      </div>
-    </div>
+    <Heatmap heatmap={summary.gaze_heatmap} />
   );
 }
 
@@ -135,17 +125,6 @@ function SessionMeasurementPanel({ summary }: { summary: MeasurementSummary }) {
         <MetricRow
           label="내 평균 긴 무음 횟수"
           value={`${fixed(summary.average_long_pause_count, 1)}회`}
-        />
-        <MetricRow label="내 평균 얼굴 검출" value={percent(summary.average_face_detected_ratio)} />
-        <MetricRow label="내 평균 유효 시선" value={percent(summary.average_valid_gaze_ratio)} />
-        <MetricRow label="내 평균 정면 응시" value={percent(summary.average_front_gaze_ratio)} />
-        <MetricRow
-          label="내 평균 시선 위치 (x, y)"
-          value={`(${fixed(summary.average_mean_gaze_x)}, ${fixed(summary.average_mean_gaze_y)})`}
-        />
-        <MetricRow
-          label="내 평균 시선 표준편차 (x, y)"
-          value={`(${fixed(summary.average_gaze_std_x)}, ${fixed(summary.average_gaze_std_y)})`}
         />
       </div>
     </div>

@@ -25,14 +25,6 @@ def _answer() -> AnswerItem:
         category="협업·조직생활",
         transcript="당시 프로젝트에서 역할을 다시 나누고 결과를 확인했습니다.",
         eye_tracking=EyeTrackingSummary(
-            front_gaze_ratio=0.82,
-            face_detected_ratio=0.95,
-            valid_gaze_ratio=0.9,
-            mean_gaze_x=0.03,
-            mean_gaze_y=-0.02,
-            gaze_std_x=0.11,
-            gaze_std_y=0.09,
-            std_gaze=0.142,
             gaze_heatmap=GazeHeatmap(columns=2, rows=1, counts=[3, 1], total=4),
         ),
         speech_metrics=SpeechMetrics(
@@ -61,7 +53,7 @@ def test_report_keeps_measurements_and_session_averages() -> None:
     assert report.measurement_summary.average_total_duration_sec == 87.4
     assert report.measurement_summary.average_speech_duration_sec == 71.2
     assert report.measurement_summary.average_silence_duration_sec == 16.2
-    assert report.measurement_summary.average_valid_gaze_ratio == 0.9
+    assert report.summary_feedback.endswith("시선은 질문별 Heatmap으로 표시합니다.")
 
 
 def test_empty_answer_has_no_measurement_values() -> None:

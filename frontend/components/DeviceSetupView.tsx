@@ -6,26 +6,26 @@ import {
   createGazeCalibration,
   createBrowserGazeTracker,
   type BrowserGazeTracker,
-  type FivePointGazeSamples,
+  type GazeCalibrationSample,
   type GazeCalibration,
   type GazeDebugFrame,
+  type GazePoint,
 } from "@/lib/gaze";
 import { transcribe } from "@/lib/api";
 import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorder";
 
 const TEST_SENTENCE = "안녕하세요. 지금부터 모의 면접을 시작하겠습니다.";
+const CALIBRATION_PASSES = 2;
+const CALIBRATION_MOVE_MS = 1200;
+const CALIBRATION_SETTLE_MS = 450;
+const CALIBRATION_SAMPLE_MS = 900;
 const CALIBRATION_TARGETS = [
   { key: "center", label: "화면 중앙", x: 50, y: 50 },
   { key: "topLeft", label: "왼쪽 위", x: 10, y: 10 },
   { key: "topRight", label: "오른쪽 위", x: 90, y: 10 },
   { key: "bottomRight", label: "오른쪽 아래", x: 90, y: 90 },
   { key: "bottomLeft", label: "왼쪽 아래", x: 10, y: 90 },
-] as const satisfies ReadonlyArray<{
-  key: keyof FivePointGazeSamples;
-  label: string;
-  x: number;
-  y: number;
-}>;
+] as const;
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -55,6 +55,7 @@ export default function DeviceSetupView({
   const [gazeFrame, setGazeFrame] = useState<GazeDebugFrame | null>(null);
   const [calibrationState, setCalibrationState] = useState<CalibrationState>("idle");
   const [calibration, setCalibration] = useState<GazeCalibration | null>(null);
+  const [calibrationPosition, setCalibrationPosition] = useState({ x: 50, y: 50 });
   const [calibrationCountdown, setCalibrationCountdown] = useState<number | null>(null);
   const [calibrationTargetIndex, setCalibrationTargetIndex] = useState<number | null>(null);
   const [sttState, setSttState] = useState<SttState>("idle");
@@ -66,8 +67,19 @@ export default function DeviceSetupView({
   const gazeTrackerRef = useRef<BrowserGazeTracker | null>(null);
   const recorderRef = useRef<AnswerRecorder | null>(null);
   const calibrationRunRef = useRef(0);
+  const calibrationTargetRef = useRef<GazePoint | null>(null);
+  const calibrationSamplesRef = useRef<GazeCalibrationSample[]>([]);
+  const calibrationCollectingRef = useRef(false);
   const transferredRef = useRef(false);
   const disposedRef = useRef(false);
+
+  const onGazeFrame = useCallback((frame: GazeDebugFrame) => {
+    setGazeFrame(frame);
+    const target = calibrationTargetRef.current;
+    if (calibrationCollectingRef.current && target && frame.gaze) {
+      calibrationSamplesRef.current.push({ gaze: frame.gaze, target });
+    }
+  }, []);
 
   const configureDevices = useCallback(async (nextCameraId = "", nextMicrophoneId = "") => {
     setDeviceState("loading");
@@ -77,8 +89,12 @@ export default function DeviceSetupView({
     calibrationRunRef.current += 1;
     setCalibration(null);
     setCalibrationState("idle");
+    setCalibrationPosition({ x: 50, y: 50 });
     setCalibrationCountdown(null);
     setCalibrationTargetIndex(null);
+    calibrationTargetRef.current = null;
+    calibrationSamplesRef.current = [];
+    calibrationCollectingRef.current = false;
     setSttState("idle");
     setSttTranscript("");
     setSttMessage(null);
@@ -108,7 +124,7 @@ export default function DeviceSetupView({
 
       if (videoRef.current) {
         try {
-          const tracker = await createBrowserGazeTracker(videoRef.current, setGazeFrame);
+          const tracker = await createBrowserGazeTracker(videoRef.current, onGazeFrame);
           if (disposedRef.current || streamRef.current !== stream) {
             tracker.close();
             return;
@@ -128,7 +144,7 @@ export default function DeviceSetupView({
           (error instanceof Error ? `(${error.message})` : ""),
       );
     }
-  }, []);
+  }, [onGazeFrame]);
 
   useEffect(() => {
     disposedRef.current = false;
@@ -155,7 +171,13 @@ export default function DeviceSetupView({
     calibrationRunRef.current = run;
     setCalibration(null);
     setCalibrationState("running");
-    setCalibrationTargetIndex(null);
+    calibrationSamplesRef.current = [];
+    calibrationCollectingRef.current = false;
+    setCalibrationTargetIndex(0);
+    const firstTarget = CALIBRATION_TARGETS[0];
+    const firstPoint = { x: firstTarget.x / 100, y: firstTarget.y / 100 };
+    calibrationTargetRef.current = firstPoint;
+    setCalibrationPosition({ x: firstTarget.x, y: firstTarget.y });
 
     for (let count = 3; count >= 1; count -= 1) {
       if (calibrationRunRef.current !== run) return;
@@ -163,30 +185,49 @@ export default function DeviceSetupView({
       await wait(1000);
     }
     setCalibrationCountdown(null);
+    tracker.start();
 
-    const samples: Partial<FivePointGazeSamples> = {};
-    for (let index = 0; index < CALIBRATION_TARGETS.length; index += 1) {
-      if (calibrationRunRef.current !== run) return;
-      const target = CALIBRATION_TARGETS[index];
-      setCalibrationTargetIndex(index);
-      await wait(700);
-      if (calibrationRunRef.current !== run) return;
+    let currentPoint = firstPoint;
+    for (let pass = 0; pass < CALIBRATION_PASSES; pass += 1) {
+      for (let index = 0; index < CALIBRATION_TARGETS.length; index += 1) {
+        if (calibrationRunRef.current !== run) return;
+        const target = CALIBRATION_TARGETS[index];
+        const nextPoint = { x: target.x / 100, y: target.y / 100 };
+        setCalibrationTargetIndex(index);
 
-      tracker.start();
-      await wait(1200);
-      if (calibrationRunRef.current !== run) return;
-      const gaze = tracker.meanGaze(8);
-      if (!gaze) {
-        setCalibrationTargetIndex(null);
-        setCalibrationState("failed");
-        return;
+        if (pass !== 0 || index !== 0) {
+          const moveStarted = performance.now();
+          while (true) {
+            if (calibrationRunRef.current !== run) return;
+            const progress = Math.min(
+              1,
+              (performance.now() - moveStarted) / CALIBRATION_MOVE_MS,
+            );
+            const point = {
+              x: currentPoint.x + (nextPoint.x - currentPoint.x) * progress,
+              y: currentPoint.y + (nextPoint.y - currentPoint.y) * progress,
+            };
+            calibrationTargetRef.current = point;
+            setCalibrationPosition({ x: point.x * 100, y: point.y * 100 });
+            if (progress >= 1) break;
+            await wait(16);
+          }
+        }
+
+        currentPoint = nextPoint;
+        calibrationTargetRef.current = currentPoint;
+        setCalibrationPosition({ x: target.x, y: target.y });
+        await wait(CALIBRATION_SETTLE_MS);
+        if (calibrationRunRef.current !== run) return;
+        calibrationCollectingRef.current = true;
+        await wait(CALIBRATION_SAMPLE_MS);
+        calibrationCollectingRef.current = false;
       }
-      samples[target.key] = gaze;
     }
 
-    const nextCalibration = createGazeCalibration(
-      samples as FivePointGazeSamples,
-    );
+    calibrationTargetRef.current = null;
+    if (calibrationRunRef.current !== run) return;
+    const nextCalibration = createGazeCalibration(calibrationSamplesRef.current);
     setCalibrationTargetIndex(null);
     if (!nextCalibration) {
       setCalibrationState("failed");
@@ -334,12 +375,12 @@ export default function DeviceSetupView({
             <span
               className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full border-4 border-white bg-blue-500 shadow-lg shadow-blue-500/60"
               style={{
-                left: `${calibrationTarget.x}%`,
-                top: `${calibrationTarget.y}%`,
+                left: `${calibrationPosition.x}%`,
+                top: `${calibrationPosition.y}%`,
               }}
             />
             <p className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded bg-black/70 px-3 py-2 text-sm font-medium text-white">
-              파란 점을 바라보세요 · {calibrationTarget.label} ({calibrationTargetIndex! + 1}/5)
+              파란 점을 천천히 따라가세요 · {calibrationTarget.label} ({calibrationTargetIndex! + 1}/5)
             </p>
           </div>
         )}
@@ -354,7 +395,7 @@ export default function DeviceSetupView({
       <section className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
         <h3 className="font-medium">1. 시선 캘리브레이션</h3>
         <p className="mt-1 text-sm text-gray-500">
-          3·2·1 카운트다운 후 나타나는 파란 점을 따라 중앙과 네 모서리를 차례로 바라보세요.
+          3·2·1 카운트다운 후 파란 점이 중앙과 네 모서리를 천천히 두 번 이동합니다. 점을 따라 바라보세요.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
@@ -372,6 +413,8 @@ export default function DeviceSetupView({
               setCalibration(null);
               setCalibrationCountdown(null);
               setCalibrationTargetIndex(null);
+              calibrationTargetRef.current = null;
+              calibrationCollectingRef.current = false;
               setCalibrationState("skipped");
             }}
             disabled={busy}
@@ -380,7 +423,7 @@ export default function DeviceSetupView({
             건너뛰기
           </button>
           {calibrationState === "success" && (
-            <span className="text-sm text-emerald-600">완료 — 5점 화면 좌표 보정을 적용합니다.</span>
+            <span className="text-sm text-emerald-600">완료 — 반복 이동 샘플 기반 화면 좌표 보정을 적용합니다.</span>
           )}
           {calibrationState === "failed" && (
             <span className="text-sm text-amber-600">시선 샘플이 부족하거나 불안정합니다. 다시 시도하거나 건너뛰세요.</span>

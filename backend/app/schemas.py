@@ -12,24 +12,8 @@ from pydantic import BaseModel, Field
 
 
 class EyeTrackingSummary(BaseModel):
-    """Per-question gaze measurements produced in the browser."""
+    """Per-question gaze heatmap produced in the browser."""
 
-    front_gaze_ratio: float | None = Field(
-        default=None, description="정면 응시 프레임 비율 (0..1)"
-    )
-    face_detected_ratio: float | None = Field(
-        default=None, description="얼굴이 검출된 프레임 비율 (0..1)"
-    )
-    std_gaze: float | None = Field(
-        default=None, description="시선 좌표 표준편차 (기존 호환 필드)"
-    )
-    mean_gaze_x: float | None = Field(default=None, description="중앙 기준 평균 x")
-    mean_gaze_y: float | None = Field(default=None, description="중앙 기준 평균 y")
-    gaze_std_x: float | None = Field(default=None, description="시선 x 표준편차")
-    gaze_std_y: float | None = Field(default=None, description="시선 y 표준편차")
-    valid_gaze_ratio: float | None = Field(
-        default=None, description="유효 시선 프레임 비율 (0..1)"
-    )
     gaze_heatmap: "GazeHeatmap | None" = None
 
 
@@ -135,13 +119,6 @@ class MeasurementSummary(BaseModel):
     average_silence_duration_sec: float | None = None
     average_silence_ratio: float | None = None
     average_long_pause_count: float | None = None
-    average_face_detected_ratio: float | None = None
-    average_valid_gaze_ratio: float | None = None
-    average_front_gaze_ratio: float | None = None
-    average_mean_gaze_x: float | None = None
-    average_mean_gaze_y: float | None = None
-    average_gaze_std_x: float | None = None
-    average_gaze_std_y: float | None = None
 
 
 class QuestionResult(BaseModel):
