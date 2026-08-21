@@ -13,6 +13,7 @@ const MAX_EYE_DISAGREEMENT = 0.4;
 const FRONT_THRESHOLD = { x: 0.18, y: 0.1 };
 const CALIBRATED_FRONT_THRESHOLD = { x: 0.2, y: 0.15 };
 const SAMPLE_INTERVAL_MS = 100;
+const GAZE_SMOOTHING_ALPHA = 0.15;
 export const HEATMAP_COLUMNS = 12;
 export const HEATMAP_ROWS = 8;
 
@@ -390,10 +391,13 @@ export class BrowserGazeTracker {
       this.smoothedGaze = gaze;
       return gaze;
     }
-    const alpha = 0.25;
     this.smoothedGaze = {
-      x: this.smoothedGaze.x + alpha * (gaze.x - this.smoothedGaze.x),
-      y: this.smoothedGaze.y + alpha * (gaze.y - this.smoothedGaze.y),
+      x:
+        this.smoothedGaze.x +
+        GAZE_SMOOTHING_ALPHA * (gaze.x - this.smoothedGaze.x),
+      y:
+        this.smoothedGaze.y +
+        GAZE_SMOOTHING_ALPHA * (gaze.y - this.smoothedGaze.y),
     };
     return this.smoothedGaze;
   }

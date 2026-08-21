@@ -22,12 +22,16 @@ test("keeps the gaze result as a heatmap", () => {
 test("builds calibration from repeated, noisy target samples", () => {
   const targetSamples = [
     { target: { x: 0.1, y: 0.1 }, gaze: { x: 0.4, y: -0.3 } },
+    { target: { x: 0.5, y: 0.1 }, gaze: { x: 0.1, y: -0.3 } },
     { target: { x: 0.9, y: 0.1 }, gaze: { x: -0.2, y: -0.3 } },
+    { target: { x: 0.1, y: 0.5 }, gaze: { x: 0.4, y: 0 } },
     { target: { x: 0.5, y: 0.5 }, gaze: { x: 0.1, y: 0 } },
-    { target: { x: 0.9, y: 0.9 }, gaze: { x: -0.2, y: 0.3 } },
+    { target: { x: 0.9, y: 0.5 }, gaze: { x: -0.2, y: 0 } },
     { target: { x: 0.1, y: 0.9 }, gaze: { x: 0.4, y: 0.3 } },
+    { target: { x: 0.5, y: 0.9 }, gaze: { x: 0.1, y: 0.3 } },
+    { target: { x: 0.9, y: 0.9 }, gaze: { x: -0.2, y: 0.3 } },
   ];
-  const samples = Array.from({ length: 8 }, (_, repeat) =>
+  const samples = Array.from({ length: 4 }, (_, repeat) =>
     targetSamples.map((sample, index) => ({
       target: sample.target,
       gaze: {

@@ -15,16 +15,19 @@ import { transcribe } from "@/lib/api";
 import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorder";
 
 const TEST_SENTENCE = "안녕하세요. 지금부터 모의 면접을 시작하겠습니다.";
-const CALIBRATION_PASSES = 2;
-const CALIBRATION_MOVE_MS = 1200;
+const CALIBRATION_MOVE_SPEED = 0.25;
 const CALIBRATION_SETTLE_MS = 450;
 const CALIBRATION_SAMPLE_MS = 900;
 const CALIBRATION_TARGETS = [
-  { key: "center", label: "화면 중앙", x: 50, y: 50 },
   { key: "topLeft", label: "왼쪽 위", x: 10, y: 10 },
+  { key: "topCenter", label: "위 중앙", x: 50, y: 10 },
   { key: "topRight", label: "오른쪽 위", x: 90, y: 10 },
-  { key: "bottomRight", label: "오른쪽 아래", x: 90, y: 90 },
+  { key: "middleLeft", label: "왼쪽 중앙", x: 10, y: 50 },
+  { key: "center", label: "화면 중앙", x: 50, y: 50 },
+  { key: "middleRight", label: "오른쪽 중앙", x: 90, y: 50 },
   { key: "bottomLeft", label: "왼쪽 아래", x: 10, y: 90 },
+  { key: "bottomCenter", label: "아래 중앙", x: 50, y: 90 },
+  { key: "bottomRight", label: "오른쪽 아래", x: 90, y: 90 },
 ] as const;
 
 function wait(milliseconds: number): Promise<void> {
@@ -37,6 +40,7 @@ export interface DeviceSetupResult {
 }
 
 type CalibrationState = "idle" | "running" | "success" | "failed" | "skipped";
+type CalibrationPhase = "idle" | "to-target" | "target" | "to-center";
 type SttState = "idle" | "recording" | "checking" | "review" | "success" | "failed" | "skipped";
 
 export default function DeviceSetupView({
@@ -54,6 +58,7 @@ export default function DeviceSetupView({
   const [gazeState, setGazeState] = useState<"loading" | "ready" | "failed">("loading");
   const [gazeFrame, setGazeFrame] = useState<GazeDebugFrame | null>(null);
   const [calibrationState, setCalibrationState] = useState<CalibrationState>("idle");
+  const [calibrationPhase, setCalibrationPhase] = useState<CalibrationPhase>("idle");
   const [calibration, setCalibration] = useState<GazeCalibration | null>(null);
   const [calibrationPosition, setCalibrationPosition] = useState({ x: 50, y: 50 });
   const [calibrationCountdown, setCalibrationCountdown] = useState<number | null>(null);
@@ -89,6 +94,7 @@ export default function DeviceSetupView({
     calibrationRunRef.current += 1;
     setCalibration(null);
     setCalibrationState("idle");
+    setCalibrationPhase("idle");
     setCalibrationPosition({ x: 50, y: 50 });
     setCalibrationCountdown(null);
     setCalibrationTargetIndex(null);
@@ -171,13 +177,13 @@ export default function DeviceSetupView({
     calibrationRunRef.current = run;
     setCalibration(null);
     setCalibrationState("running");
+    setCalibrationPhase("to-target");
     calibrationSamplesRef.current = [];
     calibrationCollectingRef.current = false;
     setCalibrationTargetIndex(0);
-    const firstTarget = CALIBRATION_TARGETS[0];
-    const firstPoint = { x: firstTarget.x / 100, y: firstTarget.y / 100 };
-    calibrationTargetRef.current = firstPoint;
-    setCalibrationPosition({ x: firstTarget.x, y: firstTarget.y });
+    const centerPoint = { x: 0.5, y: 0.5 };
+    calibrationTargetRef.current = null;
+    setCalibrationPosition({ x: 50, y: 50 });
 
     for (let count = 3; count >= 1; count -= 1) {
       if (calibrationRunRef.current !== run) return;
@@ -187,48 +193,56 @@ export default function DeviceSetupView({
     setCalibrationCountdown(null);
     tracker.start();
 
-    let currentPoint = firstPoint;
-    for (let pass = 0; pass < CALIBRATION_PASSES; pass += 1) {
-      for (let index = 0; index < CALIBRATION_TARGETS.length; index += 1) {
-        if (calibrationRunRef.current !== run) return;
-        const target = CALIBRATION_TARGETS[index];
-        const nextPoint = { x: target.x / 100, y: target.y / 100 };
-        setCalibrationTargetIndex(index);
-
-        if (pass !== 0 || index !== 0) {
-          const moveStarted = performance.now();
-          while (true) {
-            if (calibrationRunRef.current !== run) return;
-            const progress = Math.min(
-              1,
-              (performance.now() - moveStarted) / CALIBRATION_MOVE_MS,
-            );
-            const point = {
-              x: currentPoint.x + (nextPoint.x - currentPoint.x) * progress,
-              y: currentPoint.y + (nextPoint.y - currentPoint.y) * progress,
-            };
-            calibrationTargetRef.current = point;
-            setCalibrationPosition({ x: point.x * 100, y: point.y * 100 });
-            if (progress >= 1) break;
-            await wait(16);
-          }
-        }
-
-        currentPoint = nextPoint;
-        calibrationTargetRef.current = currentPoint;
-        setCalibrationPosition({ x: target.x, y: target.y });
-        await wait(CALIBRATION_SETTLE_MS);
-        if (calibrationRunRef.current !== run) return;
-        calibrationCollectingRef.current = true;
-        await wait(CALIBRATION_SAMPLE_MS);
-        calibrationCollectingRef.current = false;
+    const moveTo = async (from: GazePoint, to: GazePoint): Promise<boolean> => {
+      const distance = Math.hypot(to.x - from.x, to.y - from.y);
+      const duration = (distance / CALIBRATION_MOVE_SPEED) * 1000;
+      const moveStarted = performance.now();
+      while (true) {
+        if (calibrationRunRef.current !== run) return false;
+        const progress = duration
+          ? Math.min(1, (performance.now() - moveStarted) / duration)
+          : 1;
+        const point = {
+          x: from.x + (to.x - from.x) * progress,
+          y: from.y + (to.y - from.y) * progress,
+        };
+        setCalibrationPosition({ x: point.x * 100, y: point.y * 100 });
+        if (progress >= 1) return true;
+        await wait(16);
       }
+    };
+
+    for (let index = 0; index < CALIBRATION_TARGETS.length; index += 1) {
+      if (calibrationRunRef.current !== run) return;
+      const target = CALIBRATION_TARGETS[index];
+      const targetPoint = { x: target.x / 100, y: target.y / 100 };
+      setCalibrationTargetIndex(index);
+      setCalibrationPhase("to-target");
+      calibrationTargetRef.current = null;
+      if (!(await moveTo(centerPoint, targetPoint))) return;
+
+      calibrationTargetRef.current = targetPoint;
+      setCalibrationPhase("target");
+      setCalibrationPosition({ x: target.x, y: target.y });
+      await wait(CALIBRATION_SETTLE_MS);
+      if (calibrationRunRef.current !== run) return;
+      calibrationCollectingRef.current = true;
+      await wait(CALIBRATION_SAMPLE_MS);
+      calibrationCollectingRef.current = false;
+      if (calibrationRunRef.current !== run) return;
+
+      setCalibrationPhase("to-center");
+      calibrationTargetRef.current = null;
+      if (!(await moveTo(targetPoint, centerPoint))) return;
+      setCalibrationPosition({ x: 50, y: 50 });
+      await wait(CALIBRATION_SETTLE_MS);
     }
 
     calibrationTargetRef.current = null;
     if (calibrationRunRef.current !== run) return;
     const nextCalibration = createGazeCalibration(calibrationSamplesRef.current);
     setCalibrationTargetIndex(null);
+    setCalibrationPhase("idle");
     if (!nextCalibration) {
       setCalibrationState("failed");
       return;
@@ -380,7 +394,7 @@ export default function DeviceSetupView({
               }}
             />
             <p className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded bg-black/70 px-3 py-2 text-sm font-medium text-white">
-              파란 점을 천천히 따라가세요 · {calibrationTarget.label} ({calibrationTargetIndex! + 1}/5)
+              {calibrationPhase === "to-center" ? "중앙으로 돌아가세요" : "파란 점을 천천히 따라가세요"} · {calibrationTarget.label} ({calibrationTargetIndex! + 1}/9)
             </p>
           </div>
         )}
@@ -395,7 +409,7 @@ export default function DeviceSetupView({
       <section className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
         <h3 className="font-medium">1. 시선 캘리브레이션</h3>
         <p className="mt-1 text-sm text-gray-500">
-          3·2·1 카운트다운 후 파란 점이 중앙과 네 모서리를 천천히 두 번 이동합니다. 점을 따라 바라보세요.
+          3·2·1 카운트다운 후 3×3 아홉 점을 하나씩 중앙에서 출발해 갔다가 다시 중앙으로 돌아옵니다. 점을 천천히 따라 바라보세요.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
@@ -413,6 +427,7 @@ export default function DeviceSetupView({
               setCalibration(null);
               setCalibrationCountdown(null);
               setCalibrationTargetIndex(null);
+              setCalibrationPhase("idle");
               calibrationTargetRef.current = null;
               calibrationCollectingRef.current = false;
               setCalibrationState("skipped");
@@ -423,7 +438,7 @@ export default function DeviceSetupView({
             건너뛰기
           </button>
           {calibrationState === "success" && (
-            <span className="text-sm text-emerald-600">완료 — 반복 이동 샘플 기반 화면 좌표 보정을 적용합니다.</span>
+            <span className="text-sm text-emerald-600">완료 — 9점 중앙 왕복 샘플 기반 화면 좌표 보정을 적용합니다.</span>
           )}
           {calibrationState === "failed" && (
             <span className="text-sm text-amber-600">시선 샘플이 부족하거나 불안정합니다. 다시 시도하거나 건너뛰세요.</span>
