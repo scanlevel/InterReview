@@ -1,4 +1,4 @@
-"""``/evaluate`` route — turns a completed interview into a scored report."""
+"""``/evaluate`` route — turns a completed interview into a measurement report."""
 
 from __future__ import annotations
 

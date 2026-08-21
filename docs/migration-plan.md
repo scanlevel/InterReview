@@ -71,8 +71,8 @@ InterReview/  (new_framework)
 | POST | `/stt` | 오디오 blob(multipart) → transcript |
 | POST | `/evaluate` | {프로필, 질문, transcripts, 시선요약} → 평가 리포트 |
 
-평가 응답 스키마는 기존 계약을 유지·확장:
-`{ total_score, status, summary_feedback, results[] }`
+평가 응답은 숫자 점수 없이 질문별 내용 상태와 원문 측정값을 반환한다:
+`{ status, engine, summary_feedback, measurement_summary, results[] }`
 
 ## 6. 단계
 
@@ -82,10 +82,10 @@ InterReview/  (new_framework)
   - [x] Next.js 스캐폴드 + `/health` 호출로 연결 확인 (CORS 검증됨)
 - **Phase 1 — 백엔드 코어** *(진행 중)*
   - [x] `services/questions.py` (룰 기반 이식) + `POST /questions`
-  - [x] `services/evaluate.py` **룰기반 평가** + `POST /evaluate` (키 없이 동작)
+  - [x] `services/evaluate.py` **질문별 내용 확인·측정값 리포트** + `POST /evaluate`
   - [x] `services/stt.py` (CLOVA 프록시, multipart 수신) + `POST /stt`
-  - [ ] `services/llm.py` (Anthropic, JSON 스키마 강제)
-  - [ ] `services/evaluate.py` **LLM 평가 경로** ★ — 키 확보 후 (룰기반 fallback 유지)
+  - [x] `services/llm.py` (Anthropic, JSON 스키마 강제)
+  - [x] `services/evaluate.py` **LLM 내용 확인 경로** ★ — 키가 없으면 원문·측정값 fallback
 - **Phase 2 — 프론트 캡처** *(A·B·C 완료)*
   - [x] A: setup → questions → interview(텍스트) → evaluate → 리포트 세로 슬라이스
   - [x] B: `lib/recorder.ts`(녹음 + 16kHz WAV 변환) + 캠 미리보기 + `/stt` 전사
@@ -110,12 +110,12 @@ InterReview/  (new_framework)
   eye_tracking: {
     front_gaze_ratio: number,     // 정면 응시 프레임 비율 0..1
     face_detected_ratio: number,  // 얼굴 검출 프레임 비율 0..1
-    std_gaze: number,             // 시선 좌표 표준편차(흔들림), >0.15면 감점
+    std_gaze: number,             // 시선 좌표 표준편차(분포 표시용)
   }
   ```
   (타입은 `frontend/lib/types.ts`의 `EyeTrackingSummary`.)
-- **평가 반영:** 백엔드 `services/evaluate.py._score_delivery()`가 이 세 값으로
-  "전달 태도" 점수·코멘트를 산출. 값이 없으면 `na`로 처리.
+- **결과 표시:** 백엔드와 프론트엔드가 이 값을 질문별 측정값과 세션 평균으로
+  그대로 표시한다. 값이 없으면 해당 항목을 `—`로 표시한다.
 - **참고 로직:** `docs/reference/eyetracking.py`(옛 Streamlit 정면 응시 판정 등)와
   `frontend/public/face_landmarker.task`(동일 모델, 브라우저용은
   `@mediapipe/tasks-vision`의 FaceLandmarker로 `"/face_landmarker.task"` 로드) 재사용.
@@ -126,5 +126,4 @@ InterReview/  (new_framework)
 - 평가 LLM: **Claude Sonnet 5**(개인화 Haiku 4.5) 잠정. ANTHROPIC_API_KEY 필요.
 - 세션/상태 보관: MVP는 프론트 상태 + 무상태 백엔드(파일/DB 저장 없음).
 - 배포: 프론트(Vercel 등) + 백엔드(별도). 캠/마이크 위해 HTTPS 필수.
-- 시선→점수 반영은 초기엔 **코멘트 근거로만**(직접 점수화는 신뢰도 논란).
 ```

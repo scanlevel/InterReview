@@ -11,27 +11,33 @@ export default function SetupView({
   const [name, setName] = useState("");
   const [job, setJob] = useState("");
   const [experience, setExperience] = useState<"NEW" | "EXPERIENCED">("NEW");
+  const [resumeText, setResumeText] = useState("");
+  const [technologies, setTechnologies] = useState("");
+  const [projects, setProjects] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     onStart({
       name: name.trim() || undefined,
       job: job.trim() || undefined,
       experience,
+      resume_text: resumeText.trim() || undefined,
+      technologies: technologies.trim() || undefined,
+      projects: projects.trim() || undefined,
     });
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <p className="text-sm text-gray-600 dark:text-gray-300">
-        프로필을 입력하면 직무·경력에 맞는 6개의 면접 질문이 생성됩니다.
+        질문은행에서 항목별로 한 문항씩 무작위 선택합니다. 아래 정보를 넣으면 선택된 질문만 개인화됩니다.
       </p>
 
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">이름 (선택)</span>
         <input
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(event) => setName(event.target.value)}
           placeholder="홍길동"
           className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
         />
@@ -41,7 +47,7 @@ export default function SetupView({
         <span className="font-medium">지원 직무 (선택)</span>
         <input
           value={job}
-          onChange={(e) => setJob(e.target.value)}
+          onChange={(event) => setJob(event.target.value)}
           placeholder="백엔드 개발자"
           className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
         />
@@ -63,6 +69,39 @@ export default function SetupView({
           ))}
         </div>
       </fieldset>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">자기소개·이력 (선택)</span>
+        <textarea
+          value={resumeText}
+          onChange={(event) => setResumeText(event.target.value)}
+          rows={3}
+          placeholder="개인화에 사용할 자기소개서나 이력 내용을 입력하세요."
+          className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">기술 스택 (선택)</span>
+        <textarea
+          value={technologies}
+          onChange={(event) => setTechnologies(event.target.value)}
+          rows={2}
+          placeholder="Python, FastAPI, PostgreSQL"
+          className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">프로젝트 경험 (선택)</span>
+        <textarea
+          value={projects}
+          onChange={(event) => setProjects(event.target.value)}
+          rows={3}
+          placeholder="프로젝트에서 맡은 역할과 결과를 간단히 입력하세요."
+          className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+        />
+      </label>
 
       <button
         type="submit"

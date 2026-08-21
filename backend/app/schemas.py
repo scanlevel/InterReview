@@ -1,23 +1,18 @@
-"""Pydantic request/response models for the InterReview API.
+"""Pydantic contracts for the Track B interview flow.
 
-These mirror the data contract the Streamlit app used (``total_score`` /
-``summary_feedback`` / ``results[]`` with per-question ``evaluation_items``) so
-the evaluation output stays compatible while the frontend is rebuilt.
+Vision and audio fields are measurements, not scores.  The only qualitative
+field in the result is the optional LLM answer-content judgement.
 """
 
 from __future__ import annotations
 
 from typing import Any, Literal
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
 class EyeTrackingSummary(BaseModel):
-    """Per-question gaze summary produced in the browser (MediaPipe).
-
-    All fields are optional so a question with no camera data still validates.
-    """
+    """Per-question gaze measurements produced in the browser."""
 
     front_gaze_ratio: float | None = Field(
         default=None, description="정면 응시 프레임 비율 (0..1)"
@@ -26,8 +21,38 @@ class EyeTrackingSummary(BaseModel):
         default=None, description="얼굴이 검출된 프레임 비율 (0..1)"
     )
     std_gaze: float | None = Field(
-        default=None, description="시선 좌표 표준편차 (흔들림, 클수록 산만)"
+        default=None, description="시선 좌표 표준편차 (기존 호환 필드)"
     )
+    mean_gaze_x: float | None = Field(default=None, description="중앙 기준 평균 x")
+    mean_gaze_y: float | None = Field(default=None, description="중앙 기준 평균 y")
+    gaze_std_x: float | None = Field(default=None, description="시선 x 표준편차")
+    gaze_std_y: float | None = Field(default=None, description="시선 y 표준편차")
+    valid_gaze_ratio: float | None = Field(
+        default=None, description="유효 시선 프레임 비율 (0..1)"
+    )
+    gaze_heatmap: "GazeHeatmap | None" = None
+
+
+class GazeHeatmap(BaseModel):
+    """Compact row-major gaze histogram for rendering without raw video."""
+
+    columns: int = Field(default=12, ge=1, le=64)
+    rows: int = Field(default=8, ge=1, le=64)
+    counts: list[int] = Field(default_factory=list)
+    total: int = Field(default=0, ge=0)
+
+
+class SpeechMetrics(BaseModel):
+    """VAD-derived timing values for one answer."""
+
+    total_duration_sec: float = Field(default=0, ge=0)
+    speech_duration_sec: float = Field(default=0, ge=0)
+    speech_rate_eojeol_per_min: float | None = Field(default=None, ge=0)
+    silence_duration_sec: float = Field(default=0, ge=0)
+    silence_ratio: float = Field(default=0, ge=0, le=1)
+    long_pause_count: int = Field(default=0, ge=0)
+    max_pause_sec: float = Field(default=0, ge=0)
+    long_pause_threshold_sec: float = Field(default=2.0, gt=0)
 
 
 class AnswerItem(BaseModel):
@@ -35,9 +60,11 @@ class AnswerItem(BaseModel):
 
     question_id: str
     question: str
+    original_question: str | None = None
     category: str | None = None
     transcript: str = ""
     eye_tracking: EyeTrackingSummary | None = None
+    speech_metrics: SpeechMetrics | None = None
 
 
 class Question(BaseModel):
@@ -49,6 +76,7 @@ class Question(BaseModel):
     subcategory: str  # "<category>::<expression>" from the source domain
     experience: str  # NEW | EXPERIENCED
     text: str
+    original_text: str | None = None
     source_file: str | None = None
     occurrence_count: int = 1
 
@@ -71,8 +99,7 @@ class GenerateQuestionsResponse(BaseModel):
 class EvaluateRequest(BaseModel):
     """Payload for ``POST /evaluate``."""
 
-    # Kept loose on purpose: the rule-based engine barely uses the profile, and
-    # the LLM path will accept whatever context the frontend chooses to send.
+    # Kept loose so Track B can pass job/profile context without a second schema.
     profile: dict[str, Any] = Field(default_factory=dict)
     answers: list[AnswerItem] = Field(default_factory=list)
 
@@ -88,103 +115,53 @@ class TranscriptResponse(BaseModel):
     segment_count: int | None = None
 
 
-class BenchmarkSource(BaseModel):
-    dataset: str
-    source_sample_id: str | None = None
-    source_split: str | None = None
-    experience: str | None = None
+class ContentFeedback(BaseModel):
+    """LLM judgement of answer content, without a numeric score."""
+
+    answer_status: Literal["good", "partial", "off_topic", "insufficient"]
+    reason: str
+    missing_points: list[str] = Field(default_factory=list)
 
 
-class BenchmarkQuestion(BaseModel):
-    text: str
-    group: str | None = None
-    group_name: str | None = None
+class MeasurementSummary(BaseModel):
+    """Descriptive session averages; these are never converted to scores."""
 
-
-class BenchmarkAnswer(BaseModel):
-    text: str
-    word_count: int = 0
-
-
-class BenchmarkAudio(BaseModel):
-    question_wav: str
-    answer_wav: str
-
-
-class BenchmarkCandidate(BaseModel):
-    """Inspectable Q-A/audio pair; scoring fields are intentionally absent."""
-
-    sample_id: str
-    source: BenchmarkSource
-    question: BenchmarkQuestion
-    answer: BenchmarkAnswer
-    audio: BenchmarkAudio
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class BenchmarkSamplePage(BaseModel):
-    items: list[BenchmarkCandidate]
-    total: int
-    offset: int
-    limit: int
-
-
-class AnnotatorRegistrationRequest(BaseModel):
-    name: str = Field(min_length=1)
-    affiliation_or_major: str | None = None
-    interview_experience: str | None = None
-    evaluation_experience: str | None = None
-    note: str | None = None
-
-
-class BenchmarkScores(BaseModel):
-    relevance: Literal[0, 1, 2]
-    specificity: Literal[0, 1, 2]
-    coherence: Literal[0, 1, 2]
-    specialized: Literal[0, 1, 2]
-
-
-class SaveBenchmarkAnnotationRequest(BaseModel):
-    annotator_id: UUID
-    rubric_version: str = Field(min_length=1)
-    target_mode: Literal["pilot", "full"] = "full"
-    scores: BenchmarkScores
-    confidence: Literal[0, 1, 2]
-    note: str = ""
-
-
-class SaveAdjudicationRequest(BaseModel):
-    adjudicator_id: UUID
-    rubric_version: str = Field(min_length=1)
-    target_mode: Literal["pilot", "full"] = "full"
-    scores: BenchmarkScores
-    note: str = ""
-
-
-class EvaluationItem(BaseModel):
-    """A single scored dimension of one answer."""
-
-    name: str
-    score: int | None
-    status: str  # rule_based | no_answer | na
-    comment: str
+    reference_source: str = "ICT 데이터 분석 참고값"
+    reference_average_total_duration_sec: float = 90.0
+    reference_average_answer_length_eojeol: int = 131
+    average_answer_length_eojeol: float | None = None
+    average_total_duration_sec: float | None = None
+    average_speech_duration_sec: float | None = None
+    average_silence_duration_sec: float | None = None
+    average_silence_ratio: float | None = None
+    average_long_pause_count: float | None = None
+    average_face_detected_ratio: float | None = None
+    average_valid_gaze_ratio: float | None = None
+    average_front_gaze_ratio: float | None = None
+    average_mean_gaze_x: float | None = None
+    average_mean_gaze_y: float | None = None
+    average_gaze_std_x: float | None = None
+    average_gaze_std_y: float | None = None
 
 
 class QuestionResult(BaseModel):
-    """Evaluation of one question."""
+    """All user-visible measurements and content feedback for one question."""
 
     question_id: str | None
     question: str | None
     category: str | None
-    evaluation_items: list[EvaluationItem]
-    feedback: str
+    original_question: str | None = None
+    transcript: str
+    speech_metrics: SpeechMetrics | None = None
+    eye_tracking: EyeTrackingSummary | None = None
+    content: ContentFeedback
 
 
 class EvaluationReport(BaseModel):
-    """Full evaluation returned to the frontend."""
+    """Full question-by-question Track B report."""
 
-    total_score: int | None
-    status: str  # rule_based | llm | mock
-    engine: str  # "rule_based" | "llm"
+    status: str  # ok | fallback
+    engine: str  # "llm" | "fallback"
     summary_feedback: str
+    measurement_summary: MeasurementSummary
     results: list[QuestionResult]

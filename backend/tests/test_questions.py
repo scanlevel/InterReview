@@ -50,3 +50,4 @@ def test_questions_endpoint() -> None:
     assert len(body["questions"]) == _group_count()
     first = body["questions"][0]
     assert {"id", "category", "rule_group", "subcategory", "text"} <= first.keys()
+    assert first["original_text"] == first["text"]

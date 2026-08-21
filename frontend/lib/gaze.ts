@@ -13,6 +13,8 @@ const MAX_EYE_DISAGREEMENT = 0.4;
 const FRONT_THRESHOLD = { x: 0.18, y: 0.1 };
 const CALIBRATED_FRONT_THRESHOLD = { x: 0.2, y: 0.15 };
 const SAMPLE_INTERVAL_MS = 100;
+export const HEATMAP_COLUMNS = 12;
+export const HEATMAP_ROWS = 8;
 
 type Point = { x: number; y: number };
 export type GazePoint = { x: number; y: number };
@@ -116,6 +118,10 @@ function round(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
+function clamp(value: number, low = 0, high = 1): number {
+  return Math.max(low, Math.min(high, value));
+}
+
 function ordered(low: number, center: number, high: number): boolean {
   return (low < center && center < high) || (low > center && center > high);
 }
@@ -169,6 +175,9 @@ export class GazeAccumulator {
   private rawMeanX = 0;
   private rawMeanY = 0;
   private calibration?: GazeCalibration;
+  private readonly heatmap = new Array<number>(
+    HEATMAP_COLUMNS * HEATMAP_ROWS,
+  ).fill(0);
 
   constructor(calibration?: GazeCalibration) {
     this.calibration = calibration;
@@ -193,6 +202,16 @@ export class GazeAccumulator {
     this.meanY += dy / this.valid;
     this.m2X += dx * (measured.x - this.meanX);
     this.m2Y += dy * (measured.y - this.meanY);
+
+    const column = Math.min(
+      HEATMAP_COLUMNS - 1,
+      Math.max(0, Math.floor(measured.x * HEATMAP_COLUMNS)),
+    );
+    const row = Math.min(
+      HEATMAP_ROWS - 1,
+      Math.max(0, Math.floor(measured.y * HEATMAP_ROWS)),
+    );
+    this.heatmap[row * HEATMAP_COLUMNS + column] += 1;
   }
 
   isFront(gaze: GazePoint): boolean {
@@ -215,21 +234,39 @@ export class GazeAccumulator {
   }
 
   screenPoint(gaze: GazePoint): GazePoint {
-    return this.calibration ? applyGazeCalibration(gaze, this.calibration) : gaze;
+    if (this.calibration) return applyGazeCalibration(gaze, this.calibration);
+    // Keep the uncalibrated view broad and normalized for the heatmap.
+    return {
+      x: clamp(0.5 - gaze.x * 1.5),
+      y: clamp(0.5 + gaze.y * 1.5),
+    };
   }
 
   snapshot(): EyeTrackingSummary | null {
     if (!this.processed) return null;
-    const stdGaze = this.valid
-      ? Math.hypot(
-          Math.sqrt(this.m2X / this.valid),
-          Math.sqrt(this.m2Y / this.valid),
-        )
-      : null;
+    const gazeStdX = this.valid ? Math.sqrt(this.m2X / this.valid) : null;
+    const gazeStdY = this.valid ? Math.sqrt(this.m2Y / this.valid) : null;
+    const stdGaze =
+      gazeStdX === null || gazeStdY === null
+        ? null
+        : Math.hypot(gazeStdX, gazeStdY);
     return {
       face_detected_ratio: round(this.faceDetected / this.processed),
       front_gaze_ratio: this.valid ? round(this.front / this.valid) : null,
+      valid_gaze_ratio: round(this.valid / this.processed),
       std_gaze: stdGaze === null ? null : round(stdGaze),
+      mean_gaze_x: this.valid ? round(this.meanX - 0.5) : null,
+      mean_gaze_y: this.valid ? round(this.meanY - 0.5) : null,
+      gaze_std_x: gazeStdX === null ? null : round(gazeStdX),
+      gaze_std_y: gazeStdY === null ? null : round(gazeStdY),
+      gaze_heatmap: this.valid
+        ? {
+            columns: HEATMAP_COLUMNS,
+            rows: HEATMAP_ROWS,
+            counts: [...this.heatmap],
+            total: this.valid,
+          }
+        : null,
     };
   }
 }
@@ -261,6 +298,7 @@ export class BrowserGazeTracker {
   start(): void {
     this.stop();
     this.accumulator = new GazeAccumulator(this.calibration);
+    this.lastTimestamp = 0;
     this.nextSampleAt = 0;
     this.active = true;
     this.processFrame();
@@ -300,24 +338,28 @@ export class BrowserGazeTracker {
       this.nextSampleAt = now + SAMPLE_INTERVAL_MS;
       const timestamp = Math.max(now, this.lastTimestamp + 1);
       this.lastTimestamp = timestamp;
-      const result = this.landmarker.detectForVideo(this.video, timestamp);
-      const landmarks = result.faceLandmarks[0];
-      const gaze = landmarks
-        ? gazeFromLandmarks(
-            landmarks,
-            this.video.videoWidth,
-            this.video.videoHeight,
-          )
-        : null;
-      this.accumulator.add(Boolean(landmarks), gaze);
-      this.onDebugFrame?.({
-        faceDetected: Boolean(landmarks),
-        gaze,
-        screenPoint:
-          gaze && this.calibration ? this.accumulator.screenPoint(gaze) : null,
-        isFront: gaze ? this.accumulator.isFront(gaze) : null,
-        summary: this.accumulator.snapshot(),
-      });
+      try {
+        const result = this.landmarker.detectForVideo(this.video, timestamp);
+        const landmarks = result.faceLandmarks[0];
+        const gaze = landmarks
+          ? gazeFromLandmarks(
+              landmarks,
+              this.video.videoWidth,
+              this.video.videoHeight,
+            )
+          : null;
+        this.accumulator.add(Boolean(landmarks), gaze);
+        this.onDebugFrame?.({
+          faceDetected: Boolean(landmarks),
+          gaze,
+          screenPoint: gaze ? this.accumulator.screenPoint(gaze) : null,
+          isFront: gaze ? this.accumulator.isFront(gaze) : null,
+          summary: this.accumulator.snapshot(),
+        });
+      } catch {
+        // A dropped/invalid video frame should not stop the interview loop.
+        this.accumulator.add(false, null);
+      }
     }
     this.animationFrame = requestAnimationFrame(this.processFrame);
   };

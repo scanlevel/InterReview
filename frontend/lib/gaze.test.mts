@@ -12,11 +12,15 @@ test("summarizes face detection and front gaze per answer", () => {
   accumulator.add(true, { x: 0, y: 0 });
   accumulator.add(true, { x: 0.3, y: 0 });
 
-  assert.deepEqual(accumulator.snapshot(), {
-    face_detected_ratio: 0.667,
-    front_gaze_ratio: 0.5,
-    std_gaze: 0.15,
-  });
+  const summary = accumulator.snapshot();
+  assert.equal(summary?.face_detected_ratio, 0.667);
+  assert.equal(summary?.front_gaze_ratio, 0.5);
+  assert.equal(summary?.valid_gaze_ratio, 0.667);
+  assert.equal(summary?.std_gaze, 0.225);
+  assert.equal(summary?.mean_gaze_x, -0.225);
+  assert.equal(summary?.gaze_std_x, 0.225);
+  assert.equal(summary?.gaze_heatmap?.total, 2);
+  assert.equal(summary?.gaze_heatmap?.counts.reduce((sum, count) => sum + count, 0), 2);
 });
 
 test("maps five measured gaze points to screen coordinates", () => {

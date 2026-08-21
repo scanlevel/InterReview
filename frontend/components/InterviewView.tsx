@@ -8,9 +8,23 @@ import {
   type GazeCalibration,
   type GazeDebugFrame,
 } from "@/lib/gaze";
-import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorder";
-import type { AnswerItem, EyeTrackingSummary, Question } from "@/lib/types";
+import {
+  addTranscriptRate,
+  blobToWav16kWithMetrics,
+  createRecorder,
+  type AnswerRecorder,
+} from "@/lib/recorder";
+import type {
+  AnswerItem,
+  EyeTrackingSummary,
+  Question,
+  SpeechMetrics,
+} from "@/lib/types";
 import GazeDebugOverlay from "@/components/GazeDebugOverlay";
+
+function seconds(value: number): string {
+  return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, "0")}`;
+}
 
 export default function InterviewView({
   questions,
@@ -27,6 +41,7 @@ export default function InterviewView({
   const [transcripts, setTranscripts] = useState<Record<string, string>>({});
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [gazeStatus, setGazeStatus] = useState<
@@ -34,6 +49,9 @@ export default function InterviewView({
   >("loading");
   const [eyeTracking, setEyeTracking] = useState<
     Record<string, EyeTrackingSummary | null>
+  >({});
+  const [speechMetrics, setSpeechMetrics] = useState<
+    Record<string, SpeechMetrics | null>
   >({});
   const [debugGaze, setDebugGaze] = useState(true);
   const [gazeDebugFrame, setGazeDebugFrame] =
@@ -47,7 +65,16 @@ export default function InterviewView({
   const question = questions[index];
   const isLast = index === questions.length - 1;
   const current = transcripts[question.id] ?? "";
-  // Reuse the stream already approved and checked on the device setup screen.
+  const currentMetrics = speechMetrics[question.id] ?? null;
+
+  useEffect(() => {
+    if (!isRecording) return;
+    const timer = window.setInterval(() => {
+      setRecordingSeconds((value) => value + 0.25);
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [isRecording]);
+
   useEffect(() => {
     let cancelled = false;
     let gazeTracker: BrowserGazeTracker | null = null;
@@ -75,12 +102,12 @@ export default function InterviewView({
           }
         }
         setMediaError(null);
-      } catch (e) {
+      } catch (error) {
         if (!cancelled) {
           setGazeStatus("unavailable");
           setMediaError(
-            "카메라·마이크를 사용할 수 없습니다. 권한을 허용하거나, 아래에 직접 답변을 입력하세요. " +
-              (e instanceof Error ? `(${e.message})` : ""),
+            "카메라·마이크를 사용할 수 없습니다. 아래에 직접 답변을 입력할 수 있습니다. " +
+              (error instanceof Error ? `(${error.message})` : ""),
           );
         }
       }
@@ -93,7 +120,14 @@ export default function InterviewView({
   }, [calibration, stream]);
 
   function setTranscript(value: string) {
-    setTranscripts((prev) => ({ ...prev, [question.id]: value }));
+    setTranscripts((previous) => ({ ...previous, [question.id]: value }));
+    const metrics = speechMetrics[question.id];
+    if (metrics) {
+      setSpeechMetrics((previous) => ({
+        ...previous,
+        [question.id]: addTranscriptRate(metrics, value),
+      }));
+    }
   }
 
   async function toggleRecording() {
@@ -102,23 +136,33 @@ export default function InterviewView({
 
     if (!isRecording) {
       setNotice(null);
+      setGazeDebugFrame(null);
+      setRecordingSeconds(0);
       gazeTrackerRef.current?.start();
       recorder.start();
       setIsRecording(true);
       return;
     }
 
-    // Stop -> convert -> transcribe.
     setIsRecording(false);
     const gazeSummary = gazeTrackerRef.current?.stop() ?? null;
-    setEyeTracking((prev) => ({ ...prev, [question.id]: gazeSummary }));
+    setEyeTracking((previous) => ({ ...previous, [question.id]: gazeSummary }));
     setIsTranscribing(true);
     try {
       const raw = await recorder.stop();
-      const wav = await blobToWav16k(raw);
-      const result = await transcribe(wav, "answer.wav");
-      if (result.status === "ok" && result.transcript) {
-        setTranscript(result.transcript);
+      const converted = await blobToWav16kWithMetrics(raw);
+      setSpeechMetrics((previous) => ({
+        ...previous,
+        [question.id]: converted.metrics,
+      }));
+      const result = await transcribe(converted.wav, "answer.wav");
+      const transcript = result.status === "ok" ? result.transcript.trim() : "";
+      setSpeechMetrics((previous) => ({
+        ...previous,
+        [question.id]: addTranscriptRate(converted.metrics, transcript),
+      }));
+      if (transcript) {
+        setTranscript(transcript);
         setNotice(null);
       } else if (result.status === "no_speech") {
         setNotice("음성이 인식되지 않았습니다. 다시 녹음하거나 직접 입력하세요.");
@@ -127,10 +171,10 @@ export default function InterviewView({
       } else {
         setNotice(`전사 실패: ${result.error ?? result.status}. 직접 입력하세요.`);
       }
-    } catch (e) {
+    } catch (error) {
       setNotice(
         "녹음 처리 중 오류가 발생했습니다. 직접 입력하세요. " +
-          (e instanceof Error ? `(${e.message})` : ""),
+          (error instanceof Error ? `(${error.message})` : ""),
       );
     } finally {
       setIsTranscribing(false);
@@ -138,13 +182,19 @@ export default function InterviewView({
   }
 
   function submit() {
-    const items: AnswerItem[] = questions.map((q) => ({
-      question_id: q.id,
-      question: q.text,
-      category: q.category,
-      transcript: (transcripts[q.id] ?? "").trim(),
-      eye_tracking: eyeTracking[q.id] ?? null,
-    }));
+    const items: AnswerItem[] = questions.map((item) => {
+      const transcript = (transcripts[item.id] ?? "").trim();
+      const metrics = speechMetrics[item.id];
+      return {
+        question_id: item.id,
+        question: item.text,
+        original_question: item.original_text ?? item.text,
+        category: item.category,
+        transcript,
+        eye_tracking: eyeTracking[item.id] ?? null,
+        speech_metrics: metrics ? addTranscriptRate(metrics, transcript) : null,
+      };
+    });
     onFinish(items);
   }
 
@@ -160,6 +210,14 @@ export default function InterviewView({
       </div>
 
       <p className="text-lg leading-relaxed">{question.text}</p>
+      {question.original_text && question.original_text !== question.text && (
+        <details className="text-xs text-gray-500">
+          <summary className="cursor-pointer">질문은행 원문 보기</summary>
+          <p className="mt-1 rounded bg-gray-50 p-2 dark:bg-gray-900">
+            {question.original_text}
+          </p>
+        </details>
+      )}
 
       <div
         className={`relative overflow-hidden rounded-lg border-2 bg-black ${
@@ -177,7 +235,6 @@ export default function InterviewView({
           playsInline
           className="aspect-video w-full -scale-x-100 object-cover"
         />
-
         {debugGaze && (
           <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} />
         )}
@@ -216,7 +273,9 @@ export default function InterviewView({
           onClick={toggleRecording}
           disabled={isTranscribing || !!mediaError}
           className={`rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-40 ${
-            isRecording ? "bg-red-600 hover:bg-red-500" : "bg-gray-900 hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            isRecording
+              ? "bg-red-600 hover:bg-red-500"
+              : "bg-gray-900 hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
           }`}
         >
           {isRecording ? "■ 녹음 중지" : "● 녹음 시작"}
@@ -224,7 +283,7 @@ export default function InterviewView({
         {isRecording && (
           <span className="flex items-center gap-2 text-sm text-red-600">
             <span className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
-            녹음 중…
+            녹음 중 {seconds(recordingSeconds)}
           </span>
         )}
         {isTranscribing && (
@@ -240,17 +299,28 @@ export default function InterviewView({
         </span>
         <textarea
           value={current}
-          onChange={(e) => setTranscript(e.target.value)}
+          onChange={(event) => setTranscript(event.target.value)}
           rows={5}
           placeholder="녹음하면 음성 인식 결과가 여기에 채워집니다."
           className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
         />
       </label>
 
+      {currentMetrics && (
+        <div className="rounded-md border border-gray-200 p-3 text-xs dark:border-gray-800">
+          <p className="font-medium">현재 답변 측정값</p>
+          <p className="mt-1 text-gray-600 dark:text-gray-300">
+            총 {currentMetrics.total_duration_sec.toFixed(1)}초 · 발화 {currentMetrics.speech_duration_sec.toFixed(1)}초 ·
+            발화 속도 {currentMetrics.speech_rate_eojeol_per_min?.toFixed(1) ?? "—"}어절/분 ·
+            긴 무음 {currentMetrics.long_pause_count}회
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={() => setIndex((i) => Math.max(0, i - 1))}
+          onClick={() => setIndex((value) => Math.max(0, value - 1))}
           disabled={index === 0 || isRecording || isTranscribing}
           className="rounded-md border border-gray-300 px-4 py-2 text-sm disabled:opacity-40 dark:border-gray-700"
         >
@@ -264,16 +334,16 @@ export default function InterviewView({
             disabled={isRecording || isTranscribing}
             className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
           >
-            제출하고 평가받기
+            제출하고 결과 보기
           </button>
         ) : (
           <button
             type="button"
-            onClick={() => setIndex((i) => Math.min(questions.length - 1, i + 1))}
+            onClick={() => setIndex((value) => Math.min(questions.length - 1, value + 1))}
             disabled={isRecording || isTranscribing}
             className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
           >
-            다음
+            다음 질문
           </button>
         )}
       </div>

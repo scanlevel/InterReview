@@ -10,6 +10,7 @@ from app.services.questions import (
     _experience_from_profile,
     generate_questions,
 )
+from app.services.question_personalizer import personalize_questions
 
 router = APIRouter(tags=["questions"])
 
@@ -19,6 +20,7 @@ def create_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsResp
     """Generate interview questions for the given applicant profile."""
     try:
         questions = generate_questions(request.profile, seed=request.seed)
+        questions = personalize_questions(questions, request.profile)
     except QuestionBankError as error:
         raise HTTPException(status_code=500, detail=str(error)) from error
     return GenerateQuestionsResponse(

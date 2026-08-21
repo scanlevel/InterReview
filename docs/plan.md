@@ -39,7 +39,7 @@
 | 영역 | 파일 | 문제 |
 |------|------|------|
 | **STT** | `module/stt.py` | 더미. 오디오 캡처 안 함, transcript 항상 `""` |
-| **평가** | `module/evaluate.py` | 랜덤 딜레이만. 모든 점수 `None`, `not_implemented` |
+| **평가** | `module/evaluate.py` | 랜덤 딜레이만. 내용 확인·측정값 리포트 미구현 |
 | 질문 개인화 | `module/kanana_personalizer.py` | Kanana 의존 → 제거 대상 |
 
 ### 현재 데이터 흐름
@@ -95,15 +95,15 @@ setup → input(profile) → generating(질문 6개 생성)
 ### Phase 4 — AI 평가 (LLM) ★핵심
 - [ ] **`module/evaluate.py` 재작성**: `submitted_data` → 구조화 평가 리포트
   - 입력 조합: 질문 + STT transcript + eye_tracking snapshot + 룰(카테고리)
-  - LLM 프롬프트로 항목별 채점 + 코멘트 생성 (JSON 스키마 강제):
+  - LLM 프롬프트로 질문별 내용 상태 + 코멘트 생성 (JSON 스키마 강제):
     - 질문 적합성 / 답변 구체성 / 논리 구조(STAR) / 전달 태도
   - 전달 태도는 **시선 데이터(front_gaze_ratio, std_gaze)**를 근거로 반영
-  - `total_score`, `summary_feedback`, 질문별 `results[]` 채우기
+  - `summary_feedback`, `measurement_summary`, 질문별 `results[]` 채우기
   - transcript 없음/무응답 질문 처리 규칙
-- [ ] `analysis_page.py`가 실제 점수/피드백을 렌더하도록 확인·보강
+- [ ] `analysis_page.py`가 실제 측정값/내용 피드백을 렌더하도록 확인·보강
 
 ### Phase 5 — UX·안정화
-- [ ] `analysis_page` 결과 시각화 개선(점수 요약, 항목별 바/레이더 등)
+- [ ] `analysis_page` 결과 시각화 개선(측정값 요약, 질문별 상태 등)
 - [ ] 로딩/에러 상태 메시지 정리, API 실패 시 사용자 안내
 - [ ] 결과 다운로드(JSON/텍스트) 옵션(선택)
 - [ ] 배포 시 HTTPS/TURN 관련 README 갱신
@@ -132,17 +132,25 @@ setup → input(profile) → generating(질문 6개 생성)
 
 ## 5. 데이터 계약 (유지)
 
-평가 입력 `submitted_data`와 출력 리포트의 형태는 기존 구조를 **깨지 않게**
-확장한다 (analysis_page 호환). 출력 예:
+평가 입력 `submitted_data`와 출력 리포트는 숫자 점수 없이 질문별 내용 상태와
+측정값을 전달한다. 출력 예:
 ```json
 {
-  "total_score": 78,
   "status": "ok",
+  "engine": "llm",
   "summary_feedback": "...",
+  "measurement_summary": {
+    "reference_average_total_duration_sec": 90,
+    "reference_average_answer_length_eojeol": 131,
+    "average_total_duration_sec": 87.4,
+    "average_speech_duration_sec": 71.2,
+    "average_silence_duration_sec": 16.2
+  },
   "results": [
     { "question_id": "q1", "question": "...", "category": "...",
-      "evaluation_items": [{"name": "질문 적합성", "score": 80, "status": "ok", "comment": "..."}],
-      "feedback": "..." }
+      "transcript": "...",
+      "content": {"answer_status": "partial", "reason": "...", "missing_points": []},
+      "speech_metrics": {}, "eye_tracking": {} }
   ]
 }
 ```

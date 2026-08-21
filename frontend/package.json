@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:gaze": "node --test lib/gaze.test.mts"
+    "test:gaze": "node --test lib/gaze.test.mts",
+    "test:audio": "node --test lib/recorder.test.mts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.0.1",

@@ -1,262 +1,183 @@
-"""Interview evaluation.
-
-Two engines share one output shape (:class:`EvaluationReport`):
-
-* ``rule_based`` — no API key required. Heuristic scoring from transcript
-  length/structure and gaze summary. Deliberately conservative and clearly
-  labelled so nobody mistakes it for a real assessment.
-* ``llm`` — filled in once ``ANTHROPIC_API_KEY`` is configured; it will reuse
-  these schemas and fall back to the rule-based engine on any failure.
-
-The public entry point is :func:`evaluate_interview`, which selects the engine.
-"""
+"""Track B answer-content feedback and measurement report assembly."""
 
 from __future__ import annotations
 
-import re
+import json
+from statistics import fmean
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.schemas import (
     AnswerItem,
+    ContentFeedback,
     EvaluateRequest,
-    EvaluationItem,
     EvaluationReport,
-    EyeTrackingSummary,
+    MeasurementSummary,
     QuestionResult,
 )
-
-# --- Korean keyword buckets for a crude STAR-structure heuristic -------------
-# Presence of words from each bucket hints the answer touched Situation,
-# Action, and Result. This is a proxy, not comprehension.
-_SITUATION_HINTS = (
-    "상황", "당시", "프로젝트", "과제", "문제", "이슈", "배경", "환경", "목표",
-)
-_ACTION_HINTS = (
-    "그래서", "위해", "위하여", "방법", "시도", "진행", "구현", "분석", "설계",
-    "해결", "협업", "제안", "개발", "적용", "노력",
-)
-_RESULT_HINTS = (
-    "결과", "결국", "덕분", "개선", "달성", "성과", "배웠", "느꼈", "성공",
-    "완료", "향상", "단축", "증가", "감소",
-)
-
-_KOREAN_STOPWORDS = frozenset(
-    {
-        "그리고", "하지만", "그러나", "저는", "제가", "그것", "이것", "합니다",
-        "했습니다", "그", "저", "때문에", "위해", "대해", "대한", "있습니다",
-    }
-)
+from app.services.llm import LLMError, request_json
 
 
-def _clamp_score(value: float) -> int:
-    """Clamp to the 0..100 integer range."""
-    return int(max(0.0, min(100.0, round(value))))
+class ContentFeedbackItem(BaseModel):
+    question_id: str
+    answer_status: Literal["good", "partial", "off_topic", "insufficient"]
+    reason: str
+    missing_points: list[str] = Field(default_factory=list)
 
 
-def _content_tokens(text: str) -> set[str]:
-    """Return meaningful tokens (len >= 2, not stopwords) for overlap checks."""
-    tokens = re.findall(r"[0-9A-Za-z가-힣]+", text)
-    return {t for t in tokens if len(t) >= 2 and t not in _KOREAN_STOPWORDS}
+class _ContentFeedbackBatch(BaseModel):
+    results: list[ContentFeedbackItem] = Field(default_factory=list)
 
 
-def _score_specificity(transcript: str) -> EvaluationItem:
-    """Longer answers with concrete tokens (numbers) score higher."""
-    stripped = transcript.strip()
-    if not stripped:
-        return EvaluationItem(
-            name="답변 구체성",
-            score=None,
-            status="no_answer",
-            comment="음성이 인식되지 않아 구체성을 평가할 수 없습니다.",
-        )
-
-    char_count = len(stripped.replace(" ", ""))
-    digit_count = len(re.findall(r"\d", stripped))
-
-    # ~120 chars of speech maps toward a full length score; digits add a bonus
-    # for concrete detail (수치·기간·규모 등).
-    length_score = min(80.0, char_count / 120.0 * 80.0)
-    digit_bonus = min(20.0, digit_count * 5.0)
-    score = _clamp_score(length_score + digit_bonus)
-
-    if score >= 70:
-        comment = "충분한 분량과 구체적 표현이 포함되어 있습니다."
-    elif score >= 40:
-        comment = "답변은 있으나 사례·수치 등 구체적 근거를 더 넣으면 좋습니다."
-    else:
-        comment = "답변이 짧습니다. 경험과 근거를 구체적으로 풀어 설명해 보세요."
-    return EvaluationItem(
-        name="답변 구체성", score=score, status="rule_based", comment=comment
-    )
-
-
-def _score_structure(transcript: str) -> EvaluationItem:
-    """Reward coverage of Situation / Action / Result cues (STAR proxy)."""
-    stripped = transcript.strip()
-    if not stripped:
-        return EvaluationItem(
-            name="논리 구조",
-            score=None,
-            status="no_answer",
-            comment="음성이 인식되지 않아 논리 구조를 평가할 수 없습니다.",
-        )
-
-    covered = 0
-    for bucket in (_SITUATION_HINTS, _ACTION_HINTS, _RESULT_HINTS):
-        if any(word in stripped for word in bucket):
-            covered += 1
-
-    # 0/3 -> 30, 3/3 -> 90
-    score = _clamp_score(30 + covered * 20)
-    labels = ["상황", "행동", "결과"]
-    if covered == 3:
-        comment = "상황·행동·결과 흐름이 고르게 드러납니다."
-    else:
-        comment = (
-            f"{covered}/3 요소가 감지되었습니다. "
-            f"{'·'.join(labels)} 순서로 답하면 전달력이 올라갑니다."
-        )
-    return EvaluationItem(
-        name="논리 구조", score=score, status="rule_based", comment=comment
-    )
-
-
-def _score_relevance(question: str, transcript: str) -> EvaluationItem:
-    """Keyword overlap between question and answer as a weak relevance proxy."""
-    stripped = transcript.strip()
-    if not stripped:
-        return EvaluationItem(
-            name="질문 적합성",
-            score=None,
-            status="no_answer",
-            comment="음성이 인식되지 않아 질문 적합성을 평가할 수 없습니다.",
-        )
-
-    q_tokens = _content_tokens(question)
-    a_tokens = _content_tokens(stripped)
-    if not q_tokens:
-        # Can't measure overlap; give benefit of the doubt for a real answer.
-        score = 60
-        comment = "질문 키워드를 추출하지 못해 답변 여부만으로 판단했습니다."
-    else:
-        overlap = len(q_tokens & a_tokens) / len(q_tokens)
-        # Map 0..1 overlap onto 45..90 so an on-topic answer isn't over-penalized
-        # by the crude tokenizer.
-        score = _clamp_score(45 + overlap * 45)
-        if overlap >= 0.3:
-            comment = "질문의 핵심어를 답변에서 다루고 있습니다."
-        else:
-            comment = "질문 의도와 직접 연결되는 표현이 적습니다. 질문 키워드를 짚어 답해 보세요."
-    return EvaluationItem(
-        name="질문 적합성", score=score, status="rule_based", comment=comment
-    )
-
-
-def _score_delivery(eye: EyeTrackingSummary | None) -> EvaluationItem:
-    """Score delivery/attitude from the gaze summary only.
-
-    This is the one dimension where a rule-based number is genuinely grounded,
-    but gaze is still a noisy proxy — the comment says so.
-    """
-    if eye is None or (eye.front_gaze_ratio is None and eye.face_detected_ratio is None):
-        return EvaluationItem(
-            name="전달 태도",
-            score=None,
-            status="na",
-            comment="시선 데이터가 없어 전달 태도를 평가할 수 없습니다.",
-        )
-
-    front = eye.front_gaze_ratio if eye.front_gaze_ratio is not None else 0.5
-    base = front * 100.0
-
-    # Penalize low face-detection (looking away / off-frame) and jittery gaze.
-    if eye.face_detected_ratio is not None:
-        base *= 0.5 + 0.5 * max(0.0, min(1.0, eye.face_detected_ratio))
-    if eye.std_gaze is not None and eye.std_gaze > 0.15:
-        base -= min(20.0, (eye.std_gaze - 0.15) * 100.0)
-
-    score = _clamp_score(base)
-    if score >= 70:
-        comment = "정면 응시 비율이 높아 안정적인 인상을 줍니다. (시선 기반 참고 지표)"
-    elif score >= 45:
-        comment = "시선이 다소 분산됩니다. 카메라를 응시하는 시간을 늘려 보세요. (참고 지표)"
-    else:
-        comment = "정면 응시가 부족합니다. 화면보다 카메라를 보며 답하는 연습을 권합니다. (참고 지표)"
-    return EvaluationItem(
-        name="전달 태도", score=score, status="rule_based", comment=comment
-    )
-
-
-def _evaluate_answer(answer: AnswerItem) -> QuestionResult:
-    items = [
-        _score_relevance(answer.question, answer.transcript),
-        _score_specificity(answer.transcript),
-        _score_structure(answer.transcript),
-        _score_delivery(answer.eye_tracking),
-    ]
-
-    scored = [i.score for i in items if i.score is not None]
+def _fallback_feedback(answer: AnswerItem) -> ContentFeedback:
     if not answer.transcript.strip():
-        feedback = "이 질문에서는 음성 답변이 인식되지 않았습니다. 마이크 상태를 확인하고 다시 답변해 보세요."
-    elif scored:
-        avg = sum(scored) / len(scored)
-        if avg >= 70:
-            feedback = "핵심을 잘 짚어 답했습니다. 수치·사례를 조금 더 더하면 완성도가 높아집니다."
-        elif avg >= 45:
-            feedback = "무난한 답변입니다. 구조(상황·행동·결과)와 구체적 근거를 보강해 보세요."
-        else:
-            feedback = "답변을 더 구체적이고 구조적으로 확장할 여지가 큽니다."
-    else:
-        feedback = "평가할 수 있는 신호가 부족합니다."
-
-    return QuestionResult(
-        question_id=answer.question_id,
-        question=answer.question,
-        category=answer.category,
-        evaluation_items=items,
-        feedback=feedback,
+        return ContentFeedback(
+            answer_status="insufficient",
+            reason="전사된 답변이 없어 내용 확인을 할 수 없습니다.",
+        )
+    return ContentFeedback(
+        answer_status="partial",
+        reason="LLM 내용 확인을 사용할 수 없어 답변 원문과 측정값만 표시합니다.",
     )
 
 
-def _rule_based_evaluate(request: EvaluateRequest) -> EvaluationReport:
-    results = [_evaluate_answer(answer) for answer in request.answers]
+def _llm_feedback(
+    answers: list[AnswerItem], profile: dict[str, object]
+) -> tuple[list[ContentFeedback], bool]:
+    """Evaluate answer content in one request; any failure degrades safely."""
+    if not answers:
+        return [], False
+    settings = get_settings()
+    if not (settings.anthropic_api_key or "").strip():
+        return [_fallback_feedback(answer) for answer in answers], False
 
-    all_scores = [
-        item.score
-        for result in results
-        for item in result.evaluation_items
-        if item.score is not None
-    ]
-    total_score = _clamp_score(sum(all_scores) / len(all_scores)) if all_scores else None
-
-    if total_score is None:
-        summary = "인식된 답변이 없어 점수를 산출하지 못했습니다. 마이크·카메라 상태를 확인해 주세요."
-    else:
-        summary = (
-            f"규칙 기반 예비 평가 결과 총점은 {total_score}점입니다. "
-            "이 점수는 답변 길이·구조·시선 신호에 근거한 참고용이며, "
-            "정밀 평가는 LLM 연동 후 제공됩니다."
+    payload = {
+        "profile": profile,
+        "answers": [
+            {
+                "question_id": answer.question_id,
+                "question": answer.question,
+                "transcript": answer.transcript,
+            }
+            for answer in answers
+        ],
+    }
+    try:
+        result = request_json(
+            _ContentFeedbackBatch,
+            model=settings.eval_model,
+            max_tokens=2400,
+            system=(
+                "당신은 면접 답변 내용만 확인하는 검토자입니다. 시선·음성 수치나 "
+                "지원자의 감정, 성격, 합격 가능성은 판단하지 마세요. 질문과 transcript를 "
+                "근거로 answer_status를 good, partial, off_topic, insufficient 중 하나로 "
+                "고르고 짧은 reason과 실제로 빠진 내용의 missing_points를 작성하세요. "
+                "transcript에 없는 사실을 만들지 마세요. "
+                "반드시 {\"results\":[...]} JSON만 반환하세요."
+            ),
+            user=json.dumps(payload, ensure_ascii=False),
         )
+        by_id = {item.question_id: item for item in result.results}
+        if any(answer.question_id not in by_id for answer in answers):
+            raise LLMError("일부 질문의 내용 피드백이 누락되었습니다.")
+        return [
+            ContentFeedback(
+                answer_status=by_id[answer.question_id].answer_status,
+                reason=by_id[answer.question_id].reason.strip(),
+                missing_points=[
+                    point.strip()
+                    for point in by_id[answer.question_id].missing_points
+                    if point.strip()
+                ],
+            )
+            for answer in answers
+        ], True
+    except LLMError:
+        return [_fallback_feedback(answer) for answer in answers], False
 
-    return EvaluationReport(
-        total_score=total_score,
-        status="rule_based",
-        engine="rule_based",
-        summary_feedback=summary,
-        results=results,
+
+def _mean(values: list[float]) -> float | None:
+    return round(fmean(values), 2) if values else None
+
+
+def _measurement_summary(answers: list[AnswerItem]) -> MeasurementSummary:
+    speech = [answer.speech_metrics for answer in answers if answer.speech_metrics]
+    gaze = [answer.eye_tracking for answer in answers if answer.eye_tracking]
+    return MeasurementSummary(
+        average_answer_length_eojeol=_mean(
+            [float(len(answer.transcript.strip().split())) for answer in answers if answer.transcript.strip()]
+        ),
+        average_total_duration_sec=_mean([item.total_duration_sec for item in speech]),
+        average_speech_duration_sec=_mean([item.speech_duration_sec for item in speech]),
+        average_silence_duration_sec=_mean([item.silence_duration_sec for item in speech]),
+        average_silence_ratio=_mean([item.silence_ratio for item in speech]),
+        average_long_pause_count=_mean([float(item.long_pause_count) for item in speech]),
+        average_face_detected_ratio=_mean(
+            [item.face_detected_ratio for item in gaze if item.face_detected_ratio is not None]
+        ),
+        average_valid_gaze_ratio=_mean(
+            [item.valid_gaze_ratio for item in gaze if item.valid_gaze_ratio is not None]
+        ),
+        average_front_gaze_ratio=_mean(
+            [item.front_gaze_ratio for item in gaze if item.front_gaze_ratio is not None]
+        ),
+        average_mean_gaze_x=_mean(
+            [item.mean_gaze_x for item in gaze if item.mean_gaze_x is not None]
+        ),
+        average_mean_gaze_y=_mean(
+            [item.mean_gaze_y for item in gaze if item.mean_gaze_y is not None]
+        ),
+        average_gaze_std_x=_mean(
+            [item.gaze_std_x for item in gaze if item.gaze_std_x is not None]
+        ),
+        average_gaze_std_y=_mean(
+            [item.gaze_std_y for item in gaze if item.gaze_std_y is not None]
+        ),
+    )
+
+
+def _display(value: float | None, suffix: str = "") -> str:
+    return "—" if value is None else f"{value:.2f}{suffix}"
+
+
+def _summary_text(summary: MeasurementSummary) -> str:
+    return (
+        f"{summary.reference_source} 기준 평균 답변시간은 약 "
+        f"{summary.reference_average_total_duration_sec:.1f}초입니다. "
+        f"이번 세션의 평균 총 답변시간은 {_display(summary.average_total_duration_sec, '초')}, "
+        f"평균 실제 발화시간은 {_display(summary.average_speech_duration_sec, '초')}, "
+        f"평균 무음시간은 {_display(summary.average_silence_duration_sec, '초')}입니다. "
+        f"평균 시선 측정값은 얼굴 검출 {_display(summary.average_face_detected_ratio * 100 if summary.average_face_detected_ratio is not None else None, '%')}, "
+        f"유효 시선 {_display(summary.average_valid_gaze_ratio * 100 if summary.average_valid_gaze_ratio is not None else None, '%')}, "
+        f"평균 위치 ({_display(summary.average_mean_gaze_x)}, {_display(summary.average_mean_gaze_y)}), "
+        f"표준편차 ({_display(summary.average_gaze_std_x)}, {_display(summary.average_gaze_std_y)})입니다."
     )
 
 
 def evaluate_interview(request: EvaluateRequest) -> EvaluationReport:
-    """Evaluate an interview, choosing the best available engine.
+    """Return content feedback plus the unmodified audio/vision measurements."""
+    feedback, used_llm = _llm_feedback(request.answers, request.profile)
+    measurement_summary = _measurement_summary(request.answers)
+    results = [
+        QuestionResult(
+            question_id=answer.question_id,
+            question=answer.question,
+            category=answer.category,
+            original_question=answer.original_question,
+            transcript=answer.transcript,
+            speech_metrics=answer.speech_metrics,
+            eye_tracking=answer.eye_tracking,
+            content=content,
+        )
+        for answer, content in zip(request.answers, feedback, strict=True)
+    ]
 
-    Until the LLM path is implemented we always run the rule-based engine. Once
-    ``ANTHROPIC_API_KEY`` is set the LLM engine will be tried first with this as
-    the fallback.
-    """
-    settings = get_settings()
-    if settings.anthropic_api_key:
-        # LLM engine not implemented yet; fall through to rule-based. When added,
-        # this becomes: try LLM, except -> _rule_based_evaluate(request).
-        pass
-    return _rule_based_evaluate(request)
+    return EvaluationReport(
+        status="ok" if used_llm else "fallback",
+        engine="llm" if used_llm else "fallback",
+        summary_feedback=_summary_text(measurement_summary),
+        measurement_summary=measurement_summary,
+        results=results,
+    )
