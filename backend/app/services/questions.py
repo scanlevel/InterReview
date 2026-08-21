@@ -1,12 +1,8 @@
 """Generate interview questions from the ICT question-bank rules.
 
-Ported from the Streamlit ``module/question_generator.py`` with the Kanana
-local-model dependency and the Streamlit progress callback removed. Question
-personalization (previously Kanana) will be reintroduced later as an optional
-LLM step; for now the rule-bank text is returned verbatim.
-
-``rules.json`` is the single source of truth: it defines the service-facing
-groups and, per group, the source domains to draw one question from.
+``rules.json`` defines the service-facing groups and the source domains from
+which one question is randomly selected per group. The router then passes the
+selected questions to the optional LLM personalizer.
 """
 
 from __future__ import annotations

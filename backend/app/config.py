@@ -1,9 +1,7 @@
-"""Runtime settings loaded from the environment (and ``.env`` in development).
+"""Track B runtime settings loaded from the environment and development ``.env``.
 
-Ported and generalized from the Streamlit ``module/config.py``: alongside the
-CLOVA Speech credentials this now also carries LLM settings and the CORS
-allow-list for the Next.js frontend. Secrets are never hard-coded; ``.env`` is
-git-ignored and ``.env.example`` documents every key.
+Secrets are never hard-coded; ``.env`` is git-ignored and ``.env.example``
+documents every supported key.
 """
 
 from __future__ import annotations

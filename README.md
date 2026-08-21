@@ -5,14 +5,14 @@ AI 모의면접 서비스. 지원자가 가상 면접관의 질문을 받고 →
 
 **아키텍처:** Next.js(프론트) + FastAPI(백엔드). 캠·마이크·시선 캡처는
 브라우저가 담당하고, 서버는 STT/LLM 호출과 시크릿 보관만 맡는다.
-(Streamlit 기반 구버전에서 전환 — 배경은 `docs/migration-plan.md` 참고.)
+(최종 범위와 현재 상태는 `docs/plan.md`를 기준으로 한다.)
 
 ## 구조
 
 ```
 backend/    FastAPI + uv — 질문은행 / STT / 내용 확인 /health
 frontend/   Next.js (App Router, TS, Tailwind) — 면접·결과 UI
-docs/       migration-plan.md, reference/(구 로직 참고)
+docs/       plan.md, reference/(구 로직 참고)
 ```
 
 ## 실행
