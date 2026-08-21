@@ -15,7 +15,7 @@ import { transcribe } from "@/lib/api";
 import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorder";
 
 const TEST_SENTENCE = "안녕하세요. 지금부터 모의 면접을 시작하겠습니다.";
-const CALIBRATION_MOVE_SPEED = 0.25;
+const CALIBRATION_MOVE_SPEED = 0.32;
 const CALIBRATION_SETTLE_MS = 450;
 const CALIBRATION_SAMPLE_MS = 900;
 const CALIBRATION_TARGETS = [
