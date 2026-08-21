@@ -7,9 +7,9 @@ the evaluation output stays compatible while the frontend is rebuilt.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class EyeTrackingSummary(BaseModel):
@@ -114,3 +114,54 @@ class EvaluationReport(BaseModel):
     engine: str  # "rule_based" | "llm"
     summary_feedback: str
     results: list[QuestionResult]
+
+
+# --- Track A: 자소서 분석 ------------------------------------------------------
+# These are the output schema for `POST /essay/analyze`. Because the analysis
+# model is handed to the API as a structured-output format, only JSON Schema
+# features the API supports may appear here — notably `Literal` (rendered as
+# `enum`, enforced server-side) rather than numeric range constraints, which
+# the SDK strips from the schema and can only check after the fact.
+
+
+class EssayWeakness(BaseModel):
+    """One line of attack an interviewer could take on an experience."""
+
+    description: str = Field(description="면접관이 파고들 수 있는 약점")
+    expected_questions: list[str] = Field(
+        default_factory=list, description="이 약점에서 나올 예상 질문"
+    )
+
+
+class EssayExperience(BaseModel):
+    """One experience from the essay, with the claims it is meant to support."""
+
+    experience: str = Field(description="경험 요약")
+    claims: list[str] = Field(
+        default_factory=list, description="이 경험이 뒷받침한다고 주장하는 것"
+    )
+    risk_level: Literal[1, 2, 3, 4, 5] = Field(
+        description="면접에서 공격받을 가능성. 5가 가장 위험하다."
+    )
+    risk_reason: str = Field(description="그 위험도로 판단한 이유")
+    weaknesses: list[EssayWeakness] = Field(default_factory=list)
+
+
+class EssayAnalysis(BaseModel):
+    """Result of one essay analysis, experiences sorted most-risky first."""
+
+    experiences: list[EssayExperience] = Field(default_factory=list)
+    unsupported_claims: list[str] = Field(
+        default_factory=list, description="뒷받침하는 경험이 없는 주장"
+    )
+
+
+class EssayAnalyzeRequest(BaseModel):
+    """Payload for ``POST /essay/analyze``."""
+
+    # Bounded because this is a user-input boundary: the text is billed as
+    # input tokens, and a 자기소개서 is a few thousand characters at most.
+    essay: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
+    ]
+    profile: dict[str, Any] = Field(default_factory=dict)
