@@ -3,8 +3,9 @@
 
 import type {
   AnswerItem,
-  EvaluationReport,
+  ContentFeedback,
   GenerateQuestionsResponse,
+  MeasurementReport,
   Profile,
   TranscriptResponse,
 } from "@/lib/types";
@@ -44,11 +45,23 @@ export function generateQuestions(
   return postJson<GenerateQuestionsResponse>("/questions", { profile, seed });
 }
 
-export function evaluateInterview(
-  profile: Profile,
+export function getMeasurementReport(
   answers: AnswerItem[],
-): Promise<EvaluationReport> {
-  return postJson<EvaluationReport>("/evaluate", { profile, answers });
+): Promise<MeasurementReport> {
+  return postJson<MeasurementReport>("/measurements", { answers });
+}
+
+/** Call the Track A per-question review contract; A owns the implementation. */
+export function reviewAnswer(
+  answer: AnswerItem,
+  profile: Profile,
+): Promise<ContentFeedback> {
+  return postJson<ContentFeedback>("/answers/review", {
+    question: answer.question,
+    transcript: answer.transcript,
+    essay: profile.resume_text ?? null,
+    profile,
+  });
 }
 
 /** Upload one recorded answer blob and get its transcript (used from Milestone B). */

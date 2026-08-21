@@ -3,8 +3,8 @@
 import type {
   AnswerStatus,
   EyeTrackingSummary,
-  EvaluationReport,
   GazeHeatmap,
+  MeasurementReport,
   MeasurementSummary,
   QuestionResult,
   SpeechMetrics,
@@ -15,6 +15,7 @@ const STATUS_LABELS: Record<AnswerStatus, string> = {
   partial: "부분 답변",
   off_topic: "질문과 다른 방향",
   insufficient: "답변 부족",
+  unavailable: "내용 판단 불가",
 };
 
 function fixed(value: number | null | undefined, digits = 2): string {
@@ -152,6 +153,16 @@ function SessionMeasurementPanel({ summary }: { summary: MeasurementSummary }) {
 }
 
 function ContentPanel({ result }: { result: QuestionResult }) {
+  if (!result.content) {
+    return (
+      <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
+        <h3 className="font-medium">내용</h3>
+        <p className="mt-2 text-sm text-gray-500">
+          A 담당 내용 판별 결과가 아직 연결되지 않았습니다.
+        </p>
+      </div>
+    );
+  }
   const status = result.content.answer_status;
   return (
     <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
@@ -182,7 +193,7 @@ export default function AnalysisView({
   report,
   onReset,
 }: {
-  report: EvaluationReport;
+  report: MeasurementReport;
   onReset: () => void;
 }) {
   return (
@@ -195,9 +206,6 @@ export default function AnalysisView({
               시선과 음성은 측정값으로 표시합니다.
             </p>
           </div>
-          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-            {report.engine === "llm" ? "LLM 내용 확인" : "측정값·원문"}
-          </span>
         </div>
         <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
           {report.summary_feedback}

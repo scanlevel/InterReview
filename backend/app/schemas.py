@@ -1,7 +1,7 @@
 """Pydantic contracts for the Track B interview flow.
 
-Vision and audio fields are measurements, not scores.  The only qualitative
-field in the result is the optional LLM answer-content judgement.
+Vision and audio fields are measurements, not scores.  Answer-content review
+is supplied by Track A when that contract is connected.
 """
 
 from __future__ import annotations
@@ -96,11 +96,9 @@ class GenerateQuestionsResponse(BaseModel):
     questions: list[Question]
 
 
-class EvaluateRequest(BaseModel):
-    """Payload for ``POST /evaluate``."""
+class MeasurementRequest(BaseModel):
+    """Payload for the B-owned measurement report endpoint."""
 
-    # Kept loose so Track B can pass job/profile context without a second schema.
-    profile: dict[str, Any] = Field(default_factory=dict)
     answers: list[AnswerItem] = Field(default_factory=list)
 
 
@@ -116,9 +114,11 @@ class TranscriptResponse(BaseModel):
 
 
 class ContentFeedback(BaseModel):
-    """LLM judgement of answer content, without a numeric score."""
+    """Track A answer-content result, without a numeric score."""
 
-    answer_status: Literal["good", "partial", "off_topic", "insufficient"]
+    answer_status: Literal[
+        "good", "partial", "off_topic", "insufficient", "unavailable"
+    ]
     reason: str
     missing_points: list[str] = Field(default_factory=list)
 
@@ -145,7 +145,7 @@ class MeasurementSummary(BaseModel):
 
 
 class QuestionResult(BaseModel):
-    """All user-visible measurements and content feedback for one question."""
+    """All user-visible measurements and optional Track A feedback."""
 
     question_id: str | None
     question: str | None
@@ -154,14 +154,12 @@ class QuestionResult(BaseModel):
     transcript: str
     speech_metrics: SpeechMetrics | None = None
     eye_tracking: EyeTrackingSummary | None = None
-    content: ContentFeedback
+    content: ContentFeedback | None = None
 
 
-class EvaluationReport(BaseModel):
-    """Full question-by-question Track B report."""
+class MeasurementReport(BaseModel):
+    """Full question-by-question Track B measurement report."""
 
-    status: str  # ok | fallback
-    engine: str  # "llm" | "fallback"
     summary_feedback: str
     measurement_summary: MeasurementSummary
     results: list[QuestionResult]

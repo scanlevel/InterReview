@@ -1,4 +1,4 @@
-"""Tests for Track B content fallback and measurement preservation."""
+"""Tests for B-owned measurement preservation and session averages."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.schemas import (
     AnswerItem,
-    EvaluateRequest,
     EyeTrackingSummary,
     GazeHeatmap,
+    MeasurementRequest,
     SpeechMetrics,
 )
-from app.services.evaluate import evaluate_interview
+from app.services.measurements import build_measurement_report
 
 client = TestClient(app)
 
@@ -33,9 +33,7 @@ def _answer() -> AnswerItem:
             gaze_std_x=0.11,
             gaze_std_y=0.09,
             std_gaze=0.142,
-            gaze_heatmap=GazeHeatmap(
-                columns=2, rows=1, counts=[3, 1], total=4
-            ),
+            gaze_heatmap=GazeHeatmap(columns=2, rows=1, counts=[3, 1], total=4),
         ),
         speech_metrics=SpeechMetrics(
             total_duration_sec=87.4,
@@ -50,11 +48,12 @@ def _answer() -> AnswerItem:
 
 
 def test_report_keeps_measurements_and_session_averages() -> None:
-    report = evaluate_interview(EvaluateRequest(answers=[_answer()]))
+    report = build_measurement_report(MeasurementRequest(answers=[_answer()]))
 
     result = report.results[0]
     assert result.transcript.startswith("당시 프로젝트")
     assert result.original_question == "갈등을 해결한 경험이 있나요"
+    assert result.content is None
     assert result.speech_metrics is not None
     assert result.speech_metrics.long_pause_count == 3
     assert result.eye_tracking is not None
@@ -65,20 +64,21 @@ def test_report_keeps_measurements_and_session_averages() -> None:
     assert report.measurement_summary.average_valid_gaze_ratio == 0.9
 
 
-def test_empty_answer_is_insufficient() -> None:
-    report = evaluate_interview(
-        EvaluateRequest(answers=[AnswerItem(question_id="q2", question="자기소개를 해주세요.")])
+def test_empty_answer_has_no_measurement_values() -> None:
+    report = build_measurement_report(
+        MeasurementRequest(
+            answers=[AnswerItem(question_id="q2", question="자기소개를 해주세요.")]
+        )
     )
-    result = report.results[0]
-    assert result.content.answer_status == "insufficient"
+    assert report.results[0].content is None
     assert report.measurement_summary.average_total_duration_sec is None
+    assert report.measurement_summary.average_answer_length_eojeol is None
 
 
-def test_evaluate_endpoint() -> None:
+def test_measurements_endpoint() -> None:
     response = client.post(
-        "/evaluate",
+        "/measurements",
         json={
-            "profile": {"job": "backend"},
             "answers": [
                 {
                     "question_id": "q1",
@@ -95,11 +95,11 @@ def test_evaluate_endpoint() -> None:
                         "long_pause_threshold_sec": 2,
                     },
                 }
-            ],
+            ]
         },
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["results"][0]["content"]["answer_status"] == "partial"
+    assert body["results"][0]["content"] is None
     assert body["results"][0]["speech_metrics"]["total_duration_sec"] == 4
     assert body["measurement_summary"]["average_speech_duration_sec"] == 3

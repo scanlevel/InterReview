@@ -44,16 +44,6 @@ class Settings(BaseSettings):
     # generous. Tune via CLOVA_SPEECH_TIMEOUT.
     clova_speech_timeout: float = Field(default=180.0, alias="CLOVA_SPEECH_TIMEOUT")
 
-    # --- LLM (evaluation / personalization) — filled in during the LLM port ---
-    anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
-    anthropic_api_url: str = Field(
-        default="https://api.anthropic.com/v1/messages", alias="ANTHROPIC_API_URL"
-    )
-    llm_timeout: float = Field(default=45.0, alias="LLM_TIMEOUT")
-    eval_model: str = Field(default="claude-sonnet-5", alias="EVAL_MODEL")
-    personalize_model: str = Field(default="claude-haiku-4-5-20251001", alias="PERSONALIZE_MODEL")
-
-
 @lru_cache
 def get_settings() -> Settings:
     """Return a cached Settings instance (read once per process)."""

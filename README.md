@@ -28,7 +28,11 @@ uv run uvicorn app.main:app --reload --port 8000
 
 - `POST /questions` — 질문은행 항목별 Random Pick → 선택 질문 개인화
 - `POST /stt` — 오디오 blob(multipart) → CLOVA Speech 전사
-- `POST /evaluate` — {프로필, 답변들} → 질문별 내용·시선·음성 결과
+- `POST /measurements` — {답변들} → 질문별 시선·음성 측정값과 세션 평균
+
+답변 내용 판별과 질문 개인화 LLM은 Track A의 `/answers/review`와
+`personalize_question()` 계약으로 연결한다. B 런타임은 LLM 클라이언트나
+내용 판별 fallback을 소유하지 않는다.
 - 테스트: `uv run pytest`
 
 필수/선택 환경변수는 `backend/.env.example` 참고. 주요 키:

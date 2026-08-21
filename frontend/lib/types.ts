@@ -66,7 +66,12 @@ export interface AnswerItem {
   speech_metrics?: SpeechMetrics | null;
 }
 
-export type AnswerStatus = "good" | "partial" | "off_topic" | "insufficient";
+export type AnswerStatus =
+  | "good"
+  | "partial"
+  | "off_topic"
+  | "insufficient"
+  | "unavailable";
 
 export interface ContentFeedback {
   answer_status: AnswerStatus;
@@ -101,12 +106,10 @@ export interface QuestionResult {
   transcript: string;
   speech_metrics?: SpeechMetrics | null;
   eye_tracking?: EyeTrackingSummary | null;
-  content: ContentFeedback;
+  content?: ContentFeedback | null;
 }
 
-export interface EvaluationReport {
-  status: string;
-  engine: string;
+export interface MeasurementReport {
   summary_feedback: string;
   measurement_summary: MeasurementSummary;
   results: QuestionResult[];

@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { evaluateInterview, generateQuestions } from "@/lib/api";
+import {
+  generateQuestions,
+  getMeasurementReport,
+  reviewAnswer,
+} from "@/lib/api";
 import type {
   AnswerItem,
-  EvaluationReport,
+  ContentFeedback,
+  MeasurementReport,
   Profile,
   Question,
 } from "@/lib/types";
@@ -20,14 +25,14 @@ type Phase =
   | "generating"
   | "device-setup"
   | "interview"
-  | "evaluating"
+  | "measuring"
   | "analysis";
 
 export default function InterviewApp() {
   const [phase, setPhase] = useState<Phase>("setup");
   const [profile, setProfile] = useState<Profile>({});
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [report, setReport] = useState<EvaluationReport | null>(null);
+  const [report, setReport] = useState<MeasurementReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deviceSetup, setDeviceSetup] = useState<DeviceSetupResult | null>(null);
   const deviceStreamRef = useRef<MediaStream | null>(null);
@@ -65,9 +70,27 @@ export default function InterviewApp() {
 
   async function handleFinish(answers: AnswerItem[]) {
     setError(null);
-    setPhase("evaluating");
+    setPhase("measuring");
     try {
-      const result = await evaluateInterview(profile, answers);
+      const measurementReport = await getMeasurementReport(answers);
+      const reviewResults = await Promise.allSettled(
+        answers.map((answer) => reviewAnswer(answer, profile)),
+      );
+      const contentByQuestion = new Map<string, ContentFeedback>();
+      reviewResults.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          contentByQuestion.set(answers[index].question_id, result.value);
+        }
+      });
+      const result: MeasurementReport = {
+        ...measurementReport,
+        results: measurementReport.results.map((item) => ({
+          ...item,
+          content: item.question_id
+            ? contentByQuestion.get(item.question_id) ?? null
+            : null,
+        })),
+      };
       stopDevices();
       setReport(result);
       setPhase("analysis");
@@ -121,7 +144,7 @@ export default function InterviewApp() {
         />
       )}
 
-      {phase === "evaluating" && <Busy label="답변을 평가하는 중입니다…" />}
+      {phase === "measuring" && <Busy label="측정값을 정리하는 중입니다…" />}
 
       {phase === "analysis" && report && (
         <AnalysisView report={report} onReset={handleReset} />

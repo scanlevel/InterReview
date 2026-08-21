@@ -1,8 +1,7 @@
 """Generate interview questions from the ICT question-bank rules.
 
 ``rules.json`` defines the service-facing groups and the source domains from
-which one question is randomly selected per group. The router then passes the
-selected questions to the optional LLM personalizer.
+which one question is randomly selected per group.
 """
 
 from __future__ import annotations
@@ -152,6 +151,7 @@ def generate_questions(profile: dict[str, Any], seed: int | None = None) -> list
                 subcategory=f"{domain['category']}::{domain['expression']}",
                 experience=experience,
                 text=text,
+                original_text=text,
                 source_file=source.get("source_file"),
                 occurrence_count=source.get("occurrence_count", 1),
             )
