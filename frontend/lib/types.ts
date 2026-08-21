@@ -66,3 +66,30 @@ export interface TranscriptResponse {
   confidence?: number | null;
   segment_count?: number | null;
 }
+
+// --- Track A: 자소서 분석 -----------------------------------------------------
+
+export interface EssayWeakness {
+  description: string;
+  expected_questions: string[];
+}
+
+/** risk_level ranks how exposed the experience is in an interview, 5 = most. */
+export type RiskLevel = 1 | 2 | 3 | 4 | 5;
+
+export interface EssayExperience {
+  experience: string;
+  claims: string[];
+  risk_level: RiskLevel;
+  risk_reason: string;
+  weaknesses: EssayWeakness[];
+}
+
+export interface EssayAnalysis {
+  /** Already sorted most-risky-first by the backend. */
+  experiences: EssayExperience[];
+  unsupported_claims: string[];
+}
+
+/** Mirrors the backend's max_length on EssayAnalyzeRequest.essay. */
+export const ESSAY_MAX_LENGTH = 10_000;
