@@ -13,6 +13,7 @@ import {
 } from "@/lib/gaze";
 import { transcribe } from "@/lib/api";
 import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorder";
+const CAN_DEBUG_GAZE = process.env.NODE_ENV !== "production";
 
 const TEST_SENTENCE = "안녕하세요. 지금부터 모의 면접을 시작하겠습니다.";
 const CALIBRATION_MOVE_SPEED = 0.32;
@@ -376,27 +377,9 @@ export default function DeviceSetupView({
           <GazeDebugOverlay
             active={gazeState === "ready"}
             frame={gazeFrame}
+            verbose={CAN_DEBUG_GAZE}
             idleLabel={gazeState === "loading" ? "시선 분석 준비 중" : "시선 분석 사용 불가"}
           />
-        )}
-        {calibrationState === "running" && calibrationCountdown !== null && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-7xl font-bold text-white">
-            {calibrationCountdown}
-          </div>
-        )}
-        {calibrationState === "running" && calibrationTarget && (
-          <div className="pointer-events-none absolute inset-0">
-            <span
-              className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full border-4 border-white bg-blue-500 shadow-lg shadow-blue-500/60"
-              style={{
-                left: `${calibrationPosition.x}%`,
-                top: `${calibrationPosition.y}%`,
-              }}
-            />
-            <p className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded bg-black/70 px-3 py-2 text-sm font-medium text-white">
-              {calibrationPhase === "to-center" ? "중앙으로 돌아가세요" : "파란 점을 천천히 따라가세요"} · {calibrationTarget.label} ({calibrationTargetIndex! + 1}/9)
-            </p>
-          </div>
         )}
       </div>
 
@@ -523,6 +506,29 @@ export default function DeviceSetupView({
           설정 완료 · 면접 시작
         </button>
       </div>
+      {calibrationState === "running" && (
+        <div className="pointer-events-none fixed inset-0 z-50">
+          {calibrationCountdown !== null && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-7xl font-bold text-white">
+              {calibrationCountdown}
+            </div>
+          )}
+          {calibrationTarget && (
+            <div className="absolute inset-0">
+              <span
+                className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full border-4 border-white bg-blue-500 shadow-lg shadow-blue-500/60"
+                style={{
+                  left: `${calibrationPosition.x}%`,
+                  top: `${calibrationPosition.y}%`,
+                }}
+              />
+              <p className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded bg-black/70 px-3 py-2 text-sm font-medium text-white">
+                {calibrationPhase === "to-center" ? "중앙으로 돌아가세요" : "파란 점을 천천히 따라가세요"} · {calibrationTarget.label} ({calibrationTargetIndex! + 1}/9)
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

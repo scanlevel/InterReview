@@ -57,14 +57,15 @@ export default function InterviewView({
   const [speechMetrics, setSpeechMetrics] = useState<
     Record<string, SpeechMetrics | null>
   >({});
-  const [debugGaze, setDebugGaze] = useState(true);
+  const [debugGaze, setDebugGaze] = useState(false);
+  const canDebugGaze = process.env.NODE_ENV !== "production";
   const [gazeDebugFrame, setGazeDebugFrame] =
     useState<GazeDebugFrame | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const recorderRef = useRef<AnswerRecorder | null>(null);
   const gazeTrackerRef = useRef<BrowserGazeTracker | null>(null);
-  const debugGazeRef = useRef(true);
+  const debugGazeRef = useRef(false);
 
   const question = questions[index];
   const isLast = index === questions.length - 1;
@@ -260,23 +261,25 @@ export default function InterviewView({
           className="aspect-video w-full -scale-x-100 object-cover"
         />
         {debugGaze && (
-          <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} />
+          <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} verbose={debugGaze} />
         )}
       </div>
 
-      <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-        <input
-          type="checkbox"
-          checked={debugGaze}
-          onChange={(event) => {
-            const enabled = event.target.checked;
-            debugGazeRef.current = enabled;
-            setDebugGaze(enabled);
-            if (!enabled) setGazeDebugFrame(null);
-          }}
-        />
-        시선 디버그 오버레이
-      </label>
+      {canDebugGaze && (
+        <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+          <input
+            type="checkbox"
+            checked={debugGaze}
+            onChange={(event) => {
+              const enabled = event.target.checked;
+              debugGazeRef.current = enabled;
+              setDebugGaze(enabled);
+              if (!enabled) setGazeDebugFrame(null);
+            }}
+          />
+          시선 디버그 오버레이
+        </label>
+      )}
 
       <p className="text-xs text-gray-500">
         {gazeStatus === "loading" && "시선 분석을 준비하고 있습니다."}
@@ -295,7 +298,7 @@ export default function InterviewView({
         <button
           type="button"
           onClick={toggleRecording}
-          disabled={isTranscribing || !!mediaError}
+          disabled={isTranscribing || !!mediaError || gazeStatus === "loading"}
           className={`rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-40 ${
             isRecording
               ? "bg-red-600 hover:bg-red-500"

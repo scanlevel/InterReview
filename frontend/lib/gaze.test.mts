@@ -4,6 +4,7 @@ import {
   applyGazeCalibration,
   createGazeCalibration,
   GazeAccumulator,
+  isNewVideoFrame,
   isValidGazePoint,
   smoothGazePoint,
 } from "./gaze.ts";
@@ -69,4 +70,39 @@ test("builds calibration from repeated, noisy target samples", () => {
   const accumulator = new GazeAccumulator(calibration);
   assert.equal(accumulator.isFront({ x: 0.1, y: 0 }), true);
   assert.equal(accumulator.isFront({ x: 0.4, y: -0.3 }), false);
+});
+
+test("requires every calibration target and a measurable axis span", () => {
+  const levels = [0.1, 0.5, 0.9];
+  const complete = levels.flatMap((y) =>
+    levels.flatMap((x) =>
+      Array.from({ length: 4 }, () => ({
+        target: { x, y },
+        gaze: { x: 0.475 - x * 0.75, y: y - 0.4 },
+      })),
+    ),
+  );
+  assert.ok(createGazeCalibration(complete));
+  assert.equal(
+    createGazeCalibration(
+      complete.filter((sample) => sample.target.x !== 0.9 || sample.target.y !== 0.9),
+    ),
+    null,
+  );
+  assert.equal(
+    createGazeCalibration(
+      complete.map((sample) => ({
+        ...sample,
+        gaze: { x: sample.target.x * 0.01, y: sample.target.y * 0.01 },
+      })),
+    ),
+    null,
+  );
+});
+
+test("does not count the same positive video timestamp twice", () => {
+  assert.equal(isNewVideoFrame(0.1, null), true);
+  assert.equal(isNewVideoFrame(0.1, 0.1), false);
+  assert.equal(isNewVideoFrame(0.1002, 0.1), true);
+  assert.equal(isNewVideoFrame(0, 0), true);
 });

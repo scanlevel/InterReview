@@ -15,6 +15,12 @@ const CALIBRATED_FRONT_THRESHOLD = { x: 0.2, y: 0.15 };
 const SAMPLE_INTERVAL_MS = 100;
 const GAZE_SMOOTHING_ALPHA = 0.15;
 export const HEATMAP_COLUMNS = 12;
+const SMOOTHING_RESET_AFTER_MS = 500;
+const CALIBRATION_LEVELS = [0.1, 0.5, 0.9] as const;
+const CALIBRATION_TARGET_TOLERANCE = 0.02;
+const MIN_CALIBRATION_SAMPLES_PER_TARGET = 4;
+const MIN_CALIBRATION_AXIS_SPAN = 0.04;
+const VIDEO_TIME_EPSILON = 0.0001;
 export const HEATMAP_ROWS = 8;
 
 type Point = { x: number; y: number };
@@ -47,6 +53,14 @@ export function smoothGazePoint(
     y: previous.y + safeAlpha * (gaze.y - previous.y),
   };
 }
+export function isNewVideoFrame(
+  currentTime: number,
+  previousTime: number | null,
+): boolean {
+  if (!Number.isFinite(currentTime) || currentTime <= 0) return true;
+  return previousTime === null || currentTime > previousTime + VIDEO_TIME_EPSILON;
+}
+
 
 export interface GazeCalibrationSample {
   gaze: GazePoint;
@@ -161,26 +175,59 @@ function calibrationAxis(
   samples: GazeCalibrationSample[],
   axis: "x" | "y",
 ): GazeCalibration["x"] | null {
-  const levels = [0.1, 0.5, 0.9];
-  const values = levels.map((level) =>
+  const values = CALIBRATION_LEVELS.map((level) =>
     median(
       samples
-        .filter((sample) => Math.abs(sample.target[axis] - level) <= 0.02)
+        .filter(
+          (sample) =>
+            Math.abs(sample.target[axis] - level) <= CALIBRATION_TARGET_TOLERANCE,
+        )
         .map((sample) => sample.gaze[axis])
         .filter(Number.isFinite),
     ),
   );
   if (values.some((value) => value === null)) return null;
   const [low, center, high] = values as [number, number, number];
-  return ordered(low, center, high) ? { low, center, high } : null;
+  if (
+    !ordered(low, center, high) ||
+    Math.abs(center - low) < MIN_CALIBRATION_AXIS_SPAN ||
+    Math.abs(high - center) < MIN_CALIBRATION_AXIS_SPAN
+  ) {
+    return null;
+  }
+  return { low, center, high };
+}
+
+function calibrationTargetMedians(
+  samples: GazeCalibrationSample[],
+): GazeCalibrationSample[] | null {
+  const medians: GazeCalibrationSample[] = [];
+  for (const y of CALIBRATION_LEVELS) {
+    for (const x of CALIBRATION_LEVELS) {
+      const targetSamples = samples.filter(
+        (sample) =>
+          Math.abs(sample.target.x - x) <= CALIBRATION_TARGET_TOLERANCE &&
+          Math.abs(sample.target.y - y) <= CALIBRATION_TARGET_TOLERANCE,
+      );
+      if (targetSamples.length < MIN_CALIBRATION_SAMPLES_PER_TARGET) {
+        return null;
+      }
+      const gazeX = median(targetSamples.map((sample) => sample.gaze.x));
+      const gazeY = median(targetSamples.map((sample) => sample.gaze.y));
+      if (gazeX === null || gazeY === null) return null;
+      medians.push({ gaze: { x: gazeX, y: gazeY }, target: { x, y } });
+    }
+  }
+  return medians;
 }
 
 export function createGazeCalibration(
   samples: GazeCalibrationSample[],
 ): GazeCalibration | null {
-  if (samples.length < 24) return null;
-  const x = calibrationAxis(samples, "x");
-  const y = calibrationAxis(samples, "y");
+  const targetMedians = calibrationTargetMedians(samples);
+  if (!targetMedians) return null;
+  const x = calibrationAxis(targetMedians, "x");
+  const y = calibrationAxis(targetMedians, "y");
   return x && y ? { x, y } : null;
 }
 
@@ -313,8 +360,10 @@ export class BrowserGazeTracker {
   private animationFrame: number | null = null;
   private active = false;
   private lastTimestamp = 0;
+  private lastVideoTime: number | null = null;
   private nextSampleAt = 0;
   private smoothedGaze: GazePoint | null = null;
+  private lastValidGazeAt = 0;
   private readonly video: HTMLVideoElement;
   private readonly landmarker: FaceLandmarker;
   private readonly onDebugFrame?: (frame: GazeDebugFrame) => void;
@@ -342,8 +391,10 @@ export class BrowserGazeTracker {
     this.stop();
     this.accumulator = new GazeAccumulator(this.calibration);
     this.lastTimestamp = 0;
+    this.lastVideoTime = null;
     this.nextSampleAt = 0;
     this.smoothedGaze = null;
+    this.lastValidGazeAt = 0;
     this.active = true;
     this.processFrame();
   }
@@ -375,14 +426,21 @@ export class BrowserGazeTracker {
   private processFrame = (): void => {
     if (!this.active) return;
     const now = performance.now();
+    const videoTime = this.video.currentTime;
     if (
       now >= this.nextSampleAt &&
       this.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
       this.video.videoWidth > 0 &&
-      this.video.videoHeight > 0
+      this.video.videoHeight > 0 &&
+      isNewVideoFrame(videoTime, this.lastVideoTime)
     ) {
       this.nextSampleAt = now + SAMPLE_INTERVAL_MS;
-      const timestamp = Math.max(now, this.lastTimestamp + 1);
+      if (Number.isFinite(videoTime) && videoTime > 0) {
+        this.lastVideoTime = videoTime;
+      }
+      const frameTimestamp =
+        Number.isFinite(videoTime) && videoTime > 0 ? videoTime * 1000 : now;
+      const timestamp = Math.max(frameTimestamp, this.lastTimestamp + 1);
       this.lastTimestamp = timestamp;
       try {
         const result = this.landmarker.detectForVideo(this.video, timestamp);
@@ -394,7 +452,7 @@ export class BrowserGazeTracker {
               this.video.videoHeight,
             )
           : null;
-        const gaze = this.smoothGaze(rawGaze);
+        const gaze = this.smoothGaze(rawGaze, now);
         this.accumulator.add(gaze);
         this.onDebugFrame?.({
           faceDetected: Boolean(landmarks),
@@ -404,15 +462,25 @@ export class BrowserGazeTracker {
         });
       } catch {
         // A dropped/invalid video frame should not stop the interview loop.
-        this.smoothedGaze = null;
+        this.smoothGaze(null, now);
         this.accumulator.add(null);
       }
     }
     this.animationFrame = requestAnimationFrame(this.processFrame);
   };
 
-  private smoothGaze(gaze: GazePoint | null): GazePoint | null {
+  private smoothGaze(gaze: GazePoint | null, now: number): GazePoint | null {
+    if (!isValidGazePoint(gaze)) {
+      if (now - this.lastValidGazeAt > SMOOTHING_RESET_AFTER_MS) {
+        this.smoothedGaze = null;
+      }
+      return null;
+    }
+    if (now - this.lastValidGazeAt > SMOOTHING_RESET_AFTER_MS) {
+      this.smoothedGaze = null;
+    }
     this.smoothedGaze = smoothGazePoint(this.smoothedGaze, gaze);
+    this.lastValidGazeAt = now;
     return this.smoothedGaze;
   }
 }
