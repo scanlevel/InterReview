@@ -71,6 +71,8 @@ def build_measurement_report(request: MeasurementRequest) -> MeasurementReport:
             category=answer.category,
             original_question=answer.original_question,
             transcript=answer.transcript,
+            stt_status=answer.stt_status,
+            stt_error=answer.stt_error,
             speech_metrics=answer.speech_metrics,
             eye_tracking=answer.eye_tracking,
         )

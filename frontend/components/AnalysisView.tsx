@@ -8,6 +8,7 @@ import type {
   MeasurementSummary,
   QuestionResult,
   SpeechMetrics,
+  SttStatus,
 } from "@/lib/types";
 
 const STATUS_LABELS: Record<AnswerStatus, string> = {
@@ -16,6 +17,15 @@ const STATUS_LABELS: Record<AnswerStatus, string> = {
   off_topic: "질문과 다른 방향",
   insufficient: "답변 부족",
   unavailable: "내용 판단 불가",
+};
+
+const STT_STATUS_LABELS: Record<SttStatus, string> = {
+  not_attempted: "미시도",
+  ok: "인식 완료",
+  no_speech: "음성 없음",
+  empty: "빈 오디오",
+  not_configured: "STT 미설정",
+  error: "인식 오류",
 };
 
 function fixed(value: number | null | undefined, digits = 2): string {
@@ -35,12 +45,28 @@ function MetricRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SpeechPanel({ metrics }: { metrics: SpeechMetrics | null | undefined }) {
+function SpeechPanel({
+  metrics,
+  sttStatus,
+  sttError,
+}: {
+  metrics: SpeechMetrics | null | undefined;
+  sttStatus: SttStatus;
+  sttError?: string | null;
+}) {
   if (!metrics) {
-    return <p className="text-sm text-gray-500">녹음 측정값이 없습니다.</p>;
+    return (
+      <div>
+        <MetricRow label="STT 상태" value={STT_STATUS_LABELS[sttStatus]} />
+        {sttError && <p className="mt-2 text-xs text-amber-600">{sttError}</p>}
+        <p className="text-sm text-gray-500">녹음 측정값이 없습니다.</p>
+      </div>
+    );
   }
   return (
     <div>
+      <MetricRow label="STT 상태" value={STT_STATUS_LABELS[sttStatus]} />
+      {sttError && <p className="mb-2 text-xs text-amber-600">{sttError}</p>}
       <MetricRow label="총 답변 시간" value={`${fixed(metrics.total_duration_sec, 1)}초`} />
       <MetricRow label="실제 발화 시간" value={`${fixed(metrics.speech_duration_sec, 1)}초`} />
       <MetricRow
@@ -137,7 +163,7 @@ function ContentPanel({ result }: { result: QuestionResult }) {
       <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
         <h3 className="font-medium">내용</h3>
         <p className="mt-2 text-sm text-gray-500">
-          A 담당 내용 판별 결과가 아직 연결되지 않았습니다.
+          답변 내용 판별을 사용할 수 없습니다. 세션은 유지됩니다.
         </p>
       </div>
     );
@@ -216,7 +242,11 @@ export default function AnalysisView({
             <ContentPanel result={result} />
             <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
               <h3 className="font-medium">음성</h3>
-              <SpeechPanel metrics={result.speech_metrics} />
+              <SpeechPanel
+                metrics={result.speech_metrics}
+                sttStatus={result.stt_status}
+                sttError={result.stt_error}
+              />
             </div>
           </div>
 

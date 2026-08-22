@@ -19,6 +19,7 @@ import type {
   EyeTrackingSummary,
   Question,
   SpeechMetrics,
+  SttStatus,
 } from "@/lib/types";
 import GazeDebugOverlay from "@/components/GazeDebugOverlay";
 
@@ -38,6 +39,9 @@ export default function InterviewView({
   onFinish: (answers: AnswerItem[]) => void;
 }) {
   const [index, setIndex] = useState(0);
+  const [sttStates, setSttStates] = useState<
+    Record<string, { status: SttStatus; error: string | null }>
+  >({});
   const [transcripts, setTranscripts] = useState<Record<string, string>>({});
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -64,8 +68,8 @@ export default function InterviewView({
 
   const question = questions[index];
   const isLast = index === questions.length - 1;
-  const current = transcripts[question.id] ?? "";
-  const currentMetrics = speechMetrics[question.id] ?? null;
+  const current = transcripts[question.question_id] ?? "";
+  const currentMetrics = speechMetrics[question.question_id] ?? null;
 
   useEffect(() => {
     if (!isRecording) return;
@@ -120,12 +124,12 @@ export default function InterviewView({
   }, [calibration, stream]);
 
   function setTranscript(value: string) {
-    setTranscripts((previous) => ({ ...previous, [question.id]: value }));
-    const metrics = speechMetrics[question.id];
+    setTranscripts((previous) => ({ ...previous, [question.question_id]: value }));
+    const metrics = speechMetrics[question.question_id];
     if (metrics) {
       setSpeechMetrics((previous) => ({
         ...previous,
-        [question.id]: addTranscriptRate(metrics, value),
+        [question.question_id]: addTranscriptRate(metrics, value),
       }));
     }
   }
@@ -135,6 +139,10 @@ export default function InterviewView({
     if (!recorder) return;
 
     if (!isRecording) {
+      setSttStates((previous) => ({
+        ...previous,
+        [question.question_id]: { status: "not_attempted", error: null },
+      }));
       setNotice(null);
       setGazeDebugFrame(null);
       setRecordingSeconds(0);
@@ -146,20 +154,24 @@ export default function InterviewView({
 
     setIsRecording(false);
     const gazeSummary = gazeTrackerRef.current?.stop() ?? null;
-    setEyeTracking((previous) => ({ ...previous, [question.id]: gazeSummary }));
+    setEyeTracking((previous) => ({ ...previous, [question.question_id]: gazeSummary }));
     setIsTranscribing(true);
     try {
       const raw = await recorder.stop();
       const converted = await blobToWav16kWithMetrics(raw);
       setSpeechMetrics((previous) => ({
         ...previous,
-        [question.id]: converted.metrics,
+        [question.question_id]: converted.metrics,
       }));
       const result = await transcribe(converted.wav, "answer.wav");
+      setSttStates((previous) => ({
+        ...previous,
+        [question.question_id]: { status: result.status, error: result.error ?? null },
+      }));
       const transcript = result.status === "ok" ? result.transcript.trim() : "";
       setSpeechMetrics((previous) => ({
         ...previous,
-        [question.id]: addTranscriptRate(converted.metrics, transcript),
+        [question.question_id]: addTranscriptRate(converted.metrics, transcript),
       }));
       if (transcript) {
         setTranscript(transcript);
@@ -172,6 +184,12 @@ export default function InterviewView({
         setNotice(`전사 실패: ${result.error ?? result.status}. 직접 입력하세요.`);
       }
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      setSttStates((previous) => ({
+        ...previous,
+        [question.question_id]: { status: "error", error: errorMessage },
+      }));
       setNotice(
         "녹음 처리 중 오류가 발생했습니다. 직접 입력하세요. " +
           (error instanceof Error ? `(${error.message})` : ""),
@@ -183,15 +201,21 @@ export default function InterviewView({
 
   function submit() {
     const items: AnswerItem[] = questions.map((item) => {
-      const transcript = (transcripts[item.id] ?? "").trim();
-      const metrics = speechMetrics[item.id];
+      const transcript = (transcripts[item.question_id] ?? "").trim();
+      const metrics = speechMetrics[item.question_id];
+      const stt = sttStates[item.question_id] ?? {
+        status: "not_attempted" as SttStatus,
+        error: null,
+      };
       return {
-        question_id: item.id,
+        question_id: item.question_id,
         question: item.text,
         original_question: item.original_text ?? item.text,
         category: item.category,
         transcript,
-        eye_tracking: eyeTracking[item.id] ?? null,
+        stt_status: stt.status,
+        stt_error: stt.error,
+        eye_tracking: eyeTracking[item.question_id] ?? null,
         speech_metrics: metrics ? addTranscriptRate(metrics, transcript) : null,
       };
     });

@@ -10,6 +10,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+SttStatus = Literal[
+    "not_attempted", "ok", "no_speech", "empty", "not_configured", "error"
+]
+
 
 class EyeTrackingSummary(BaseModel):
     """Per-question gaze heatmap produced in the browser."""
@@ -47,6 +51,8 @@ class AnswerItem(BaseModel):
     original_question: str | None = None
     category: str | None = None
     transcript: str = ""
+    stt_status: "SttStatus" = "not_attempted"
+    stt_error: str | None = None
     eye_tracking: EyeTrackingSummary | None = None
     speech_metrics: SpeechMetrics | None = None
 
@@ -55,6 +61,8 @@ class Question(BaseModel):
     """One generated interview question, tagged with its rule-bank origin."""
 
     id: str
+    # Stable source-derived identifier; id remains for frontend compatibility.
+    question_id: str
     category: str  # rule group name, e.g. "자기소개·이력"
     rule_group: str  # rule group id, e.g. "resume"
     subcategory: str  # "<category>::<expression>" from the source domain
@@ -90,8 +98,7 @@ class TranscriptResponse(BaseModel):
     """Result of ``POST /stt`` — transcription of one answer's audio."""
 
     transcript: str
-    # ok | no_speech | empty | not_configured | error
-    status: str
+    status: "SttStatus"
     error: str | None = None
     confidence: float | None = None
     segment_count: int | None = None
@@ -124,6 +131,8 @@ class MeasurementSummary(BaseModel):
 class QuestionResult(BaseModel):
     """All user-visible measurements and optional Track A feedback."""
 
+    stt_status: SttStatus = "not_attempted"
+    stt_error: str | None = None
     question_id: str | None
     question: str | None
     category: str | None

@@ -17,8 +17,10 @@ def _group_count() -> int:
 def test_generates_one_question_per_group() -> None:
     questions = generate_questions({"experience": "NEW"}, seed=42)
     assert len(questions) == _group_count()
-    # ids are sequential q1..qN
     assert [q.id for q in questions] == [f"q{i}" for i in range(1, len(questions) + 1)]
+    assert len({q.id for q in questions}) == len(questions)
+    assert all(len(q.question_id) == 16 for q in questions)
+    assert len({q.question_id for q in questions}) == len(questions)
     # every question maps to a distinct rule group
     assert len({q.rule_group for q in questions}) == len(questions)
 
@@ -34,6 +36,7 @@ def test_seed_is_reproducible() -> None:
     a = generate_questions({"experience": "NEW"}, seed=123)
     b = generate_questions({"experience": "NEW"}, seed=123)
     assert [q.text for q in a] == [q.text for q in b]
+    assert [q.question_id for q in a] == [q.question_id for q in b]
 
 
 def test_experience_alias_defaults_to_new() -> None:
@@ -49,5 +52,5 @@ def test_questions_endpoint() -> None:
     assert body["experience"] == "NEW"
     assert len(body["questions"]) == _group_count()
     first = body["questions"][0]
-    assert {"id", "category", "rule_group", "subcategory", "text"} <= first.keys()
+    assert {"id", "question_id", "category", "rule_group", "subcategory", "text"} <= first.keys()
     assert first["original_text"] == first["text"]

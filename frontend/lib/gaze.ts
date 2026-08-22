@@ -20,6 +20,34 @@ export const HEATMAP_ROWS = 8;
 type Point = { x: number; y: number };
 export type GazePoint = { x: number; y: number };
 
+const MAX_ABS_GAZE = 1;
+
+export function isValidGazePoint(
+  gaze: GazePoint | null | undefined,
+): gaze is GazePoint {
+  return Boolean(
+    gaze &&
+      Number.isFinite(gaze.x) &&
+      Number.isFinite(gaze.y) &&
+      Math.abs(gaze.x) <= MAX_ABS_GAZE &&
+      Math.abs(gaze.y) <= MAX_ABS_GAZE,
+  );
+}
+
+export function smoothGazePoint(
+  previous: GazePoint | null,
+  gaze: GazePoint | null,
+  alpha = GAZE_SMOOTHING_ALPHA,
+): GazePoint | null {
+  if (!isValidGazePoint(gaze)) return null;
+  if (!isValidGazePoint(previous)) return gaze;
+  const safeAlpha = Number.isFinite(alpha) ? Math.max(0, Math.min(1, alpha)) : GAZE_SMOOTHING_ALPHA;
+  return {
+    x: previous.x + safeAlpha * (gaze.x - previous.x),
+    y: previous.y + safeAlpha * (gaze.y - previous.y),
+  };
+}
+
 export interface GazeCalibrationSample {
   gaze: GazePoint;
   target: GazePoint;
@@ -108,7 +136,8 @@ function gazeFromLandmarks(
   ) {
     return null;
   }
-  return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
+  const averaged = { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
+  return isValidGazePoint(averaged) ? averaged : null;
 }
 
 function clamp(value: number, low = 0, high = 1): number {
@@ -185,7 +214,7 @@ export class GazeAccumulator {
   }
 
   add(gaze: GazePoint | null): void {
-    if (!gaze) return;
+    if (!isValidGazePoint(gaze)) return;
 
     this.valid += 1;
 
@@ -383,22 +412,7 @@ export class BrowserGazeTracker {
   };
 
   private smoothGaze(gaze: GazePoint | null): GazePoint | null {
-    if (!gaze) {
-      this.smoothedGaze = null;
-      return null;
-    }
-    if (!this.smoothedGaze) {
-      this.smoothedGaze = gaze;
-      return gaze;
-    }
-    this.smoothedGaze = {
-      x:
-        this.smoothedGaze.x +
-        GAZE_SMOOTHING_ALPHA * (gaze.x - this.smoothedGaze.x),
-      y:
-        this.smoothedGaze.y +
-        GAZE_SMOOTHING_ALPHA * (gaze.y - this.smoothedGaze.y),
-    };
+    this.smoothedGaze = smoothGazePoint(this.smoothedGaze, gaze);
     return this.smoothedGaze;
   }
 }

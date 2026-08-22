@@ -6,6 +6,7 @@ which one question is randomly selected per group.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
@@ -36,8 +37,24 @@ class QuestionBankError(RuntimeError):
 
 def _experience_from_profile(profile: dict[str, Any]) -> str:
     """Normalize a profile experience value, defaulting to the new bank."""
+
     value = str(profile.get("experience", "NEW")).strip().upper()
     return EXPERIENCE_ALIASES.get(value, "NEW")
+
+
+def _question_id(
+    experience: str, category: str, expression: str, source: dict[str, Any]
+) -> str:
+    identity = "\x1f".join(
+        [
+            experience,
+            category,
+            expression,
+            str(source.get("source_file") or ""),
+            str(source["question"]),
+        ]
+    )
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
 
 
 @lru_cache(maxsize=1)
@@ -103,6 +120,7 @@ def _load_domain_questions(
 def _pick_group_question(
     experience: str,
     domains: list[dict[str, str]],
+    used_ids: set[str],
     used_texts: set[str],
     rng: random.Random,
 ) -> tuple[dict[str, str], dict[str, Any]]:
@@ -115,6 +133,7 @@ def _pick_group_question(
             item
             for item in _load_domain_questions(experience, category, expression)
             if item["question"] not in used_texts
+            and _question_id(experience, category, expression, item) not in used_ids
         ]
         if questions:
             return domain, rng.choice(questions)
@@ -135,17 +154,23 @@ def generate_questions(profile: dict[str, Any], seed: int | None = None) -> list
     effective_seed = seed if seed is not None else profile.get("question_seed")
     rng = random.Random(effective_seed) if effective_seed is not None else random.SystemRandom()
 
+    used_ids: set[str] = set()
     used_texts: set[str] = set()
     selected: list[Question] = []
     for index, group in enumerate(rules["groups"], start=1):
         domain, source = _pick_group_question(
-            experience, group["domains"], used_texts, rng
+            experience, group["domains"], used_ids, used_texts, rng
         )
         text = source["question"]
+        question_id = _question_id(
+            experience, domain["category"], domain["expression"], source
+        )
+        used_ids.add(question_id)
         used_texts.add(text)
         selected.append(
             Question(
                 id=f"q{index}",
+                question_id=question_id,
                 category=group["name"],
                 rule_group=group["id"],
                 subcategory=f"{domain['category']}::{domain['expression']}",

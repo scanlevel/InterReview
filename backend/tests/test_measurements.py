@@ -24,6 +24,8 @@ def _answer() -> AnswerItem:
         original_question="갈등을 해결한 경험이 있나요",
         category="협업·조직생활",
         transcript="당시 프로젝트에서 역할을 다시 나누고 결과를 확인했습니다.",
+        stt_status="ok",
+        stt_error=None,
         eye_tracking=EyeTrackingSummary(
             gaze_heatmap=GazeHeatmap(columns=2, rows=1, counts=[3, 1], total=4),
         ),
@@ -43,6 +45,7 @@ def test_report_keeps_measurements_and_session_averages() -> None:
     report = build_measurement_report(MeasurementRequest(answers=[_answer()]))
 
     result = report.results[0]
+    assert result.stt_status == "ok"
     assert result.transcript.startswith("당시 프로젝트")
     assert result.original_question == "갈등을 해결한 경험이 있나요"
     assert result.content is None
@@ -73,6 +76,8 @@ def test_measurements_endpoint() -> None:
         json={
             "answers": [
                 {
+                    "stt_status": "not_configured",
+                    "stt_error": "missing",
                     "question_id": "q1",
                     "question": "갈등 해결 경험은?",
                     "transcript": "당시 문제가 있었습니다.",
@@ -92,6 +97,7 @@ def test_measurements_endpoint() -> None:
     )
     assert response.status_code == 200
     body = response.json()
+    assert body["results"][0]["stt_status"] == "not_configured"
     assert body["results"][0]["content"] is None
     assert body["results"][0]["speech_metrics"]["total_duration_sec"] == 4
     assert body["measurement_summary"]["average_speech_duration_sec"] == 3

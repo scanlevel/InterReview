@@ -4,6 +4,8 @@ import {
   applyGazeCalibration,
   createGazeCalibration,
   GazeAccumulator,
+  isValidGazePoint,
+  smoothGazePoint,
 } from "./gaze.ts";
 
 test("keeps the gaze result as a heatmap", () => {
@@ -17,6 +19,18 @@ test("keeps the gaze result as a heatmap", () => {
   assert.equal("face_detected_ratio" in summary, false);
   assert.equal(summary?.gaze_heatmap?.total, 2);
   assert.equal(summary?.gaze_heatmap?.counts.reduce((sum, count) => sum + count, 0), 2);
+});
+
+test("rejects invalid gaze points and smooths valid samples", () => {
+  const accumulator = new GazeAccumulator();
+  accumulator.add({ x: Number.NaN, y: 0 });
+  accumulator.add({ x: 2, y: 0 });
+  assert.equal(accumulator.snapshot(), null);
+  assert.equal(isValidGazePoint({ x: 0, y: 0 }), true);
+  assert.equal(isValidGazePoint({ x: Number.POSITIVE_INFINITY, y: 0 }), false);
+  assert.deepEqual(smoothGazePoint(null, { x: 1, y: 1 }), { x: 1, y: 1 });
+  assert.deepEqual(smoothGazePoint({ x: 0, y: 0 }, { x: 1, y: 1 }, 0.5), { x: 0.5, y: 0.5 });
+  assert.equal(smoothGazePoint({ x: 0, y: 0 }, { x: Number.NaN, y: 1 }), null);
 });
 
 test("builds calibration from repeated, noisy target samples", () => {

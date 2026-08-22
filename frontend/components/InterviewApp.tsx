@@ -28,6 +28,12 @@ type Phase =
   | "measuring"
   | "analysis";
 
+const UNAVAILABLE_CONTENT: ContentFeedback = {
+  answer_status: "unavailable",
+  reason: "답변 내용 판별을 사용할 수 없습니다.",
+  missing_points: [],
+};
+
 export default function InterviewApp() {
   const [phase, setPhase] = useState<Phase>("setup");
   const [profile, setProfile] = useState<Profile>({});
@@ -80,6 +86,8 @@ export default function InterviewApp() {
       reviewResults.forEach((result, index) => {
         if (result.status === "fulfilled") {
           contentByQuestion.set(answers[index].question_id, result.value);
+        } else {
+          contentByQuestion.set(answers[index].question_id, UNAVAILABLE_CONTENT);
         }
       });
       const result: MeasurementReport = {
@@ -87,8 +95,8 @@ export default function InterviewApp() {
         results: measurementReport.results.map((item) => ({
           ...item,
           content: item.question_id
-            ? contentByQuestion.get(item.question_id) ?? null
-            : null,
+            ? contentByQuestion.get(item.question_id) ?? UNAVAILABLE_CONTENT
+            : UNAVAILABLE_CONTENT,
         })),
       };
       stopDevices();

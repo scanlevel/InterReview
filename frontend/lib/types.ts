@@ -11,6 +11,7 @@ export interface Profile {
 
 export interface Question {
   id: string;
+  question_id: string;
   category: string;
   rule_group: string;
   subcategory: string;
@@ -47,6 +48,14 @@ export interface SpeechMetrics {
   max_pause_sec: number;
   long_pause_threshold_sec: number;
 }
+export type SttStatus =
+  | "not_attempted"
+  | "ok"
+  | "no_speech"
+  | "empty"
+  | "not_configured"
+  | "error";
+
 
 export interface AnswerItem {
   question_id: string;
@@ -54,6 +63,8 @@ export interface AnswerItem {
   original_question?: string | null;
   category?: string | null;
   transcript: string;
+  stt_status: SttStatus;
+  stt_error?: string | null;
   eye_tracking?: EyeTrackingSummary | null;
   speech_metrics?: SpeechMetrics | null;
 }
@@ -87,6 +98,8 @@ export interface QuestionResult {
   question_id: string | null;
   question: string | null;
   category: string | null;
+  stt_status: SttStatus;
+  stt_error?: string | null;
   original_question?: string | null;
   transcript: string;
   speech_metrics?: SpeechMetrics | null;
@@ -102,7 +115,7 @@ export interface MeasurementReport {
 
 export interface TranscriptResponse {
   transcript: string;
-  status: string;
+  status: SttStatus;
   error?: string | null;
   confidence?: number | null;
   segment_count?: number | null;
