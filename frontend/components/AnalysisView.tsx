@@ -10,6 +10,7 @@ import type {
   SpeechMetrics,
   SttStatus,
 } from "@/lib/types";
+import AudioActivityTimeline from "@/components/AudioActivityTimeline";
 
 const STATUS_LABELS: Record<AnswerStatus, string> = {
   good: "답변함",
@@ -67,16 +68,18 @@ function SpeechPanel({
     <div>
       <MetricRow label="STT 상태" value={STT_STATUS_LABELS[sttStatus]} />
       {sttError && <p className="mb-2 text-xs text-amber-600">{sttError}</p>}
-      <MetricRow label="총 답변 시간" value={`${fixed(metrics.total_duration_sec, 1)}초`} />
-      <MetricRow label="실제 발화 시간" value={`${fixed(metrics.speech_duration_sec, 1)}초`} />
-      <MetricRow
-        label="발화 속도"
-        value={`${fixed(metrics.speech_rate_eojeol_per_min, 1)}어절/분`}
-      />
-      <MetricRow label="무음 시간" value={`${fixed(metrics.silence_duration_sec, 1)}초`} />
-      <MetricRow label="무음 비율" value={percent(metrics.silence_ratio)} />
-      <MetricRow label={`${metrics.long_pause_threshold_sec.toFixed(1)}초 이상 긴 무음`} value={`${metrics.long_pause_count}회`} />
-      <MetricRow label="최대 무음" value={`${fixed(metrics.max_pause_sec, 1)}초`} />
+      <div className="mt-3">
+        <p className="mb-2 text-xs text-gray-500">오디오 활동</p>
+        <AudioActivityTimeline timeline={metrics.audio_timeline} />
+      </div>
+      <div className="mt-3">
+        <MetricRow
+          label="발화 속도"
+          value={`${fixed(metrics.speech_rate_eojeol_per_min, 1)}어절/분`}
+        />
+        <MetricRow label="무음 비율" value={percent(metrics.silence_ratio)} />
+        <MetricRow label="긴 무음 횟수" value={`${metrics.long_pause_count}회`} />
+      </div>
     </div>
   );
 }
@@ -120,32 +123,16 @@ function SessionMeasurementPanel({ summary }: { summary: MeasurementSummary }) {
     <div className="mt-4 rounded-md border border-gray-200 p-3 dark:border-gray-800">
       <h3 className="font-medium">최종 측정 요약</h3>
       <p className="mt-1 text-xs text-gray-500">
-        {summary.reference_source}와 이번 세션의 측정값을 그대로 표시합니다. 우열 판단 없이 측정값만 제공합니다.
+        음성은 질문별 활동 타임라인과 중립적인 측정값으로, 시선은 질문별 Heatmap으로 표시합니다.
       </p>
       <div className="mt-2 grid gap-x-6 md:grid-cols-2">
-        <MetricRow
-          label="참고 평균 답변시간"
-          value={`${fixed(summary.reference_average_total_duration_sec, 1)}초`}
-        />
         <MetricRow
           label="참고 평균 답변 어절"
           value={`${summary.reference_average_answer_length_eojeol}어절`}
         />
         <MetricRow
-          label="내 평균 총 답변시간"
-          value={`${fixed(summary.average_total_duration_sec, 1)}초`}
-        />
-        <MetricRow
-          label="내 평균 실제 발화시간"
-          value={`${fixed(summary.average_speech_duration_sec, 1)}초`}
-        />
-        <MetricRow
           label="내 평균 답변 어절"
           value={`${fixed(summary.average_answer_length_eojeol, 1)}어절`}
-        />
-        <MetricRow
-          label="내 평균 무음시간"
-          value={`${fixed(summary.average_silence_duration_sec, 1)}초`}
         />
         <MetricRow label="내 평균 무음 비율" value={percent(summary.average_silence_ratio)} />
         <MetricRow

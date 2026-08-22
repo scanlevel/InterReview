@@ -10,6 +10,7 @@ from app.schemas import (
     EyeTrackingSummary,
     GazeHeatmap,
     MeasurementRequest,
+    AudioTimeline,
     SpeechMetrics,
 )
 from app.services.measurements import build_measurement_report
@@ -37,6 +38,9 @@ def _answer() -> AnswerItem:
             silence_ratio=0.185,
             long_pause_count=3,
             max_pause_sec=3.1,
+            audio_timeline=AudioTimeline(
+                energy=[0.1, 0.8], speech=[False, True], long_pause=[True, False]
+            ),
         ),
     )
 
@@ -51,12 +55,17 @@ def test_report_keeps_measurements_and_session_averages() -> None:
     assert result.content is None
     assert result.speech_metrics is not None
     assert result.speech_metrics.long_pause_count == 3
+    assert result.speech_metrics.audio_timeline is not None
+    assert result.speech_metrics.audio_timeline.long_pause == [True, False]
     assert result.eye_tracking is not None
     assert result.eye_tracking.gaze_heatmap is not None
     assert report.measurement_summary.average_total_duration_sec == 87.4
     assert report.measurement_summary.average_speech_duration_sec == 71.2
     assert report.measurement_summary.average_silence_duration_sec == 16.2
     assert report.summary_feedback.endswith("시선은 질문별 Heatmap으로 표시합니다.")
+    assert "답변시간" not in report.summary_feedback
+    assert "발화시간" not in report.summary_feedback
+    assert "무음시간" not in report.summary_feedback
 
 
 def test_empty_answer_has_no_measurement_values() -> None:
@@ -90,6 +99,11 @@ def test_measurements_endpoint() -> None:
                         "long_pause_count": 0,
                         "max_pause_sec": 1,
                         "long_pause_threshold_sec": 2,
+                        "audio_timeline": {
+                            "energy": [0.2, 0.9],
+                            "speech": [False, True],
+                            "long_pause": [True, False],
+                        },
                     },
                 }
             ]
@@ -100,4 +114,5 @@ def test_measurements_endpoint() -> None:
     assert body["results"][0]["stt_status"] == "not_configured"
     assert body["results"][0]["content"] is None
     assert body["results"][0]["speech_metrics"]["total_duration_sec"] == 4
+    assert body["results"][0]["speech_metrics"]["audio_timeline"]["long_pause"] == [True, False]
     assert body["measurement_summary"]["average_speech_duration_sec"] == 3

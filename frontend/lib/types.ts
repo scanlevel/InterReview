@@ -38,6 +38,15 @@ export interface GazeHeatmap {
   total: number;
 }
 
+export interface AudioTimeline {
+  /** Normalized energy for each display bin (0..1). */
+  energy: number[];
+  /** Whether each display bin is predominantly speech. */
+  speech: boolean[];
+  /** Whether each display bin overlaps a long-pause run. */
+  long_pause: boolean[];
+}
+
 export interface SpeechMetrics {
   total_duration_sec: number;
   speech_duration_sec: number;
@@ -47,6 +56,7 @@ export interface SpeechMetrics {
   long_pause_count: number;
   max_pause_sec: number;
   long_pause_threshold_sec: number;
+  audio_timeline?: AudioTimeline | null;
 }
 export type SttStatus =
   | "not_attempted"

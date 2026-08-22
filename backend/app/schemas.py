@@ -6,9 +6,10 @@ is supplied by Track A when that contract is connected.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 SttStatus = Literal[
     "not_attempted", "ok", "no_speech", "empty", "not_configured", "error"
@@ -30,6 +31,23 @@ class GazeHeatmap(BaseModel):
     total: int = Field(default=0, ge=0)
 
 
+class AudioTimeline(BaseModel):
+    """Compact, privacy-safe audio activity bins for one answer."""
+
+    energy: list[float] = Field(default_factory=list, max_length=120)
+    speech: list[bool] = Field(default_factory=list, max_length=120)
+    long_pause: list[bool] = Field(default_factory=list, max_length=120)
+
+    @model_validator(mode="after")
+    def validate_bins(self) -> "AudioTimeline":
+        lengths = {len(self.energy), len(self.speech), len(self.long_pause)}
+        if len(lengths) != 1:
+            raise ValueError("audio timeline arrays must have equal lengths")
+        if any(not math.isfinite(value) or not 0 <= value <= 1 for value in self.energy):
+            raise ValueError("audio timeline energy must be finite and between 0 and 1")
+        return self
+
+
 class SpeechMetrics(BaseModel):
     """VAD-derived timing values for one answer."""
 
@@ -41,6 +59,7 @@ class SpeechMetrics(BaseModel):
     long_pause_count: int = Field(default=0, ge=0)
     max_pause_sec: float = Field(default=0, ge=0)
     long_pause_threshold_sec: float = Field(default=2.0, gt=0)
+    audio_timeline: AudioTimeline | None = None
 
 
 class AnswerItem(BaseModel):

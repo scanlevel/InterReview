@@ -1,6 +1,6 @@
 // Browser-side recording, WAV conversion, and simple VAD measurements.
 
-import type { SpeechMetrics } from "./types";
+import type { AudioTimeline, SpeechMetrics } from "./types";
 
 const PREFERRED_MIME_TYPES = [
   "audio/webm;codecs=opus",
@@ -13,6 +13,7 @@ const TARGET_SAMPLE_RATE = 16000;
 const VAD_FRAME_MS = 20;
 const VAD_RMS_THRESHOLD = 0.015;
 export const LONG_PAUSE_SEC = 2;
+const MAX_AUDIO_TIMELINE_BINS = 120;
 
 function pickMimeType(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;
@@ -65,6 +66,45 @@ export function countTranscriptEojeol(transcript: string): number {
   return transcript.trim() ? transcript.trim().split(/\s+/u).length : 0;
 }
 
+function percentile(values: number[], fraction: number): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  const index = Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * fraction));
+  return sorted[index];
+}
+
+function buildAudioTimeline(
+  frameRms: number[],
+  speechFrames: boolean[],
+  longPauseFrames: boolean[],
+): AudioTimeline | null {
+  if (!frameRms.length) return null;
+  const binCount = Math.min(MAX_AUDIO_TIMELINE_BINS, frameRms.length);
+  const scale = Math.max(percentile(frameRms, 0.95), VAD_RMS_THRESHOLD);
+  const timeline: AudioTimeline = { energy: [], speech: [], long_pause: [] };
+
+  for (let bin = 0; bin < binCount; bin += 1) {
+    const start = Math.floor((bin * frameRms.length) / binCount);
+    const end = Math.max(
+      start + 1,
+      Math.floor(((bin + 1) * frameRms.length) / binCount),
+    );
+    let energy = 0;
+    let speechCount = 0;
+    let hasLongPause = false;
+    for (let index = start; index < end; index += 1) {
+      energy += frameRms[index];
+      if (speechFrames[index]) speechCount += 1;
+      if (longPauseFrames[index]) hasLongPause = true;
+    }
+    const frameCount = end - start;
+    timeline.energy.push(round(Math.min(1, (energy / frameCount) / scale), 3));
+    timeline.speech.push(speechCount / frameCount >= 0.5);
+    timeline.long_pause.push(hasLongPause);
+  }
+  return timeline;
+}
+
 /** Measure speech/silence runs from mono PCM samples without storing raw media. */
 export function calculateSpeechMetrics(
   samples: Float32Array,
@@ -81,21 +121,34 @@ export function calculateSpeechMetrics(
       long_pause_count: 0,
       max_pause_sec: 0,
       long_pause_threshold_sec: LONG_PAUSE_SEC,
+      audio_timeline: null,
     };
   }
 
   const totalDuration = samples.length / sampleRate;
   const frameSamples = Math.max(1, Math.round((sampleRate * VAD_FRAME_MS) / 1000));
+  const frameRms: number[] = [];
+  const speechFrames: boolean[] = [];
+  const longPauseFrames: boolean[] = [];
   let speechDuration = 0;
   let silentRun = 0;
+  let silentStartFrame: number | null = null;
   let longPauseCount = 0;
   let maxPause = 0;
 
-  const closeSilence = () => {
+  const closeSilence = (endExclusive = longPauseFrames.length) => {
     if (silentRun <= 0) return;
     maxPause = Math.max(maxPause, silentRun);
-    if (silentRun >= LONG_PAUSE_SEC) longPauseCount += 1;
+    if (silentRun >= LONG_PAUSE_SEC) {
+      longPauseCount += 1;
+      if (silentStartFrame !== null) {
+        for (let index = silentStartFrame; index < endExclusive; index += 1) {
+          longPauseFrames[index] = true;
+        }
+      }
+    }
     silentRun = 0;
+    silentStartFrame = null;
   };
 
   for (let start = 0; start < samples.length; start += frameSamples) {
@@ -106,10 +159,15 @@ export function calculateSpeechMetrics(
     }
     const frameDuration = (end - start) / sampleRate;
     const rms = Math.sqrt(energy / Math.max(1, end - start));
-    if (rms >= VAD_RMS_THRESHOLD) {
+    const isSpeech = rms >= VAD_RMS_THRESHOLD;
+    frameRms.push(rms);
+    speechFrames.push(isSpeech);
+    longPauseFrames.push(false);
+    if (isSpeech) {
       speechDuration += frameDuration;
-      closeSilence();
+      closeSilence(longPauseFrames.length - 1);
     } else {
+      if (silentStartFrame === null) silentStartFrame = frameRms.length - 1;
       silentRun += frameDuration;
     }
   }
@@ -128,6 +186,7 @@ export function calculateSpeechMetrics(
     long_pause_count: longPauseCount,
     max_pause_sec: round(maxPause),
     long_pause_threshold_sec: LONG_PAUSE_SEC,
+    audio_timeline: buildAudioTimeline(frameRms, speechFrames, longPauseFrames),
   };
 }
 

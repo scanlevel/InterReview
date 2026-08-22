@@ -22,10 +22,7 @@ import type {
   SttStatus,
 } from "@/lib/types";
 import GazeDebugOverlay from "@/components/GazeDebugOverlay";
-
-function seconds(value: number): string {
-  return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, "0")}`;
-}
+import AudioActivityTimeline from "@/components/AudioActivityTimeline";
 
 export default function InterviewView({
   questions,
@@ -45,7 +42,6 @@ export default function InterviewView({
   const [transcripts, setTranscripts] = useState<Record<string, string>>({});
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [gazeStatus, setGazeStatus] = useState<
@@ -72,13 +68,6 @@ export default function InterviewView({
   const current = transcripts[question.question_id] ?? "";
   const currentMetrics = speechMetrics[question.question_id] ?? null;
 
-  useEffect(() => {
-    if (!isRecording) return;
-    const timer = window.setInterval(() => {
-      setRecordingSeconds((value) => value + 0.25);
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [isRecording]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +135,6 @@ export default function InterviewView({
       }));
       setNotice(null);
       setGazeDebugFrame(null);
-      setRecordingSeconds(0);
       gazeTrackerRef.current?.start();
       recorder.start();
       setIsRecording(true);
@@ -310,7 +298,7 @@ export default function InterviewView({
         {isRecording && (
           <span className="flex items-center gap-2 text-sm text-red-600">
             <span className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
-            녹음 중 {seconds(recordingSeconds)}
+            녹음 중
           </span>
         )}
         {isTranscribing && (
@@ -334,13 +322,9 @@ export default function InterviewView({
       </label>
 
       {currentMetrics && (
-        <div className="rounded-md border border-gray-200 p-3 text-xs dark:border-gray-800">
-          <p className="font-medium">현재 답변 측정값</p>
-          <p className="mt-1 text-gray-600 dark:text-gray-300">
-            총 {currentMetrics.total_duration_sec.toFixed(1)}초 · 발화 {currentMetrics.speech_duration_sec.toFixed(1)}초 ·
-            발화 속도 {currentMetrics.speech_rate_eojeol_per_min?.toFixed(1) ?? "—"}어절/분 ·
-            긴 무음 {currentMetrics.long_pause_count}회
-          </p>
+        <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
+          <p className="mb-2 text-xs font-medium">현재 답변 오디오 활동</p>
+          <AudioActivityTimeline timeline={currentMetrics.audio_timeline} />
         </div>
       )}
 

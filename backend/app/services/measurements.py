@@ -44,19 +44,11 @@ def measurement_summary(request: MeasurementRequest) -> MeasurementSummary:
     )
 
 
-def _display(value: float | None, suffix: str = "") -> str:
-    return "—" if value is None else f"{value:.2f}{suffix}"
-
-
 def _summary_text(summary: MeasurementSummary) -> str:
-    """Describe the reference and measured values without ranking the user."""
+    """Describe available measurements without displaying duration values."""
     return (
-        f"{summary.reference_source} 기준 평균 답변시간은 약 "
-        f"{summary.reference_average_total_duration_sec:.1f}초입니다. "
-        f"이번 세션의 평균 총 답변시간은 "
-        f"{_display(summary.average_total_duration_sec, '초')}, "
-        f"평균 실제 발화시간은 {_display(summary.average_speech_duration_sec, '초')}, "
-        f"평균 무음시간은 {_display(summary.average_silence_duration_sec, '초')}입니다. "
+        f"{summary.reference_source}의 답변 어절 참고값과 이번 세션의 음성 측정값을 제공합니다. "
+        "음성은 질문별 활동 타임라인과 중립적인 측정값으로, "
         "시선은 질문별 Heatmap으로 표시합니다."
     )
 
