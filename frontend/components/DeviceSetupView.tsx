@@ -10,6 +10,7 @@ import {
   type GazeCalibrationSample,
   type GazeCalibration,
   type GazeDebugFrame,
+  type GazeQuality,
   type GazePoint,
 } from "@/lib/gaze";
 import { transcribe } from "@/lib/api";
@@ -21,6 +22,7 @@ const CALIBRATION_SETTLE_MS = 450;
 const CALIBRATION_TARGET_TIMEOUT_MS = 2500;
 const CALIBRATION_SAMPLE_GOAL = 12;
 const CALIBRATION_MIN_SAMPLES = 8;
+const CALIBRATION_MAX_RETRIES = 2;
 const CALIBRATION_TARGETS = [
   { key: "center", label: "화면 중앙", x: 50, y: 50 },
   { key: "topLeft", label: "왼쪽 위", x: 10, y: 10 },
@@ -35,6 +37,27 @@ const CALIBRATION_TARGETS = [
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function gazeQualityMessage(quality: GazeQuality | null): string {
+  switch (quality) {
+    case "ok":
+      return "시선이 인식되고 있습니다.";
+    case "face_missing":
+      return "얼굴이 카메라에 보이지 않습니다.";
+    case "eye_too_small":
+      return "눈이 작게 보입니다. 카메라에 조금 가까이 앉아 주세요.";
+    case "blink":
+      return "눈을 뜨고 잠시 시선을 고정해 주세요.";
+    case "eyes_disagree":
+      return "양쪽 눈의 위치가 불안정합니다. 얼굴을 정면에 가깝게 유지해 주세요.";
+    case "invalid":
+      return "시선 좌표를 안정적으로 읽지 못했습니다.";
+    case "frame_error":
+      return "카메라 프레임을 읽지 못했습니다.";
+    default:
+      return "시선 상태를 확인하는 중입니다.";
+  }
 }
 
 export interface DeviceSetupResult {
@@ -224,8 +247,10 @@ export default function DeviceSetupView({
       const target = CALIBRATION_TARGETS[index];
       const targetPoint = { x: target.x / 100, y: target.y / 100 };
       let targetComplete = false;
+      let targetAttempts = 0;
 
-      while (!targetComplete) {
+      while (!targetComplete && targetAttempts <= CALIBRATION_MAX_RETRIES) {
+        targetAttempts += 1;
         if (calibrationRunRef.current !== run) return;
         setCalibrationTargetIndex(index);
         setCalibrationSampleCount(0);
@@ -251,9 +276,19 @@ export default function DeviceSetupView({
         if (calibrationRunRef.current !== run) return;
 
         if (calibrationSampleCountRef.current < CALIBRATION_MIN_SAMPLES) {
+          if (targetAttempts > CALIBRATION_MAX_RETRIES) {
+            calibrationTargetRef.current = null;
+            calibrationTargetSamplesRef.current = [];
+            setCalibrationPhase("idle");
+            setCalibrationState("failed");
+            setCalibrationMessage(
+              `${target.label}에서 시선 프레임을 충분히 확보하지 못했습니다. 카메라 화면의 안내를 확인한 뒤 다시 시도해 주세요.`,
+            );
+            return;
+          }
           setCalibrationPhase("retry");
           setCalibrationMessage(
-            `${target.label}에서 유효한 시선 샘플이 ${CALIBRATION_MIN_SAMPLES}개 미만입니다. 얼굴과 눈을 카메라에 보이게 한 뒤 같은 칸을 다시 바라보세요.`,
+            `${target.label}에서 보정에 사용할 프레임이 ${CALIBRATION_MIN_SAMPLES}개 미만입니다. 카메라 안내를 확인한 뒤 같은 칸을 다시 바라보세요.`,
           );
           await wait(900);
           continue;
@@ -355,11 +390,11 @@ export default function DeviceSetupView({
   const microphones = devices.filter((device) => device.kind === "audioinput");
   const calibrationDone = calibrationState === "success" || calibrationState === "skipped";
   const sttDone = sttState === "success" || sttState === "skipped";
-  const busy =
+  const deviceBusy =
     deviceState === "loading" ||
-    calibrationState === "running" ||
     sttState === "recording" ||
     sttState === "checking";
+  const busy = deviceBusy || calibrationState === "running";
 
 
   return (
@@ -412,6 +447,7 @@ export default function DeviceSetupView({
             phase={calibrationPhase}
             countdown={calibrationCountdown}
             sampleCount={calibrationSampleCount}
+            quality={gazeFrame?.quality ?? null}
           />
         </InterviewerStage>
         <div className="relative overflow-hidden rounded-lg bg-black">
@@ -432,9 +468,8 @@ export default function DeviceSetupView({
           )}
           {calibrationState === "running" && (
             <div className="absolute inset-x-3 bottom-3 rounded-md bg-slate-950/75 px-3 py-2 text-center text-xs text-slate-100">
-              {gazeFrame?.rawGaze
-                ? "시선이 인식되고 있습니다. 왼쪽의 강조된 칸을 바라보세요."
-                : "얼굴과 눈을 카메라에 보이게 해주세요."}
+              {gazeQualityMessage(gazeFrame?.quality ?? null)}
+              {gazeFrame?.quality === "ok" && " 왼쪽의 강조된 칸을 바라보세요."}
             </div>
           )}
         </div>
@@ -462,10 +497,10 @@ export default function DeviceSetupView({
           <button
             type="button"
             onClick={skipCalibration}
-            disabled={busy}
+            disabled={deviceBusy}
             className="rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-40 dark:border-gray-700"
           >
-            건너뛰기
+            {calibrationState === "running" ? "중단" : "건너뛰기"}
           </button>
           {calibrationState === "success" && (
             <span className="text-sm text-emerald-600">완료 — 3×3 격자에서 수집한 시선 보정을 적용합니다.</span>
@@ -562,11 +597,13 @@ function CalibrationGrid({
   phase,
   countdown,
   sampleCount,
+  quality,
 }: {
   activeIndex: number | null;
   phase: CalibrationPhase;
   countdown: number | null;
   sampleCount: number;
+  quality: GazeQuality | null;
 }) {
   if (activeIndex === null && countdown === null) return null;
   const activeTarget = activeIndex === null ? null : CALIBRATION_TARGETS[activeIndex];
@@ -576,8 +613,10 @@ function CalibrationGrid({
       : phase === "settle"
         ? "시선을 고정해 주세요"
         : phase === "retry"
-          ? "같은 칸을 다시 바라보세요"
-          : "강조된 칸을 바라보세요";
+          ? `${gazeQualityMessage(quality)} 같은 칸을 다시 바라보세요`
+          : quality === "ok"
+            ? "시선을 고정해 주세요"
+            : gazeQualityMessage(quality);
 
   return (
     <div className="absolute inset-0 z-20" aria-live="polite">
@@ -609,7 +648,7 @@ function CalibrationGrid({
         <p>{status}{activeTarget ? ` · ${activeTarget.label} (${activeIndex! + 1}/9)` : ""}</p>
         {activeTarget && phase !== "settle" && phase !== "retry" && (
           <p className="mt-1 font-normal text-slate-300">
-            유효 샘플 {sampleCount}/{CALIBRATION_SAMPLE_GOAL}
+            보정 사용 프레임 {sampleCount}/{CALIBRATION_SAMPLE_GOAL}
           </p>
         )}
       </div>

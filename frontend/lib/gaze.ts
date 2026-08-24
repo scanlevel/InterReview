@@ -1,7 +1,6 @@
 import {
   FaceLandmarker,
   FilesetResolver,
-  type Matrix,
   type NormalizedLandmark,
 } from "@mediapipe/tasks-vision";
 import type { EyeTrackingSummary } from "./types";
@@ -9,9 +8,16 @@ import type { EyeTrackingSummary } from "./types";
 const WASM_ROOT =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 const MODEL_PATH = "/face_landmarker.task";
-const MIN_EYE_WIDTH_PX = 8;
-const MIN_EYE_OPENNESS = 0.06;
+const MIN_EYE_WIDTH_ENTER_PX = 8;
+const MIN_EYE_WIDTH_RELEASE_PX = 6.5;
+const MIN_EYE_OPENNESS_FLOOR = 0.025;
+const BLINK_RATIO = 0.6;
+const BLINK_MIN_DROP = 0.018;
+const ANCHOR_EMA_ALPHA = 0.05;
+const OPENNESS_EMA_ALPHA = 0.05;
 const MAX_EYE_DISAGREEMENT = 0.3;
+const MAX_MONOCULAR_JUMP = 0.25;
+const MONOCULAR_CONTINUITY_MS = 500;
 const FRONT_THRESHOLD = { x: 0.18, y: 0.1 };
 const CALIBRATED_FRONT_THRESHOLD = { x: 0.2, y: 0.15 };
 const SAMPLE_INTERVAL_MS = 50;
@@ -24,7 +30,6 @@ const MAX_CALIBRATION_MAD = 0.12;
 const MIN_CALIBRATION_GAZE_SPAN = 0.04;
 const CALIBRATION_RIDGE_LAMBDA = 0.0001;
 const CALIBRATION_FEATURE_COUNT = 6;
-const MAX_HEAD_POSE_DELTA = 0.28;
 const VIDEO_TIME_EPSILON = 0.0001;
 export const HEATMAP_ROWS = 8;
 
@@ -66,8 +71,18 @@ export interface GazeCalibration {
   yCoefficients: number[];
 }
 
+export type GazeQuality =
+  | "ok"
+  | "face_missing"
+  | "eye_too_small"
+  | "blink"
+  | "eyes_disagree"
+  | "invalid"
+  | "frame_error";
+
 export interface GazeDebugFrame {
   faceDetected: boolean;
+  quality: GazeQuality;
   rawGaze: GazePoint | null;
   gaze: GazePoint | null;
   screenPoint: GazePoint | null;
@@ -78,6 +93,43 @@ const EYES = [
   { iris: [468, 469, 470, 471, 472], corners: [33, 133], lids: [159, 145] },
   { iris: [473, 474, 475, 476, 477], corners: [362, 263], lids: [386, 374] },
 ] as const;
+
+type EyeSampleStatus = "ok" | "eye_too_small" | "blink";
+
+type EyeEstimate = {
+  gaze: GazePoint | null;
+  status: EyeSampleStatus;
+};
+
+type EyeState = {
+  anchoredCorners: [Point, Point] | null;
+  tracking: boolean;
+  opennessBaseline: number | null;
+};
+
+function createEyeState(): EyeState {
+  return { anchoredCorners: null, tracking: false, opennessBaseline: null };
+}
+
+function resetEyeState(state: EyeState): void {
+  state.anchoredCorners = null;
+  state.tracking = false;
+  state.opennessBaseline = null;
+}
+
+function smoothPoint(previous: Point, next: Point, alpha: number): Point {
+  return {
+    x: previous.x + alpha * (next.x - previous.x),
+    y: previous.y + alpha * (next.y - previous.y),
+  };
+}
+
+export function isEyeWidthUsable(width: number, tracking: boolean): boolean {
+  return (
+    Number.isFinite(width) &&
+    width >= (tracking ? MIN_EYE_WIDTH_RELEASE_PX : MIN_EYE_WIDTH_ENTER_PX)
+  );
+}
 
 function point(
   landmarks: NormalizedLandmark[],
@@ -93,13 +145,36 @@ function eyeGaze(
   eye: (typeof EYES)[number],
   width: number,
   height: number,
-): GazePoint | null {
-  const corner0 = point(landmarks, eye.corners[0], width, height);
-  const corner1 = point(landmarks, eye.corners[1], width, height);
+  state: EyeState,
+): EyeEstimate {
+  const rawCorner0 = point(landmarks, eye.corners[0], width, height);
+  const rawCorner1 = point(landmarks, eye.corners[1], width, height);
+  const rawWidth = Math.hypot(
+    rawCorner1.x - rawCorner0.x,
+    rawCorner1.y - rawCorner0.y,
+  );
+  if (!isEyeWidthUsable(rawWidth, state.tracking)) {
+    resetEyeState(state);
+    return { gaze: null, status: "eye_too_small" };
+  }
+
+  state.tracking = true;
+  if (!state.anchoredCorners) {
+    state.anchoredCorners = [rawCorner0, rawCorner1];
+  } else {
+    state.anchoredCorners = [
+      smoothPoint(state.anchoredCorners[0], rawCorner0, ANCHOR_EMA_ALPHA),
+      smoothPoint(state.anchoredCorners[1], rawCorner1, ANCHOR_EMA_ALPHA),
+    ];
+  }
+
+  const [corner0, corner1] = state.anchoredCorners;
   const dx = corner1.x - corner0.x;
   const dy = corner1.y - corner0.y;
   const eyeWidth = Math.hypot(dx, dy);
-  if (eyeWidth < MIN_EYE_WIDTH_PX) return null;
+  if (!Number.isFinite(eyeWidth) || eyeWidth <= 0) {
+    return { gaze: null, status: "eye_too_small" };
+  }
 
   const top = point(landmarks, eye.lids[0], width, height);
   const bottom = point(landmarks, eye.lids[1], width, height);
@@ -111,7 +186,21 @@ function eyeGaze(
   const eyeHeight = Math.abs(
     (bottom.x - top.x) * yAxis.x + (bottom.y - top.y) * yAxis.y,
   );
-  if (eyeHeight / eyeWidth < MIN_EYE_OPENNESS) return null;
+  const openness = eyeHeight / rawWidth;
+  const baseline = state.opennessBaseline;
+  if (
+    !Number.isFinite(openness) ||
+    openness < MIN_EYE_OPENNESS_FLOOR ||
+    (baseline !== null &&
+      baseline - openness >= BLINK_MIN_DROP &&
+      openness <= baseline * BLINK_RATIO)
+  ) {
+    return { gaze: null, status: "blink" };
+  }
+  state.opennessBaseline =
+    baseline === null
+      ? openness
+      : baseline + OPENNESS_EMA_ALPHA * (openness - baseline);
 
   const iris = eye.iris.reduce(
     (sum, index) => {
@@ -124,33 +213,73 @@ function eyeGaze(
   iris.y /= eye.iris.length;
 
   const center = {
-    x: (corner0.x + corner1.x + top.x + bottom.x) / 4,
-    y: (corner0.y + corner1.y + top.y + bottom.y) / 4,
+    x: (corner0.x + corner1.x) / 2,
+    y: (corner0.y + corner1.y) / 2,
   };
   const offset = { x: iris.x - center.x, y: iris.y - center.y };
   return {
-    x: (offset.x * xAxis.x + offset.y * xAxis.y) / eyeWidth,
-    y: (offset.x * yAxis.x + offset.y * yAxis.y) / eyeWidth,
+    gaze: {
+      x: (offset.x * xAxis.x + offset.y * xAxis.y) / eyeWidth,
+      y: (offset.x * yAxis.x + offset.y * yAxis.y) / eyeWidth,
+    },
+    status: "ok",
   };
+}
+
+function distance(left: GazePoint, right: GazePoint): number {
+  return Math.hypot(left.x - right.x, left.y - right.y);
+}
+
+function invalidEyeQuality(left: EyeEstimate, right: EyeEstimate): GazeQuality {
+  if (left.status === "blink" || right.status === "blink") return "blink";
+  return "eye_too_small";
 }
 
 function gazeFromLandmarks(
   landmarks: NormalizedLandmark[],
   width: number,
   height: number,
-): GazePoint | null {
-  const left = eyeGaze(landmarks, EYES[0], width, height);
-  const right = eyeGaze(landmarks, EYES[1], width, height);
-  if (
-    !left ||
-    !right ||
-    Math.abs(left.x - right.x) > MAX_EYE_DISAGREEMENT ||
-    Math.abs(left.y - right.y) > MAX_EYE_DISAGREEMENT
-  ) {
-    return null;
+  states: [EyeState, EyeState],
+  previous: GazePoint | null,
+): { gaze: GazePoint | null; quality: GazeQuality } {
+  const left = eyeGaze(landmarks, EYES[0], width, height, states[0]);
+  const right = eyeGaze(landmarks, EYES[1], width, height, states[1]);
+  if (left.gaze && right.gaze) {
+    const averaged = {
+      x: (left.gaze.x + right.gaze.x) / 2,
+      y: (left.gaze.y + right.gaze.y) / 2,
+    };
+    const disagreement = Math.max(
+      Math.abs(left.gaze.x - right.gaze.x),
+      Math.abs(left.gaze.y - right.gaze.y),
+    );
+    if (disagreement <= MAX_EYE_DISAGREEMENT) {
+      return isValidGazePoint(averaged)
+        ? { gaze: averaged, quality: "ok" }
+        : { gaze: null, quality: "invalid" };
+    }
+
+    if (previous) {
+      const candidate =
+        distance(left.gaze, previous) <= distance(right.gaze, previous)
+          ? left.gaze
+          : right.gaze;
+      if (isValidGazePoint(candidate) && distance(candidate, previous) <= MAX_MONOCULAR_JUMP) {
+        return { gaze: candidate, quality: "ok" };
+      }
+    }
+    return { gaze: null, quality: "eyes_disagree" };
   }
-  const averaged = { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
-  return isValidGazePoint(averaged) ? averaged : null;
+
+  const candidate = left.gaze ?? right.gaze;
+  if (
+    candidate &&
+    isValidGazePoint(candidate) &&
+    (!previous || distance(candidate, previous) <= MAX_MONOCULAR_JUMP)
+  ) {
+    return { gaze: candidate, quality: "ok" };
+  }
+  return { gaze: null, quality: invalidEyeQuality(left, right) };
 }
 
 function clamp(value: number, low = 0, high = 1): number {
@@ -474,27 +603,6 @@ export class OneEuroGazeFilter {
   }
 }
 
-function normalizedRotation(matrix: Matrix | undefined): number[] | null {
-  if (!matrix || matrix.data.length < 16) return null;
-  const rotation = matrix.data.slice(0, 3).concat(
-    matrix.data.slice(4, 7),
-    matrix.data.slice(8, 11),
-  );
-  for (let row = 0; row < 3; row += 1) {
-    const offset = row * 3;
-    const length = Math.hypot(
-      rotation[offset],
-      rotation[offset + 1],
-      rotation[offset + 2],
-    );
-    if (!Number.isFinite(length) || length < 1e-6) return null;
-    for (let column = 0; column < 3; column += 1) {
-      rotation[offset + column] /= length;
-    }
-  }
-  return rotation.every(Number.isFinite) ? rotation : null;
-}
-
 const XNNPACK_INFO = "Created TensorFlow Lite XNNPACK delegate for CPU.";
 let infoFilterUsers = 0;
 let previousConsoleError: typeof console.error | null = null;
@@ -544,7 +652,12 @@ export class BrowserGazeTracker {
   private nextSampleAt = 0;
   private readonly gazeFilter = new OneEuroGazeFilter();
   private lastValidGazeAt = 0;
-  private poseReference: number[] | null = null;
+  private readonly eyeStates: [EyeState, EyeState] = [
+    createEyeState(),
+    createEyeState(),
+  ];
+  private lastRawGaze: GazePoint | null = null;
+  private lastRawGazeAt = 0;
   private readonly video: HTMLVideoElement;
   private readonly landmarker: FaceLandmarker;
   private readonly onDebugFrame?: (frame: GazeDebugFrame) => void;
@@ -576,7 +689,9 @@ export class BrowserGazeTracker {
     this.nextSampleAt = 0;
     this.gazeFilter.reset();
     this.lastValidGazeAt = 0;
-    this.poseReference = null;
+    this.eyeStates.forEach(resetEyeState);
+    this.lastRawGaze = null;
+    this.lastRawGazeAt = 0;
     this.active = true;
     this.processFrame();
   }
@@ -627,19 +742,33 @@ export class BrowserGazeTracker {
       try {
         const result = this.landmarker.detectForVideo(this.video, timestamp);
         const landmarks = result.faceLandmarks[0];
-        const pose = result.facialTransformationMatrixes?.[0];
-        const rawGaze =
-          landmarks && this.isPoseStable(pose)
-            ? gazeFromLandmarks(
-                landmarks,
-                this.video.videoWidth,
-                this.video.videoHeight,
-              )
+        if (!landmarks) {
+          this.eyeStates.forEach(resetEyeState);
+          this.lastRawGaze = null;
+        }
+        const previousRawGaze =
+          this.lastRawGaze && now - this.lastRawGazeAt <= MONOCULAR_CONTINUITY_MS
+            ? this.lastRawGaze
             : null;
+        const estimate = landmarks
+          ? gazeFromLandmarks(
+              landmarks,
+              this.video.videoWidth,
+              this.video.videoHeight,
+              this.eyeStates,
+              previousRawGaze,
+            )
+          : { gaze: null, quality: "face_missing" as const };
+        const rawGaze = estimate.gaze;
+        if (rawGaze) {
+          this.lastRawGaze = rawGaze;
+          this.lastRawGazeAt = now;
+        }
         const gaze = this.filterGaze(rawGaze, now);
         this.accumulator.add(gaze);
         this.onDebugFrame?.({
           faceDetected: Boolean(landmarks),
+          quality: estimate.quality,
           rawGaze,
           gaze,
           screenPoint: gaze ? this.accumulator.screenPoint(gaze) : null,
@@ -647,29 +776,22 @@ export class BrowserGazeTracker {
         });
       } catch {
         // A dropped/invalid video frame should not stop the interview loop.
+        this.eyeStates.forEach(resetEyeState);
+        this.lastRawGaze = null;
         this.filterGaze(null, now);
         this.accumulator.add(null);
+        this.onDebugFrame?.({
+          faceDetected: false,
+          quality: "frame_error",
+          rawGaze: null,
+          gaze: null,
+          screenPoint: null,
+          isFront: null,
+        });
       }
     }
     this.animationFrame = requestAnimationFrame(this.processFrame);
   };
-
-  private isPoseStable(matrix: Matrix | undefined): boolean {
-    const rotation = normalizedRotation(matrix);
-    if (!rotation) return true;
-    if (!this.poseReference) {
-      this.poseReference = rotation;
-      return true;
-    }
-    const delta = Math.sqrt(
-      rotation.reduce(
-        (sum, value, index) =>
-          sum + (value - (this.poseReference as number[])[index]) ** 2,
-        0,
-      ) / rotation.length,
-    );
-    return delta <= MAX_HEAD_POSE_DELTA;
-  }
 
   private filterGaze(gaze: GazePoint | null, now: number): GazePoint | null {
     if (!isValidGazePoint(gaze)) {
@@ -697,7 +819,6 @@ export async function createBrowserGazeTracker(
     const landmarker = await FaceLandmarker.createFromOptions(vision, {
       baseOptions: { modelAssetPath: MODEL_PATH },
       runningMode: "VIDEO",
-      outputFacialTransformationMatrixes: true,
       numFaces: 1,
       minFaceDetectionConfidence: 0.5,
       minFacePresenceConfidence: 0.5,

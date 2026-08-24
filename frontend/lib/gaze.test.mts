@@ -4,6 +4,7 @@ import {
   applyGazeCalibration,
   createGazeCalibration,
   GazeAccumulator,
+  isEyeWidthUsable,
   isNewVideoFrame,
   isValidGazePoint,
   OneEuroGazeFilter,
@@ -126,6 +127,14 @@ test("requires every calibration target and a measurable axis span", () => {
     ),
     null,
   );
+});
+
+test("keeps eye tracking active through the hysteresis release width", () => {
+  assert.equal(isEyeWidthUsable(7.9, false), false);
+  assert.equal(isEyeWidthUsable(8, false), true);
+  assert.equal(isEyeWidthUsable(7, true), true);
+  assert.equal(isEyeWidthUsable(6.5, true), true);
+  assert.equal(isEyeWidthUsable(6.49, true), false);
 });
 
 test("One Euro filter reduces jumps and resets cleanly", () => {

@@ -1,4 +1,23 @@
-import type { GazeDebugFrame } from "@/lib/gaze";
+import type { GazeDebugFrame, GazeQuality } from "@/lib/gaze";
+
+function qualityLabel(quality: GazeQuality): string {
+  switch (quality) {
+    case "ok":
+      return "● 시선 분석 준비됨";
+    case "face_missing":
+      return "● 얼굴 미검출";
+    case "eye_too_small":
+      return "● 눈이 작게 보임";
+    case "blink":
+      return "● 깜빡임·눈 뜸 대기";
+    case "eyes_disagree":
+      return "● 양쪽 눈 불일치";
+    case "invalid":
+      return "● 시선 좌표 판정 불가";
+    case "frame_error":
+      return "● 카메라 프레임 오류";
+  }
+}
 
 export default function GazeDebugOverlay({
   active,
@@ -39,19 +58,17 @@ export default function GazeDebugOverlay({
 
       <div className="absolute left-2 top-2 space-y-1 rounded bg-black/70 p-2 font-mono">
         <p>
-          {active && verbose
-            ? frame?.faceDetected
-              ? frame.gaze
-                ? frame.isFront
-                  ? "● 정면 응시"
-                  : "● 시선 이탈"
-                : "● 눈동자 판정 불가"
-              : "● 얼굴 미검출"
-            : active
-              ? frame?.faceDetected
-                ? "● 시선 분석 준비됨"
-                : "● 얼굴을 화면에 맞춰주세요"
-              : idleLabel}
+          {active
+            ? frame
+              ? frame.quality === "ok"
+                ? verbose && frame.gaze
+                  ? frame.isFront
+                    ? "● 정면 응시"
+                    : "● 시선 이탈"
+                  : "● 시선 분석 준비됨"
+                : qualityLabel(frame.quality)
+              : "● 시선 분석 프레임 대기"
+            : idleLabel}
         </p>
         {verbose && active && frame?.gaze && (
           <p>
