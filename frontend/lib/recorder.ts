@@ -26,6 +26,14 @@ export interface AnswerRecorder {
   isRecording: () => boolean;
 }
 
+export function canTranscribeRecording(
+  questionId: string | null,
+  isRecording: boolean,
+  requestInFlight: boolean,
+): questionId is string {
+  return questionId !== null && isRecording && !requestInFlight;
+}
+
 /** Create a recorder over the audio tracks of a media stream. */
 export function createRecorder(stream: MediaStream): AnswerRecorder {
   const audioStream = new MediaStream(stream.getAudioTracks());

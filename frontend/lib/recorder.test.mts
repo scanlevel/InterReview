@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateSpeechMetrics } from "./recorder.ts";
+import { calculateSpeechMetrics, canTranscribeRecording } from "./recorder.ts";
+
+test("transcribes only a recording that was explicitly started", () => {
+  assert.equal(canTranscribeRecording(null, false, false), false);
+  assert.equal(canTranscribeRecording(null, true, false), false);
+  assert.equal(canTranscribeRecording("q1", false, false), false);
+  assert.equal(canTranscribeRecording("q1", true, true), false);
+  assert.equal(canTranscribeRecording("q1", true, false), true);
+});
 
 test("calculates speech time, pauses, and transcript rate", () => {
   const sampleRate = 1000;

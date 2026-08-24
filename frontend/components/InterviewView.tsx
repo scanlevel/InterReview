@@ -11,6 +11,7 @@ import {
 import {
   addTranscriptRate,
   blobToWav16kWithMetrics,
+  canTranscribeRecording,
   createRecorder,
   type AnswerRecorder,
 } from "@/lib/recorder";
@@ -61,6 +62,8 @@ export default function InterviewView({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const recorderRef = useRef<AnswerRecorder | null>(null);
+  const recordingQuestionIdRef = useRef<string | null>(null);
+  const sttRequestInFlightRef = useRef(false);
   const gazeTrackerRef = useRef<BrowserGazeTracker | null>(null);
   const debugGazeRef = useRef(false);
 
@@ -114,13 +117,13 @@ export default function InterviewView({
     };
   }, [calibration, stream]);
 
-  function setTranscript(value: string) {
-    setTranscripts((previous) => ({ ...previous, [question.question_id]: value }));
-    const metrics = speechMetrics[question.question_id];
+  function setTranscript(questionId: string, value: string) {
+    setTranscripts((previous) => ({ ...previous, [questionId]: value }));
+    const metrics = speechMetrics[questionId];
     if (metrics) {
       setSpeechMetrics((previous) => ({
         ...previous,
-        [question.question_id]: addTranscriptRate(metrics, value),
+        [questionId]: addTranscriptRate(metrics, value),
       }));
     }
   }
@@ -130,41 +133,55 @@ export default function InterviewView({
     if (!recorder) return;
 
     if (!isRecording) {
+      if (isTranscribing || sttRequestInFlightRef.current || recorder.isRecording()) return;
+      const questionId = question.question_id;
       setSttStates((previous) => ({
         ...previous,
-        [question.question_id]: { status: "not_attempted", error: null },
+        [questionId]: { status: "not_attempted", error: null },
       }));
       setNotice(null);
       setGazeDebugFrame(null);
       gazeTrackerRef.current?.start();
       recorder.start();
       setIsRecording(true);
+      recordingQuestionIdRef.current = questionId;
       return;
     }
 
     setIsRecording(false);
+    const questionId = recordingQuestionIdRef.current;
+    if (!canTranscribeRecording(
+      questionId,
+      recorder.isRecording(),
+      sttRequestInFlightRef.current,
+    )) {
+      setIsRecording(recorder.isRecording());
+      return;
+    }
+    recordingQuestionIdRef.current = null;
+    sttRequestInFlightRef.current = true;
     const gazeSummary = gazeTrackerRef.current?.stop() ?? null;
-    setEyeTracking((previous) => ({ ...previous, [question.question_id]: gazeSummary }));
+    setEyeTracking((previous) => ({ ...previous, [questionId]: gazeSummary }));
     setIsTranscribing(true);
     try {
       const raw = await recorder.stop();
       const converted = await blobToWav16kWithMetrics(raw);
       setSpeechMetrics((previous) => ({
         ...previous,
-        [question.question_id]: converted.metrics,
+        [questionId]: converted.metrics,
       }));
       const result = await transcribe(converted.wav, "answer.wav");
       setSttStates((previous) => ({
         ...previous,
-        [question.question_id]: { status: result.status, error: result.error ?? null },
+        [questionId]: { status: result.status, error: result.error ?? null },
       }));
       const transcript = result.status === "ok" ? result.transcript.trim() : "";
       setSpeechMetrics((previous) => ({
         ...previous,
-        [question.question_id]: addTranscriptRate(converted.metrics, transcript),
+        [questionId]: addTranscriptRate(converted.metrics, transcript),
       }));
       if (transcript) {
-        setTranscript(transcript);
+        setTranscript(questionId, transcript);
         setNotice(null);
       } else if (result.status === "no_speech") {
         setNotice("음성이 인식되지 않았습니다. 다시 녹음하거나 직접 입력하세요.");
@@ -178,13 +195,14 @@ export default function InterviewView({
         error instanceof Error ? error.message : String(error);
       setSttStates((previous) => ({
         ...previous,
-        [question.question_id]: { status: "error", error: errorMessage },
+        [questionId]: { status: "error", error: errorMessage },
       }));
       setNotice(
         "녹음 처리 중 오류가 발생했습니다. 직접 입력하세요. " +
           (error instanceof Error ? `(${error.message})` : ""),
       );
     } finally {
+      sttRequestInFlightRef.current = false;
       setIsTranscribing(false);
     }
   }
@@ -326,7 +344,7 @@ export default function InterviewView({
         </span>
         <textarea
           value={current}
-          onChange={(event) => setTranscript(event.target.value)}
+          onChange={(event) => setTranscript(question.question_id, event.target.value)}
           rows={5}
           placeholder="녹음하면 음성 인식 결과가 여기에 채워집니다."
           className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
