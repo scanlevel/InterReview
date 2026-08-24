@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import essay, evaluate, questions, stt
+from app.routers import answers, essay, questions, stt
 
 settings = get_settings()
 
@@ -25,8 +25,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(answers.router)
 app.include_router(essay.router)
-app.include_router(evaluate.router)
 app.include_router(questions.router)
 app.include_router(stt.router)
 

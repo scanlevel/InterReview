@@ -67,15 +67,6 @@ class GenerateQuestionsResponse(BaseModel):
     questions: list[Question]
 
 
-class EvaluateRequest(BaseModel):
-    """Payload for ``POST /evaluate``."""
-
-    # Kept loose on purpose: the rule-based engine barely uses the profile, and
-    # the LLM path will accept whatever context the frontend chooses to send.
-    profile: dict[str, Any] = Field(default_factory=dict)
-    answers: list[AnswerItem] = Field(default_factory=list)
-
-
 class TranscriptResponse(BaseModel):
     """Result of ``POST /stt`` — transcription of one answer's audio."""
 
@@ -85,35 +76,6 @@ class TranscriptResponse(BaseModel):
     error: str | None = None
     confidence: float | None = None
     segment_count: int | None = None
-
-
-class EvaluationItem(BaseModel):
-    """A single scored dimension of one answer."""
-
-    name: str
-    score: int | None
-    status: str  # rule_based | no_answer | na
-    comment: str
-
-
-class QuestionResult(BaseModel):
-    """Evaluation of one question."""
-
-    question_id: str | None
-    question: str | None
-    category: str | None
-    evaluation_items: list[EvaluationItem]
-    feedback: str
-
-
-class EvaluationReport(BaseModel):
-    """Full evaluation returned to the frontend."""
-
-    total_score: int | None
-    status: str  # rule_based | llm | mock
-    engine: str  # "rule_based" | "llm"
-    summary_feedback: str
-    results: list[QuestionResult]
 
 
 # --- Track A: 자소서 분석 ------------------------------------------------------
@@ -164,4 +126,27 @@ class EssayAnalyzeRequest(BaseModel):
     essay: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
     ]
+    profile: dict[str, Any] = Field(default_factory=dict)
+
+
+# --- Track B 중 A 담당: 답변 내용 판별 (plan-A §8) -----------------------------
+
+AnswerStatus = Literal["good", "partial", "off_topic", "insufficient", "unavailable"]
+
+
+class AnswerReview(BaseModel):
+    """Content-only review of one interview answer, without a numeric score."""
+
+    answer_status: AnswerStatus
+    reason: str
+    missing_points: list[str]
+    follow_up_question: str | None
+
+
+class AnswerReviewRequest(BaseModel):
+    """Payload for ``POST /answers/review``."""
+
+    question: str
+    transcript: str
+    essay: str | None = None
     profile: dict[str, Any] = Field(default_factory=dict)
