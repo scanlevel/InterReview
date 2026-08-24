@@ -394,7 +394,6 @@ export default function DeviceSetupView({
   const cameras = devices.filter((device) => device.kind === "videoinput");
   const microphones = devices.filter((device) => device.kind === "audioinput");
   const calibrationDone = calibrationState === "success" || calibrationState === "skipped";
-  const sttDone = sttState === "success" || sttState === "skipped";
   const deviceBusy =
     deviceState === "loading" ||
     sttState === "recording" ||
@@ -529,7 +528,9 @@ export default function DeviceSetupView({
 
       <section className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
         <h3 className="font-medium">2. 마이크·STT 확인</h3>
-        <p className="mt-1 text-sm text-gray-500">아래 문장을 읽어주세요.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          아래 문장을 읽어 확인할 수 있습니다. 테스트하지 않아도 면접을 시작할 수 있습니다.
+        </p>
         <blockquote className="mt-2 rounded bg-gray-100 p-3 text-sm dark:bg-gray-800">
           “{TEST_SENTENCE}”
         </blockquote>
@@ -595,7 +596,7 @@ export default function DeviceSetupView({
         <button
           type="button"
           onClick={continueToInterview}
-          disabled={deviceState !== "ready" || !calibrationDone || !sttDone || busy}
+          disabled={deviceState !== "ready" || !calibrationDone || busy}
           className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-white dark:text-gray-900"
         >
           설정 완료 · 면접 시작
