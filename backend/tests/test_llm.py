@@ -87,9 +87,22 @@ def _bad_request() -> anthropic.BadRequestError:
 # --- configuration ----------------------------------------------------------
 
 
-def test_get_client_without_key_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture(autouse=True)
+def _isolated_caches() -> Any:
+    """Clear the process-wide lru_caches on both sides of every test here.
+
+    ``get_settings``/``get_client`` are deliberately cached (§14-8); clearing
+    only *before* a test would leak this module's state to whichever test runs
+    next, coupling the suite to execution order.
+    """
     get_settings.cache_clear()
     llm.get_client.cache_clear()
+    yield
+    get_settings.cache_clear()
+    llm.get_client.cache_clear()
+
+
+def test_get_client_without_key_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr(
         llm, "get_settings", lambda: type("S", (), {"anthropic_api_key": None})()

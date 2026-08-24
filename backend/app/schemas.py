@@ -144,9 +144,21 @@ class AnswerReview(BaseModel):
 
 
 class AnswerReviewRequest(BaseModel):
-    """Payload for ``POST /answers/review``."""
+    """Payload for ``POST /answers/review``.
 
-    question: str
-    transcript: str
-    essay: str | None = None
+    Bounds mirror ``EssayAnalyzeRequest``: user-supplied text is capped before
+    it becomes eval-model token cost. ``transcript`` may be empty — no speech
+    is a legitimate interview outcome, answered without an LLM call.
+    """
+
+    question: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1_000)
+    ]
+    transcript: Annotated[
+        str, StringConstraints(strip_whitespace=True, max_length=10_000)
+    ]
+    essay: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=10_000)]
+        | None
+    ) = None
     profile: dict[str, Any] = Field(default_factory=dict)

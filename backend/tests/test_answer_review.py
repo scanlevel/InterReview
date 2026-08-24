@@ -127,7 +127,34 @@ def test_unavailable_when_not_configured(monkeypatch: pytest.MonkeyPatch) -> Non
     assert captured["calls"] == 0
 
 
+def test_empty_transcript_is_insufficient_without_llm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No speech is a foregone "insufficient" — never worth an LLM call."""
+    captured = _stub_llm(monkeypatch, _review())
+    result = answer_review_service.review_answer(QUESTION, "   ")
+    assert result.answer_status == "insufficient"
+    assert result.reason
+    assert captured["calls"] == 0
+
+
 # --- route ------------------------------------------------------------------
+
+
+def test_route_422_on_out_of_bounds_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Input caps mirror the essay route: reject before spending tokens."""
+    captured = _stub_llm(monkeypatch, _review())
+
+    too_long = client.post(
+        "/answers/review", json={"question": QUESTION, "transcript": "가" * 10_001}
+    )
+    empty_question = client.post(
+        "/answers/review", json={"question": "  ", "transcript": TRANSCRIPT}
+    )
+
+    assert too_long.status_code == 422
+    assert empty_question.status_code == 422
+    assert captured["calls"] == 0
 
 
 def test_route_returns_200(monkeypatch: pytest.MonkeyPatch) -> None:

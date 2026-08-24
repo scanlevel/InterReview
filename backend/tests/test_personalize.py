@@ -105,6 +105,25 @@ def test_strips_quotes(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result == "개인화된 질문?"
 
 
+def test_strips_nested_balanced_quotes(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_llm(monkeypatch, "\"'개인화된 질문?'\"")
+    result = personalize_service.personalize_question({}, None, _question())
+    assert result == "개인화된 질문?"
+
+
+def test_keeps_unbalanced_inner_quotes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only balanced wrapping pairs come off — inner quoting stays intact."""
+    _stub_llm(monkeypatch, "\"'협업'이란 무엇인가요?\"")
+    result = personalize_service.personalize_question({}, None, _question())
+    assert result == "'협업'이란 무엇인가요?"
+
+
+def test_accepts_fullwidth_question_mark(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_llm(monkeypatch, "쇼핑몰 프로젝트에서 맡은 역할은 무엇이었나요？")
+    result = personalize_service.personalize_question({}, None, _question())
+    assert result == "쇼핑몰 프로젝트에서 맡은 역할은 무엇이었나요？"
+
+
 # --- output validation fallbacks --------------------------------------------
 
 

@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 _NOT_CONFIGURED_REASON = "답변 판별 기능이 설정되지 않아 이 답변은 판단할 수 없습니다."
 _FAILURE_REASON = "답변 판별에 실패해 이 답변은 판단할 수 없습니다."
+_EMPTY_TRANSCRIPT_REASON = "답변이 비어 있어 판단할 근거가 없습니다."
 
 
 class _LLMAnswerReview(BaseModel):
@@ -52,6 +53,16 @@ def review_answer(
     No retry loop is added here: ``call_structured`` retries schema misses and
     the shared client retries transient transport failures (``plan-A`` §4.5).
     """
+    # An empty transcript needs no model: the verdict is a foregone
+    # "insufficient" and the call would only cost eval-model tokens.
+    if not transcript.strip():
+        return AnswerReview(
+            answer_status="insufficient",
+            reason=_EMPTY_TRANSCRIPT_REASON,
+            missing_points=[],
+            follow_up_question=None,
+        )
+
     try:
         if not llm.is_configured():
             logger.warning("답변 판별 fallback: LLM이 설정되지 않았습니다.")

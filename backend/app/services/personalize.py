@@ -17,7 +17,18 @@ from app.services import llm
 logger = logging.getLogger(__name__)
 
 _MAX_LENGTH = 200
-_EDGE_QUOTES = "\"'“”"
+# Opening quote → its closing partner. Only balanced pairs are stripped, so an
+# inner quotation ('협업') is never half-eaten by an unpaired outer strip.
+_QUOTE_PAIRS = {'"': '"', "'": "'", "“": "”", "‘": "’"}
+# Half-width and full-width question marks are both fine sentence endings.
+_QUESTION_MARKS = ("?", "？")
+
+
+def _strip_outer_quotes(text: str) -> str:
+    """Remove balanced wrapping quote pairs, one layer at a time."""
+    while len(text) >= 2 and _QUOTE_PAIRS.get(text[0]) == text[-1]:
+        text = text[1:-1].strip()
+    return text
 
 
 def personalize_question(
@@ -44,12 +55,12 @@ def personalize_question(
             user=build_user_prompt(original, profile, essay),
             effort="low",
         )
-        personalized = " ".join(result.strip().split()).strip(_EDGE_QUOTES).strip()
+        personalized = _strip_outer_quotes(" ".join(result.split()))
 
         if (
             not personalized
             or len(personalized) > _MAX_LENGTH
-            or not personalized.endswith("?")
+            or not personalized.endswith(_QUESTION_MARKS)
         ):
             logger.warning("질문 개인화 fallback: LLM 응답 검증에 실패했습니다.")
             return original

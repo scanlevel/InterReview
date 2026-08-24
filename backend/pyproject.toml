@@ -16,6 +16,9 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.3",
+    # test_llm.py builds httpx2 responses to construct SDK errors; declare it
+    # instead of leaning on it being anthropic's transitive dependency.
+    "httpx2>=2.0",
 ]
 
 [build-system]

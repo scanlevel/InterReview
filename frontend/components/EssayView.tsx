@@ -78,7 +78,7 @@ export default function EssayView({ onBack }: { onBack: () => void }) {
 
   const trimmed = essay.trim();
   // Mirrors the backend's own bounds so an unusable essay never round-trips.
-  const canSubmit = trimmed.length > 0 && essay.length <= ESSAY_MAX_LENGTH;
+  const canSubmit = trimmed.length > 0 && trimmed.length <= ESSAY_MAX_LENGTH;
 
   async function handleAnalyze() {
     setError(null);
@@ -118,10 +118,10 @@ export default function EssayView({ onBack }: { onBack: () => void }) {
         />
         <span
           className={`self-end text-xs ${
-            essay.length > ESSAY_MAX_LENGTH ? "text-red-600" : "text-gray-500"
+            trimmed.length > ESSAY_MAX_LENGTH ? "text-red-600" : "text-gray-500"
           }`}
         >
-          {essay.length.toLocaleString()} / {ESSAY_MAX_LENGTH.toLocaleString()}자
+          {trimmed.length.toLocaleString()} / {ESSAY_MAX_LENGTH.toLocaleString()}자
         </span>
       </label>
 
