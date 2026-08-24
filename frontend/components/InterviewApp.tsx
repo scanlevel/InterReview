@@ -117,7 +117,7 @@ export default function InterviewApp() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-10">
+    <main className={`mx-auto px-6 py-10 ${phase === "device-setup" || phase === "interview" ? "max-w-5xl" : "max-w-2xl"}`}>
       <header className="mb-8">
         <h1 className="text-2xl font-semibold">InterReview</h1>
         <p className="text-sm text-gray-500">AI 모의면접 · Next.js + FastAPI</p>

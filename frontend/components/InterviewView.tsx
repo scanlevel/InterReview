@@ -22,6 +22,7 @@ import type {
   SttStatus,
 } from "@/lib/types";
 import GazeDebugOverlay from "@/components/GazeDebugOverlay";
+import InterviewerStage from "@/components/InterviewerStage";
 import AudioActivityTimeline from "@/components/AudioActivityTimeline";
 
 export default function InterviewView({
@@ -232,27 +233,34 @@ export default function InterviewView({
         </details>
       )}
 
-      <div
-        className={`relative overflow-hidden rounded-lg border-2 bg-black ${
-          debugGaze && isRecording && gazeDebugFrame?.isFront === true
-            ? "border-emerald-500"
-            : debugGaze && isRecording && gazeDebugFrame?.isFront === false
-              ? "border-red-500"
-              : "border-transparent"
-        }`}
-      >
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="aspect-video w-full -scale-x-100 object-cover"
-        />
-        {debugGaze && (
-          <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} verbose={debugGaze} />
-        )}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <InterviewerStage>
+          <div className="absolute inset-x-4 bottom-4 rounded-md bg-slate-950/75 px-3 py-2 text-center text-sm text-slate-100">
+            <p className="text-xs text-slate-300">현재 질문을 듣고 있습니다</p>
+            <p className="mt-1">답변을 시작하면 녹음됩니다.</p>
+          </div>
+        </InterviewerStage>
+        <div
+          className={`relative overflow-hidden rounded-lg border-2 bg-black ${
+            debugGaze && isRecording && gazeDebugFrame?.isFront === true
+              ? "border-emerald-500"
+              : debugGaze && isRecording && gazeDebugFrame?.isFront === false
+                ? "border-red-500"
+                : "border-transparent"
+          }`}
+        >
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className="aspect-video w-full -scale-x-100 object-cover"
+          />
+          {debugGaze && (
+            <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} verbose={debugGaze} />
+          )}
+        </div>
       </div>
-
       {canDebugGaze && (
         <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
           <input

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import GazeDebugOverlay from "@/components/GazeDebugOverlay";
+import InterviewerStage from "@/components/InterviewerStage";
 import {
   createGazeCalibration,
   createBrowserGazeTracker,
@@ -16,15 +17,16 @@ import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorde
 const CAN_DEBUG_GAZE = process.env.NODE_ENV !== "production";
 
 const TEST_SENTENCE = "안녕하세요. 지금부터 모의 면접을 시작하겠습니다.";
-const CALIBRATION_MOVE_SPEED = 0.32;
 const CALIBRATION_SETTLE_MS = 450;
-const CALIBRATION_SAMPLE_MS = 900;
+const CALIBRATION_TARGET_TIMEOUT_MS = 2500;
+const CALIBRATION_SAMPLE_GOAL = 12;
+const CALIBRATION_MIN_SAMPLES = 8;
 const CALIBRATION_TARGETS = [
+  { key: "center", label: "화면 중앙", x: 50, y: 50 },
   { key: "topLeft", label: "왼쪽 위", x: 10, y: 10 },
   { key: "topCenter", label: "위 중앙", x: 50, y: 10 },
   { key: "topRight", label: "오른쪽 위", x: 90, y: 10 },
   { key: "middleLeft", label: "왼쪽 중앙", x: 10, y: 50 },
-  { key: "center", label: "화면 중앙", x: 50, y: 50 },
   { key: "middleRight", label: "오른쪽 중앙", x: 90, y: 50 },
   { key: "bottomLeft", label: "왼쪽 아래", x: 10, y: 90 },
   { key: "bottomCenter", label: "아래 중앙", x: 50, y: 90 },
@@ -41,7 +43,7 @@ export interface DeviceSetupResult {
 }
 
 type CalibrationState = "idle" | "running" | "success" | "failed" | "skipped";
-type CalibrationPhase = "idle" | "to-target" | "target" | "to-center";
+type CalibrationPhase = "idle" | "countdown" | "settle" | "collecting" | "retry";
 type SttState = "idle" | "recording" | "checking" | "review" | "success" | "failed" | "skipped";
 
 export default function DeviceSetupView({
@@ -61,9 +63,10 @@ export default function DeviceSetupView({
   const [calibrationState, setCalibrationState] = useState<CalibrationState>("idle");
   const [calibrationPhase, setCalibrationPhase] = useState<CalibrationPhase>("idle");
   const [calibration, setCalibration] = useState<GazeCalibration | null>(null);
-  const [calibrationPosition, setCalibrationPosition] = useState({ x: 50, y: 50 });
   const [calibrationCountdown, setCalibrationCountdown] = useState<number | null>(null);
   const [calibrationTargetIndex, setCalibrationTargetIndex] = useState<number | null>(null);
+  const [calibrationSampleCount, setCalibrationSampleCount] = useState(0);
+  const [calibrationMessage, setCalibrationMessage] = useState<string | null>(null);
   const [sttState, setSttState] = useState<SttState>("idle");
   const [sttTranscript, setSttTranscript] = useState("");
   const [sttMessage, setSttMessage] = useState<string | null>(null);
@@ -75,6 +78,8 @@ export default function DeviceSetupView({
   const calibrationRunRef = useRef(0);
   const calibrationTargetRef = useRef<GazePoint | null>(null);
   const calibrationSamplesRef = useRef<GazeCalibrationSample[]>([]);
+  const calibrationTargetSamplesRef = useRef<GazeCalibrationSample[]>([]);
+  const calibrationSampleCountRef = useRef(0);
   const calibrationCollectingRef = useRef(false);
   const transferredRef = useRef(false);
   const disposedRef = useRef(false);
@@ -82,8 +87,10 @@ export default function DeviceSetupView({
   const onGazeFrame = useCallback((frame: GazeDebugFrame) => {
     setGazeFrame(frame);
     const target = calibrationTargetRef.current;
-    if (calibrationCollectingRef.current && target && frame.gaze) {
-      calibrationSamplesRef.current.push({ gaze: frame.gaze, target });
+    if (calibrationCollectingRef.current && target && frame.rawGaze) {
+      calibrationTargetSamplesRef.current.push({ gaze: frame.rawGaze, target });
+      calibrationSampleCountRef.current = calibrationTargetSamplesRef.current.length;
+      setCalibrationSampleCount(calibrationSampleCountRef.current);
     }
   }, []);
 
@@ -96,11 +103,14 @@ export default function DeviceSetupView({
     setCalibration(null);
     setCalibrationState("idle");
     setCalibrationPhase("idle");
-    setCalibrationPosition({ x: 50, y: 50 });
     setCalibrationCountdown(null);
     setCalibrationTargetIndex(null);
+    setCalibrationSampleCount(0);
+    setCalibrationMessage(null);
     calibrationTargetRef.current = null;
     calibrationSamplesRef.current = [];
+    calibrationTargetSamplesRef.current = [];
+    calibrationSampleCountRef.current = 0;
     calibrationCollectingRef.current = false;
     setSttState("idle");
     setSttTranscript("");
@@ -113,7 +123,18 @@ export default function DeviceSetupView({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: nextCameraId ? { deviceId: { exact: nextCameraId } } : true,
+        video: nextCameraId
+          ? {
+              deviceId: { exact: nextCameraId },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              frameRate: { ideal: 30, max: 30 },
+            }
+          : {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              frameRate: { ideal: 30, max: 30 },
+            },
         audio: nextMicrophoneId ? { deviceId: { exact: nextMicrophoneId } } : true,
       });
       if (disposedRef.current) {
@@ -172,19 +193,23 @@ export default function DeviceSetupView({
     const tracker = gazeTrackerRef.current;
     if (!tracker) {
       setCalibrationState("failed");
+      setCalibrationMessage("시선 분석이 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.");
       return;
     }
+
     const run = calibrationRunRef.current + 1;
     calibrationRunRef.current = run;
     setCalibration(null);
+    setCalibrationMessage(null);
     setCalibrationState("running");
-    setCalibrationPhase("to-target");
+    setCalibrationPhase("countdown");
     calibrationSamplesRef.current = [];
+    calibrationTargetSamplesRef.current = [];
+    calibrationSampleCountRef.current = 0;
     calibrationCollectingRef.current = false;
+    setCalibrationSampleCount(0);
     setCalibrationTargetIndex(0);
-    const centerPoint = { x: 0.5, y: 0.5 };
     calibrationTargetRef.current = null;
-    setCalibrationPosition({ x: 50, y: 50 });
 
     for (let count = 3; count >= 1; count -= 1) {
       if (calibrationRunRef.current !== run) return;
@@ -194,66 +219,70 @@ export default function DeviceSetupView({
     setCalibrationCountdown(null);
     tracker.start();
 
-    const moveTo = async (from: GazePoint, to: GazePoint): Promise<boolean> => {
-      const distance = Math.hypot(to.x - from.x, to.y - from.y);
-      const duration = (distance / CALIBRATION_MOVE_SPEED) * 1000;
-      const moveStarted = performance.now();
-      while (true) {
-        if (calibrationRunRef.current !== run) return false;
-        const progress = duration
-          ? Math.min(1, (performance.now() - moveStarted) / duration)
-          : 1;
-        const point = {
-          x: from.x + (to.x - from.x) * progress,
-          y: from.y + (to.y - from.y) * progress,
-        };
-        setCalibrationPosition({ x: point.x * 100, y: point.y * 100 });
-        if (progress >= 1) return true;
-        await wait(16);
-      }
-    };
-
     for (let index = 0; index < CALIBRATION_TARGETS.length; index += 1) {
       if (calibrationRunRef.current !== run) return;
       const target = CALIBRATION_TARGETS[index];
       const targetPoint = { x: target.x / 100, y: target.y / 100 };
-      setCalibrationTargetIndex(index);
-      setCalibrationPhase("to-target");
-      calibrationTargetRef.current = null;
-      if (!(await moveTo(centerPoint, targetPoint))) return;
+      let targetComplete = false;
 
-      calibrationTargetRef.current = targetPoint;
-      setCalibrationPhase("target");
-      setCalibrationPosition({ x: target.x, y: target.y });
-      await wait(CALIBRATION_SETTLE_MS);
-      if (calibrationRunRef.current !== run) return;
-      calibrationCollectingRef.current = true;
-      await wait(CALIBRATION_SAMPLE_MS);
-      calibrationCollectingRef.current = false;
-      if (calibrationRunRef.current !== run) return;
+      while (!targetComplete) {
+        if (calibrationRunRef.current !== run) return;
+        setCalibrationTargetIndex(index);
+        setCalibrationSampleCount(0);
+        calibrationSampleCountRef.current = 0;
+        calibrationTargetSamplesRef.current = [];
+        calibrationTargetRef.current = targetPoint;
+        calibrationCollectingRef.current = false;
+        setCalibrationPhase("settle");
+        await wait(CALIBRATION_SETTLE_MS);
+        if (calibrationRunRef.current !== run) return;
 
-      setCalibrationPhase("to-center");
-      calibrationTargetRef.current = null;
-      if (!(await moveTo(targetPoint, centerPoint))) return;
-      setCalibrationPosition({ x: 50, y: 50 });
-      await wait(CALIBRATION_SETTLE_MS);
+        calibrationCollectingRef.current = true;
+        setCalibrationPhase("collecting");
+        const deadline = performance.now() + CALIBRATION_TARGET_TIMEOUT_MS;
+        while (
+          calibrationSampleCountRef.current < CALIBRATION_SAMPLE_GOAL &&
+          performance.now() < deadline
+        ) {
+          if (calibrationRunRef.current !== run) return;
+          await wait(50);
+        }
+        calibrationCollectingRef.current = false;
+        if (calibrationRunRef.current !== run) return;
+
+        if (calibrationSampleCountRef.current < CALIBRATION_MIN_SAMPLES) {
+          setCalibrationPhase("retry");
+          setCalibrationMessage(
+            `${target.label}에서 유효한 시선 샘플이 ${CALIBRATION_MIN_SAMPLES}개 미만입니다. 얼굴과 눈을 카메라에 보이게 한 뒤 같은 칸을 다시 바라보세요.`,
+          );
+          await wait(900);
+          continue;
+        }
+
+        calibrationSamplesRef.current.push(...calibrationTargetSamplesRef.current);
+        targetComplete = true;
+      }
     }
 
     calibrationTargetRef.current = null;
+    calibrationTargetSamplesRef.current = [];
     if (calibrationRunRef.current !== run) return;
     const nextCalibration = createGazeCalibration(calibrationSamplesRef.current);
     setCalibrationTargetIndex(null);
     setCalibrationPhase("idle");
     if (!nextCalibration) {
       setCalibrationState("failed");
+      setCalibrationMessage(
+        "9개 칸의 시선 범위를 충분히 구분하지 못했습니다. 조명과 얼굴 위치를 확인한 뒤 다시 측정해 주세요.",
+      );
       return;
     }
     tracker.setCalibration(nextCalibration);
     tracker.start();
     setCalibration(nextCalibration);
     setCalibrationState("success");
+    setCalibrationMessage(null);
   }
-
   async function toggleSttTest() {
     const stream = streamRef.current;
     if (!stream) return;
@@ -299,6 +328,20 @@ export default function DeviceSetupView({
     }
   }
 
+  function skipCalibration() {
+    calibrationRunRef.current += 1;
+    setCalibration(null);
+    setCalibrationCountdown(null);
+    setCalibrationTargetIndex(null);
+    setCalibrationSampleCount(0);
+    setCalibrationMessage(null);
+    setCalibrationPhase("idle");
+    calibrationTargetRef.current = null;
+    calibrationTargetSamplesRef.current = [];
+    calibrationSampleCountRef.current = 0;
+    calibrationCollectingRef.current = false;
+    setCalibrationState("skipped");
+  }
   function continueToInterview() {
     const stream = streamRef.current;
     if (!stream) return;
@@ -317,10 +360,7 @@ export default function DeviceSetupView({
     calibrationState === "running" ||
     sttState === "recording" ||
     sttState === "checking";
-  const calibrationTarget =
-    calibrationTargetIndex === null
-      ? null
-      : CALIBRATION_TARGETS[calibrationTargetIndex];
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -365,24 +405,40 @@ export default function DeviceSetupView({
         </label>
       </div>
 
-      <div className="relative overflow-hidden rounded-lg bg-black">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="aspect-video w-full -scale-x-100 object-cover"
-        />
-        {calibrationState !== "running" && (
-          <GazeDebugOverlay
-            active={gazeState === "ready"}
-            frame={gazeFrame}
-            verbose={CAN_DEBUG_GAZE}
-            idleLabel={gazeState === "loading" ? "시선 분석 준비 중" : "시선 분석 사용 불가"}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <InterviewerStage>
+          <CalibrationGrid
+            activeIndex={calibrationTargetIndex}
+            phase={calibrationPhase}
+            countdown={calibrationCountdown}
+            sampleCount={calibrationSampleCount}
           />
-        )}
+        </InterviewerStage>
+        <div className="relative overflow-hidden rounded-lg bg-black">
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className="aspect-video w-full -scale-x-100 object-cover"
+          />
+          {calibrationState !== "running" && (
+            <GazeDebugOverlay
+              active={gazeState === "ready"}
+              frame={gazeFrame}
+              verbose={CAN_DEBUG_GAZE}
+              idleLabel={gazeState === "loading" ? "시선 분석 준비 중" : "시선 분석 사용 불가"}
+            />
+          )}
+          {calibrationState === "running" && (
+            <div className="absolute inset-x-3 bottom-3 rounded-md bg-slate-950/75 px-3 py-2 text-center text-xs text-slate-100">
+              {gazeFrame?.rawGaze
+                ? "시선이 인식되고 있습니다. 왼쪽의 강조된 칸을 바라보세요."
+                : "얼굴과 눈을 카메라에 보이게 해주세요."}
+            </div>
+          )}
+        </div>
       </div>
-
       {deviceError && (
         <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40">
           {deviceError}
@@ -392,7 +448,7 @@ export default function DeviceSetupView({
       <section className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
         <h3 className="font-medium">1. 시선 캘리브레이션</h3>
         <p className="mt-1 text-sm text-gray-500">
-          3·2·1 카운트다운 후 3×3 아홉 점을 하나씩 중앙에서 출발해 갔다가 다시 중앙으로 돌아옵니다. 점을 천천히 따라 바라보세요.
+          왼쪽 면접관 화면의 3×3 격자에서 강조된 칸을 바라봐 주세요. 점은 이동하지 않고, 각 칸에서 충분한 시선 샘플이 모일 때까지 유지됩니다.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
@@ -405,26 +461,17 @@ export default function DeviceSetupView({
           </button>
           <button
             type="button"
-            onClick={() => {
-              calibrationRunRef.current += 1;
-              setCalibration(null);
-              setCalibrationCountdown(null);
-              setCalibrationTargetIndex(null);
-              setCalibrationPhase("idle");
-              calibrationTargetRef.current = null;
-              calibrationCollectingRef.current = false;
-              setCalibrationState("skipped");
-            }}
+            onClick={skipCalibration}
             disabled={busy}
             className="rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-40 dark:border-gray-700"
           >
             건너뛰기
           </button>
           {calibrationState === "success" && (
-            <span className="text-sm text-emerald-600">완료 — 9점 중앙 왕복 샘플 기반 화면 좌표 보정을 적용합니다.</span>
+            <span className="text-sm text-emerald-600">완료 — 3×3 격자에서 수집한 시선 보정을 적용합니다.</span>
           )}
           {calibrationState === "failed" && (
-            <span className="text-sm text-amber-600">시선 샘플이 부족하거나 불안정합니다. 다시 시도하거나 건너뛰세요.</span>
+            <span className="text-sm text-amber-600">{calibrationMessage ?? "시선 보정에 실패했습니다. 다시 시도하거나 건너뛰세요."}</span>
           )}
           {calibrationState === "skipped" && (
             <span className="text-sm text-gray-500">보정 없이 기본 시선값을 사용합니다.</span>
@@ -506,29 +553,66 @@ export default function DeviceSetupView({
           설정 완료 · 면접 시작
         </button>
       </div>
-      {calibrationState === "running" && (
-        <div className="pointer-events-none fixed inset-0 z-50">
-          {calibrationCountdown !== null && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-7xl font-bold text-white">
-              {calibrationCountdown}
-            </div>
-          )}
-          {calibrationTarget && (
-            <div className="absolute inset-0">
-              <span
-                className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full border-4 border-white bg-blue-500 shadow-lg shadow-blue-500/60"
-                style={{
-                  left: `${calibrationPosition.x}%`,
-                  top: `${calibrationPosition.y}%`,
-                }}
-              />
-              <p className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded bg-black/70 px-3 py-2 text-sm font-medium text-white">
-                {calibrationPhase === "to-center" ? "중앙으로 돌아가세요" : "파란 점을 천천히 따라가세요"} · {calibrationTarget.label} ({calibrationTargetIndex! + 1}/9)
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+    </div>
+  );
+}
+
+function CalibrationGrid({
+  activeIndex,
+  phase,
+  countdown,
+  sampleCount,
+}: {
+  activeIndex: number | null;
+  phase: CalibrationPhase;
+  countdown: number | null;
+  sampleCount: number;
+}) {
+  if (activeIndex === null && countdown === null) return null;
+  const activeTarget = activeIndex === null ? null : CALIBRATION_TARGETS[activeIndex];
+  const status =
+    countdown !== null
+      ? `준비 ${countdown}`
+      : phase === "settle"
+        ? "시선을 고정해 주세요"
+        : phase === "retry"
+          ? "같은 칸을 다시 바라보세요"
+          : "강조된 칸을 바라보세요";
+
+  return (
+    <div className="absolute inset-0 z-20" aria-live="polite">
+      <div className="absolute inset-[10%] border border-slate-300/25">
+        <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-slate-300/20" />
+        <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-slate-300/20" />
+      </div>
+      {CALIBRATION_TARGETS.map((target, index) => {
+        const active = index === activeIndex;
+        const complete = activeIndex !== null && index < activeIndex;
+        return (
+          <span
+            key={target.key}
+            className={`absolute flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border transition-colors ${
+              active
+                ? "h-8 w-8 border-blue-100 bg-blue-500/80 shadow-lg shadow-blue-500/60"
+                : complete
+                  ? "border-emerald-200/70 bg-emerald-400/70"
+                  : "border-slate-200/70 bg-slate-500/60"
+            }`}
+            style={{ left: `${target.x}%`, top: `${target.y}%` }}
+            aria-label={`${target.label}${active ? " 측정 중" : complete ? " 완료" : " 대기"}`}
+          >
+            {active && <span className="h-2 w-2 rounded-full bg-white" />}
+          </span>
+        );
+      })}
+      <div className="absolute inset-x-3 bottom-3 rounded-md bg-slate-950/80 px-3 py-2 text-center text-xs font-medium text-white">
+        <p>{status}{activeTarget ? ` · ${activeTarget.label} (${activeIndex! + 1}/9)` : ""}</p>
+        {activeTarget && phase !== "settle" && phase !== "retry" && (
+          <p className="mt-1 font-normal text-slate-300">
+            유효 샘플 {sampleCount}/{CALIBRATION_SAMPLE_GOAL}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
