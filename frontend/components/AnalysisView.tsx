@@ -11,6 +11,7 @@ import type {
   SttStatus,
 } from "@/lib/types";
 import AudioActivityTimeline from "@/components/AudioActivityTimeline";
+import InterviewerStage from "@/components/InterviewerStage";
 
 const STATUS_LABELS: Record<AnswerStatus, string> = {
   good: "답변함",
@@ -90,22 +91,24 @@ function Heatmap({ heatmap }: { heatmap: GazeHeatmap | null | undefined }) {
   }
   const peak = Math.max(...heatmap.counts, 1);
   return (
-    <div
-      className="grid aspect-[3/2] w-full max-w-sm overflow-hidden rounded border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-900"
-      style={{ gridTemplateColumns: `repeat(${heatmap.columns}, minmax(0, 1fr))` }}
-      aria-label="질문별 시선 Heatmap"
-    >
-      {heatmap.counts.map((count, index) => (
-        <span
-          key={`${index}-${count}`}
-          title={`${count} 프레임`}
-          className="border-[0.5px] border-white/30 dark:border-black/20"
-          style={{
-            backgroundColor: `rgba(239, 68, 68, ${count ? 0.12 + (count / peak) * 0.88 : 0})`,
-          }}
-        />
-      ))}
-    </div>
+    <InterviewerStage showLabel={false} className="w-full max-w-xl">
+      <div
+        className="pointer-events-none absolute inset-0 grid"
+        style={{ gridTemplateColumns: "repeat(" + heatmap.columns + ", minmax(0, 1fr))" }}
+        aria-label="질문별 시선 Heatmap"
+      >
+        {heatmap.counts.map((count, index) => (
+          <span
+            key={String(index) + "-" + String(count)}
+            title={String(count) + " 프레임"}
+            className="border-[0.5px] border-white/30 dark:border-black/20"
+            style={{
+              backgroundColor: "rgba(239, 68, 68, " + (count ? 0.12 + (count / peak) * 0.88 : 0) + ")",
+            }}
+          />
+        ))}
+      </div>
+    </InterviewerStage>
   );
 }
 

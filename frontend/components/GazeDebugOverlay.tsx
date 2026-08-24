@@ -32,10 +32,10 @@ export default function GazeDebugOverlay({
   idleLabel?: string;
   verbose?: boolean;
 }) {
-  const dot = frame?.screenPoint
+  const dot = frame?.stagePoint
     ? {
-        left: `${frame.screenPoint.x * 100}%`,
-        top: `${frame.screenPoint.y * 100}%`,
+        left: String(frame.stagePoint.x * 100) + "%",
+        top: String(frame.stagePoint.y * 100) + "%",
       }
     : frame?.gaze
     ? {

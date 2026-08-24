@@ -233,23 +233,22 @@ export default function InterviewView({
         </details>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <InterviewerStage>
-          <div className="absolute inset-x-4 bottom-4 rounded-md bg-slate-950/75 px-3 py-2 text-center text-sm text-slate-100">
-            <p className="text-xs text-slate-300">
-              {isRecording ? "답변을 듣고 있습니다" : "질문을 확인해 주세요"}
-            </p>
-            <p className="mt-1">답변할 때는 면접관의 눈을 바라보세요.</p>
-          </div>
-        </InterviewerStage>
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
+        <div className="flex min-w-0 justify-center">
+          <InterviewerStage className="w-full max-w-full lg:max-w-[50vw]">
+            {debugGaze && (
+              <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} verbose={debugGaze} />
+            )}
+            <div className="absolute inset-x-4 bottom-4 rounded-md bg-slate-950/75 px-3 py-2 text-center text-sm text-slate-100">
+              <p className="text-xs text-slate-300">
+                {isRecording ? "답변을 듣고 있습니다" : "질문을 확인해 주세요"}
+              </p>
+              <p className="mt-1">답변할 때는 면접관의 눈을 바라보세요.</p>
+            </div>
+          </InterviewerStage>
+        </div>
         <div
-          className={`relative overflow-hidden rounded-lg border-2 bg-black ${
-            debugGaze && isRecording && gazeDebugFrame?.isFront === true
-              ? "border-emerald-500"
-              : debugGaze && isRecording && gazeDebugFrame?.isFront === false
-                ? "border-red-500"
-                : "border-transparent"
-          }`}
+          className="relative mx-auto w-full max-w-xs overflow-hidden rounded-lg border border-transparent bg-black lg:max-w-none"
         >
           <video
             ref={videoRef}
@@ -264,9 +263,6 @@ export default function InterviewView({
           <div className="pointer-events-none absolute left-2 top-2 rounded bg-black/60 px-2 py-1 text-[10px] text-white">
             내 화면 · 자세 확인용
           </div>
-          {debugGaze && (
-            <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} verbose={debugGaze} />
-          )}
         </div>
       </div>
       {canDebugGaze && (

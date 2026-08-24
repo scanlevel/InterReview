@@ -91,7 +91,7 @@ export interface GazeDebugFrame {
   eyeWidthPx: number | null;
   rawGaze: GazePoint | null;
   gaze: GazePoint | null;
-  screenPoint: GazePoint | null;
+  stagePoint: GazePoint | null;
   isFront: boolean | null;
 }
 
@@ -570,7 +570,7 @@ export class GazeAccumulator {
 
     this.valid += 1;
 
-    const measured = this.screenPoint(gaze);
+    const measured = this.stagePoint(gaze);
 
     const column = Math.min(
       HEATMAP_COLUMNS - 1,
@@ -597,7 +597,7 @@ export class GazeAccumulator {
     );
   }
 
-  screenPoint(gaze: GazePoint): GazePoint {
+  stagePoint(gaze: GazePoint): GazePoint {
     if (this.calibration) return applyGazeCalibration(gaze, this.calibration);
     // Keep the uncalibrated view broad and normalized for the heatmap.
     return {
@@ -876,7 +876,7 @@ export class BrowserGazeTracker {
           eyeWidthPx: estimate.eyeWidthPx,
           rawGaze,
           gaze,
-          screenPoint: gaze ? this.accumulator.screenPoint(gaze) : null,
+          stagePoint: gaze ? this.accumulator.stagePoint(gaze) : null,
           isFront: gaze ? this.accumulator.isFront(gaze) : null,
         });
       } catch {
@@ -900,7 +900,7 @@ export class BrowserGazeTracker {
           eyeWidthPx: null,
           rawGaze: null,
           gaze: null,
-          screenPoint: null,
+          stagePoint: null,
           isFront: null,
         });
       }

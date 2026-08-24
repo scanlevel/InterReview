@@ -74,7 +74,7 @@ test("builds calibration from repeated, noisy target samples", () => {
   const liveAccumulator = new GazeAccumulator();
   liveAccumulator.setCalibration(calibration);
   assert.deepEqual(
-    liveAccumulator.screenPoint({ x: 0.1, y: 0 }),
+    liveAccumulator.stagePoint({ x: 0.1, y: 0 }),
     applyGazeCalibration({ x: 0.1, y: 0 }, calibration),
   );
 });

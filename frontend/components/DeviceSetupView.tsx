@@ -445,23 +445,36 @@ export default function DeviceSetupView({
         </label>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-2">
-          <InterviewerStage showLabel={calibrationState !== "running"}>
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
+        <div className="flex min-w-0 flex-col gap-2 lg:items-center">
+          <InterviewerStage
+            className="w-full max-w-full lg:max-w-[50vw]"
+            showLabel={calibrationState !== "running"}
+          >
+            {calibrationState !== "running" && (
+              <GazeDebugOverlay
+                active={gazeState === "ready"}
+                frame={gazeFrame}
+                verbose={CAN_DEBUG_GAZE}
+                idleLabel={gazeState === "loading" ? "시선 분석 준비 중" : "시선 분석 사용 불가"}
+              />
+            )}
             <CalibrationGrid
               activeIndex={calibrationTargetIndex}
               countdown={calibrationCountdown}
             />
           </InterviewerStage>
-          <CalibrationStatus
-            activeIndex={calibrationTargetIndex}
-            phase={calibrationPhase}
-            countdown={calibrationCountdown}
-            sampleCount={calibrationSampleCount}
-            quality={gazeFrame?.quality ?? null}
-          />
+          <div className="w-full max-w-full lg:max-w-[50vw]">
+            <CalibrationStatus
+              activeIndex={calibrationTargetIndex}
+              phase={calibrationPhase}
+              countdown={calibrationCountdown}
+              sampleCount={calibrationSampleCount}
+              quality={gazeFrame?.quality ?? null}
+            />
+          </div>
         </div>
-        <div className="relative overflow-hidden rounded-lg bg-black">
+        <div className="relative mx-auto w-full max-w-xs overflow-hidden rounded-lg bg-black lg:max-w-none">
           <video
             ref={videoRef}
             autoPlay
@@ -469,14 +482,6 @@ export default function DeviceSetupView({
             playsInline
             className="aspect-video w-full -scale-x-100 object-cover"
           />
-          {calibrationState !== "running" && (
-            <GazeDebugOverlay
-              active={gazeState === "ready"}
-              frame={gazeFrame}
-              verbose={CAN_DEBUG_GAZE}
-              idleLabel={gazeState === "loading" ? "시선 분석 준비 중" : "시선 분석 사용 불가"}
-            />
-          )}
           {calibrationState === "running" && (
             <div className="absolute inset-x-3 bottom-3 rounded-md bg-slate-950/75 px-3 py-2 text-center text-xs text-slate-100">
               {gazeQualityMessage(gazeFrame?.quality ?? null)}
