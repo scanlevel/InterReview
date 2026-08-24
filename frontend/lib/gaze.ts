@@ -22,6 +22,7 @@ const MONOCULAR_CONTINUITY_MS = 500;
 const FRONT_THRESHOLD = { x: 0.18, y: 0.1 };
 const CALIBRATED_FRONT_THRESHOLD = { x: 0.2, y: 0.15 };
 const SAMPLE_INTERVAL_MS = 50;
+const GAZE_EMA_ALPHA = 0.15;
 export const HEATMAP_COLUMNS = 12;
 const SMOOTHING_RESET_AFTER_MS = 500;
 const CALIBRATION_LEVELS = [0.1, 0.5, 0.9] as const;
@@ -624,68 +625,21 @@ export class GazeAccumulator {
   }
 }
 
-function oneEuroAlpha(cutoff: number, deltaSeconds: number): number {
-  const safeCutoff = Math.max(0.001, cutoff);
-  const tau = 1 / (2 * Math.PI * safeCutoff);
-  return 1 / (1 + tau / Math.max(0.001, deltaSeconds));
-}
-
-class OneEuroAxisFilter {
-  private lastTimestamp: number | null = null;
-  private previousRaw: number | null = null;
-  private filtered: number | null = null;
-  private filteredDerivative = 0;
+export class EmaGazeFilter {
+  private filtered: GazePoint | null = null;
 
   reset(): void {
-    this.lastTimestamp = null;
-    this.previousRaw = null;
     this.filtered = null;
-    this.filteredDerivative = 0;
   }
 
-  filter(value: number, timestamp: number): number {
-    if (
-      this.lastTimestamp === null ||
-      this.previousRaw === null ||
-      this.filtered === null
-    ) {
-      this.lastTimestamp = timestamp;
-      this.previousRaw = value;
-      this.filtered = value;
-      return value;
-    }
-
-    const deltaSeconds = Math.max(
-      0.001,
-      (timestamp - this.lastTimestamp) / 1000,
-    );
-    const derivative = (value - this.previousRaw) / deltaSeconds;
-    const derivativeAlpha = oneEuroAlpha(1, deltaSeconds);
-    this.filteredDerivative +=
-      derivativeAlpha * (derivative - this.filteredDerivative);
-    const cutoff = 1.1 + 0.08 * Math.abs(this.filteredDerivative);
-    const alpha = oneEuroAlpha(cutoff, deltaSeconds);
-    this.filtered += alpha * (value - this.filtered);
-    this.lastTimestamp = timestamp;
-    this.previousRaw = value;
+  filter(gaze: GazePoint): GazePoint {
+    this.filtered = this.filtered
+      ? {
+          x: this.filtered.x + GAZE_EMA_ALPHA * (gaze.x - this.filtered.x),
+          y: this.filtered.y + GAZE_EMA_ALPHA * (gaze.y - this.filtered.y),
+        }
+      : { ...gaze };
     return this.filtered;
-  }
-}
-
-export class OneEuroGazeFilter {
-  private readonly x = new OneEuroAxisFilter();
-  private readonly y = new OneEuroAxisFilter();
-
-  reset(): void {
-    this.x.reset();
-    this.y.reset();
-  }
-
-  filter(gaze: GazePoint, timestamp: number): GazePoint {
-    return {
-      x: this.x.filter(gaze.x, timestamp),
-      y: this.y.filter(gaze.y, timestamp),
-    };
   }
 }
 
@@ -736,7 +690,7 @@ export class BrowserGazeTracker {
   private lastTimestamp = 0;
   private lastVideoTime: number | null = null;
   private nextSampleAt = 0;
-  private readonly gazeFilter = new OneEuroGazeFilter();
+  private readonly gazeFilter = new EmaGazeFilter();
   private lastValidGazeAt = 0;
   private readonly eyeStates: [EyeState, EyeState] = [
     createEyeState(),
@@ -946,7 +900,7 @@ export class BrowserGazeTracker {
       this.gazeFilter.reset();
     }
     this.lastValidGazeAt = now;
-    return this.gazeFilter.filter(gaze, now);
+    return this.gazeFilter.filter(gaze);
   }
 }
 

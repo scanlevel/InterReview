@@ -9,7 +9,7 @@ import {
   isNewVideoFrame,
   isValidGazePoint,
   landmarksFromFaceCrop,
-  OneEuroGazeFilter,
+  EmaGazeFilter,
 } from "./gaze.ts";
 
 test("keeps the gaze result as a heatmap", () => {
@@ -167,14 +167,12 @@ test("expands a detected face region for the next interpolated frame", () => {
   assert.ok(Math.abs(restored[0].y - 0.5) < 1e-9);
 });
 
-test("One Euro filter reduces jumps and resets cleanly", () => {
-  const filter = new OneEuroGazeFilter();
-  assert.deepEqual(filter.filter({ x: 0, y: 0 }, 0), { x: 0, y: 0 });
-  const filtered = filter.filter({ x: 1, y: 1 }, 50);
-  assert.ok(filtered.x > 0 && filtered.x < 1);
-  assert.ok(filtered.y > 0 && filtered.y < 1);
+test("EMA filter smooths jumps and resets cleanly", () => {
+  const filter = new EmaGazeFilter();
+  assert.deepEqual(filter.filter({ x: 0, y: 0 }), { x: 0, y: 0 });
+  assert.deepEqual(filter.filter({ x: 1, y: 1 }), { x: 0.15, y: 0.15 });
   filter.reset();
-  assert.deepEqual(filter.filter({ x: 1, y: 1 }, 100), { x: 1, y: 1 });
+  assert.deepEqual(filter.filter({ x: 1, y: 1 }), { x: 1, y: 1 });
 });
 
 test("does not count the same positive video timestamp twice", () => {

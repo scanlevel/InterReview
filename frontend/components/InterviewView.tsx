@@ -235,7 +235,7 @@ export default function InterviewView({
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
         <div className="flex min-w-0 justify-center">
-          <InterviewerStage className="w-full max-w-full lg:max-w-[50vw]">
+          <InterviewerStage className="w-full max-w-full lg:w-[48rem]">
             {debugGaze && (
               <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} verbose={debugGaze} />
             )}

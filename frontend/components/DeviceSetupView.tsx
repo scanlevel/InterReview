@@ -150,6 +150,15 @@ export default function DeviceSetupView({
     gazeTrackerRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
 
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setDeviceState("failed");
+      setGazeState("failed");
+      setDeviceError(
+        "카메라·마이크는 HTTPS 또는 http://localhost:3000에서만 사용할 수 있습니다.",
+      );
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: nextCameraId
