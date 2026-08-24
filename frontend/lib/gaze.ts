@@ -8,8 +8,9 @@ import type { EyeTrackingSummary } from "./types";
 const WASM_ROOT =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 const MODEL_PATH = "/face_landmarker.task";
-const MIN_EYE_WIDTH_ENTER_PX = 8;
-const MIN_EYE_WIDTH_RELEASE_PX = 6.5;
+const DEFAULT_MIN_EYE_WIDTH_PX = 4;
+const MIN_EYE_WIDTH_RELEASE_RATIO = 0.75;
+const ABSOLUTE_MIN_EYE_WIDTH_PX = 2;
 const MIN_EYE_OPENNESS_FLOOR = 0.025;
 const BLINK_RATIO = 0.6;
 const BLINK_MIN_DROP = 0.018;
@@ -27,10 +28,11 @@ const CALIBRATION_LEVELS = [0.1, 0.5, 0.9] as const;
 const CALIBRATION_TARGET_TOLERANCE = 0.02;
 const MIN_CALIBRATION_SAMPLES_PER_TARGET = 8;
 const MAX_CALIBRATION_MAD = 0.12;
-const MIN_CALIBRATION_GAZE_SPAN = 0.04;
+const MIN_CALIBRATION_GAZE_SPAN = 0.01;
 const CALIBRATION_RIDGE_LAMBDA = 0.0001;
 const CALIBRATION_FEATURE_COUNT = 6;
 const VIDEO_TIME_EPSILON = 0.0001;
+const FACE_CROP_SIZE = 512;
 export const HEATMAP_ROWS = 8;
 
 type Point = { x: number; y: number };
@@ -62,6 +64,7 @@ export function isNewVideoFrame(
 export interface GazeCalibrationSample {
   gaze: GazePoint;
   target: GazePoint;
+  eyeWidthPx?: number;
 }
 
 export interface GazeCalibration {
@@ -69,6 +72,7 @@ export interface GazeCalibration {
   scale: GazePoint;
   xCoefficients: number[];
   yCoefficients: number[];
+  minimumEyeWidthPx: number;
 }
 
 export type GazeQuality =
@@ -78,11 +82,13 @@ export type GazeQuality =
   | "blink"
   | "eyes_disagree"
   | "invalid"
-  | "frame_error";
+  | "frame_error"
+  | "processing_error";
 
 export interface GazeDebugFrame {
   faceDetected: boolean;
   quality: GazeQuality;
+  eyeWidthPx: number | null;
   rawGaze: GazePoint | null;
   gaze: GazePoint | null;
   screenPoint: GazePoint | null;
@@ -99,6 +105,7 @@ type EyeSampleStatus = "ok" | "eye_too_small" | "blink";
 type EyeEstimate = {
   gaze: GazePoint | null;
   status: EyeSampleStatus;
+  width: number;
 };
 
 type EyeState = {
@@ -124,11 +131,54 @@ function smoothPoint(previous: Point, next: Point, alpha: number): Point {
   };
 }
 
-export function isEyeWidthUsable(width: number, tracking: boolean): boolean {
+export function isEyeWidthUsable(
+  width: number,
+  tracking: boolean,
+  minimumWidth = DEFAULT_MIN_EYE_WIDTH_PX,
+): boolean {
   return (
     Number.isFinite(width) &&
-    width >= (tracking ? MIN_EYE_WIDTH_RELEASE_PX : MIN_EYE_WIDTH_ENTER_PX)
+    width >= (tracking ? minimumWidth * MIN_EYE_WIDTH_RELEASE_RATIO : minimumWidth)
   );
+}
+
+type FaceRegion = { left: number; top: number; right: number; bottom: number };
+
+export function faceRegionFromLandmarks(
+  landmarks: NormalizedLandmark[],
+): FaceRegion | null {
+  if (!landmarks.length) return null;
+  const xs = landmarks.map((landmark) => landmark.x).filter(Number.isFinite);
+  const ys = landmarks.map((landmark) => landmark.y).filter(Number.isFinite);
+  if (!xs.length || !ys.length) return null;
+  const left = Math.min(...xs);
+  const right = Math.max(...xs);
+  const top = Math.min(...ys);
+  const bottom = Math.max(...ys);
+  const paddingX = (right - left) * 0.25;
+  const paddingY = (bottom - top) * 0.25;
+  const region = {
+    left: clamp(left - paddingX),
+    top: clamp(top - paddingY),
+    right: clamp(right + paddingX),
+    bottom: clamp(bottom + paddingY),
+  };
+  return region.right - region.left >= 0.05 && region.bottom - region.top >= 0.05
+    ? region
+    : null;
+}
+
+export function landmarksFromFaceCrop(
+  landmarks: NormalizedLandmark[],
+  region: FaceRegion,
+): NormalizedLandmark[] {
+  const width = region.right - region.left;
+  const height = region.bottom - region.top;
+  return landmarks.map((landmark) => ({
+    ...landmark,
+    x: region.left + landmark.x * width,
+    y: region.top + landmark.y * height,
+  }));
 }
 
 function point(
@@ -146,6 +196,7 @@ function eyeGaze(
   width: number,
   height: number,
   state: EyeState,
+  minimumWidth: number,
 ): EyeEstimate {
   const rawCorner0 = point(landmarks, eye.corners[0], width, height);
   const rawCorner1 = point(landmarks, eye.corners[1], width, height);
@@ -153,9 +204,9 @@ function eyeGaze(
     rawCorner1.x - rawCorner0.x,
     rawCorner1.y - rawCorner0.y,
   );
-  if (!isEyeWidthUsable(rawWidth, state.tracking)) {
+  if (!isEyeWidthUsable(rawWidth, state.tracking, minimumWidth)) {
     resetEyeState(state);
-    return { gaze: null, status: "eye_too_small" };
+    return { gaze: null, status: "eye_too_small", width: rawWidth };
   }
 
   state.tracking = true;
@@ -173,7 +224,7 @@ function eyeGaze(
   const dy = corner1.y - corner0.y;
   const eyeWidth = Math.hypot(dx, dy);
   if (!Number.isFinite(eyeWidth) || eyeWidth <= 0) {
-    return { gaze: null, status: "eye_too_small" };
+    return { gaze: null, status: "eye_too_small", width: rawWidth };
   }
 
   const top = point(landmarks, eye.lids[0], width, height);
@@ -195,7 +246,7 @@ function eyeGaze(
       baseline - openness >= BLINK_MIN_DROP &&
       openness <= baseline * BLINK_RATIO)
   ) {
-    return { gaze: null, status: "blink" };
+    return { gaze: null, status: "blink", width: rawWidth };
   }
   state.opennessBaseline =
     baseline === null
@@ -223,6 +274,7 @@ function eyeGaze(
       y: (offset.x * yAxis.x + offset.y * yAxis.y) / eyeWidth,
     },
     status: "ok",
+    width: rawWidth,
   };
 }
 
@@ -241,9 +293,25 @@ function gazeFromLandmarks(
   height: number,
   states: [EyeState, EyeState],
   previous: GazePoint | null,
-): { gaze: GazePoint | null; quality: GazeQuality } {
-  const left = eyeGaze(landmarks, EYES[0], width, height, states[0]);
-  const right = eyeGaze(landmarks, EYES[1], width, height, states[1]);
+  minimumEyeWidth: number,
+): { gaze: GazePoint | null; quality: GazeQuality; eyeWidthPx: number | null } {
+  const left = eyeGaze(
+    landmarks,
+    EYES[0],
+    width,
+    height,
+    states[0],
+    minimumEyeWidth,
+  );
+  const right = eyeGaze(
+    landmarks,
+    EYES[1],
+    width,
+    height,
+    states[1],
+    minimumEyeWidth,
+  );
+  const eyeWidthPx = median([left.width, right.width].filter(Number.isFinite));
   if (left.gaze && right.gaze) {
     const averaged = {
       x: (left.gaze.x + right.gaze.x) / 2,
@@ -255,8 +323,8 @@ function gazeFromLandmarks(
     );
     if (disagreement <= MAX_EYE_DISAGREEMENT) {
       return isValidGazePoint(averaged)
-        ? { gaze: averaged, quality: "ok" }
-        : { gaze: null, quality: "invalid" };
+        ? { gaze: averaged, quality: "ok", eyeWidthPx }
+        : { gaze: null, quality: "invalid", eyeWidthPx };
     }
 
     if (previous) {
@@ -265,10 +333,10 @@ function gazeFromLandmarks(
           ? left.gaze
           : right.gaze;
       if (isValidGazePoint(candidate) && distance(candidate, previous) <= MAX_MONOCULAR_JUMP) {
-        return { gaze: candidate, quality: "ok" };
+        return { gaze: candidate, quality: "ok", eyeWidthPx };
       }
     }
-    return { gaze: null, quality: "eyes_disagree" };
+    return { gaze: null, quality: "eyes_disagree", eyeWidthPx };
   }
 
   const candidate = left.gaze ?? right.gaze;
@@ -277,9 +345,9 @@ function gazeFromLandmarks(
     isValidGazePoint(candidate) &&
     (!previous || distance(candidate, previous) <= MAX_MONOCULAR_JUMP)
   ) {
-    return { gaze: candidate, quality: "ok" };
+    return { gaze: candidate, quality: "ok", eyeWidthPx };
   }
-  return { gaze: null, quality: invalidEyeQuality(left, right) };
+  return { gaze: null, quality: invalidEyeQuality(left, right), eyeWidthPx };
 }
 
 function clamp(value: number, low = 0, high = 1): number {
@@ -386,6 +454,7 @@ function solveLinearSystem(
 
 function fitCalibrationModel(
   targetMedians: GazeCalibrationSample[],
+  minimumEyeWidthPx: number,
 ): GazeCalibration | null {
   const gazeXValues = targetMedians.map((sample) => sample.gaze.x);
   const gazeYValues = targetMedians.map((sample) => sample.gaze.y);
@@ -439,7 +508,7 @@ function fitCalibrationModel(
   const xCoefficients = solveLinearSystem(normal, targetX);
   const yCoefficients = solveLinearSystem(normal, targetY);
   if (!xCoefficients || !yCoefficients) return null;
-  return { mean, scale, xCoefficients, yCoefficients };
+  return { mean, scale, xCoefficients, yCoefficients, minimumEyeWidthPx };
 }
 
 export function createGazeCalibration(
@@ -447,7 +516,20 @@ export function createGazeCalibration(
 ): GazeCalibration | null {
   const targetMedians = calibrationTargetMedians(samples);
   if (!targetMedians) return null;
-  return fitCalibrationModel(targetMedians);
+  const observedEyeWidth = median(
+    samples
+      .map((sample) => sample.eyeWidthPx)
+      .filter((width): width is number => Number.isFinite(width) && width! > 0),
+  );
+  const minimumEyeWidthPx =
+    observedEyeWidth === null
+      ? DEFAULT_MIN_EYE_WIDTH_PX
+      : clamp(
+          observedEyeWidth * 0.5,
+          ABSOLUTE_MIN_EYE_WIDTH_PX,
+          DEFAULT_MIN_EYE_WIDTH_PX,
+        );
+  return fitCalibrationModel(targetMedians, minimumEyeWidthPx);
 }
 
 function predictCalibration(
@@ -522,6 +604,10 @@ export class GazeAccumulator {
       x: clamp(0.5 - gaze.x * 1.5),
       y: clamp(0.5 + gaze.y * 1.5),
     };
+  }
+
+  setCalibration(calibration?: GazeCalibration): void {
+    this.calibration = calibration;
   }
 
   snapshot(): EyeTrackingSummary | null {
@@ -662,6 +748,9 @@ export class BrowserGazeTracker {
   private readonly landmarker: FaceLandmarker;
   private readonly onDebugFrame?: (frame: GazeDebugFrame) => void;
   private calibration?: GazeCalibration;
+  private minimumEyeWidthPx: number;
+  private faceRegion: FaceRegion | null = null;
+  private readonly faceCanvas: HTMLCanvasElement | null;
   private readonly releaseInfoFilter: () => void;
   private closed = false;
 
@@ -676,6 +765,14 @@ export class BrowserGazeTracker {
     this.landmarker = landmarker;
     this.onDebugFrame = onDebugFrame;
     this.calibration = calibration;
+    this.minimumEyeWidthPx =
+      calibration?.minimumEyeWidthPx ?? DEFAULT_MIN_EYE_WIDTH_PX;
+    this.faceCanvas =
+      typeof document === "undefined" ? null : document.createElement("canvas");
+    if (this.faceCanvas) {
+      this.faceCanvas.width = FACE_CROP_SIZE;
+      this.faceCanvas.height = FACE_CROP_SIZE;
+    }
     this.releaseInfoFilter = releaseInfoFilter;
     this.accumulator = new GazeAccumulator(calibration);
   }
@@ -692,6 +789,7 @@ export class BrowserGazeTracker {
     this.eyeStates.forEach(resetEyeState);
     this.lastRawGaze = null;
     this.lastRawGazeAt = 0;
+    this.faceRegion = null;
     this.active = true;
     this.processFrame();
   }
@@ -716,8 +814,11 @@ export class BrowserGazeTracker {
     }
   }
 
-  setCalibration(calibration: GazeCalibration): void {
+  setCalibration(calibration?: GazeCalibration): void {
     this.calibration = calibration;
+    this.minimumEyeWidthPx =
+      calibration?.minimumEyeWidthPx ?? DEFAULT_MIN_EYE_WIDTH_PX;
+    this.accumulator.setCalibration(calibration);
   }
 
   private processFrame = (): void => {
@@ -740,11 +841,13 @@ export class BrowserGazeTracker {
       const timestamp = Math.max(frameTimestamp, this.lastTimestamp + 1);
       this.lastTimestamp = timestamp;
       try {
-        const result = this.landmarker.detectForVideo(this.video, timestamp);
-        const landmarks = result.faceLandmarks[0];
+        const landmarks = this.detectLandmarks(timestamp);
         if (!landmarks) {
           this.eyeStates.forEach(resetEyeState);
           this.lastRawGaze = null;
+          this.faceRegion = null;
+        } else {
+          this.faceRegion = faceRegionFromLandmarks(landmarks);
         }
         const previousRawGaze =
           this.lastRawGaze && now - this.lastRawGazeAt <= MONOCULAR_CONTINUITY_MS
@@ -757,8 +860,9 @@ export class BrowserGazeTracker {
               this.video.videoHeight,
               this.eyeStates,
               previousRawGaze,
+              this.minimumEyeWidthPx,
             )
-          : { gaze: null, quality: "face_missing" as const };
+          : { gaze: null, quality: "face_missing" as const, eyeWidthPx: null };
         const rawGaze = estimate.gaze;
         if (rawGaze) {
           this.lastRawGaze = rawGaze;
@@ -769,6 +873,7 @@ export class BrowserGazeTracker {
         this.onDebugFrame?.({
           faceDetected: Boolean(landmarks),
           quality: estimate.quality,
+          eyeWidthPx: estimate.eyeWidthPx,
           rawGaze,
           gaze,
           screenPoint: gaze ? this.accumulator.screenPoint(gaze) : null,
@@ -776,13 +881,23 @@ export class BrowserGazeTracker {
         });
       } catch {
         // A dropped/invalid video frame should not stop the interview loop.
+        const videoTrack = (
+          this.video.srcObject as MediaStream | null
+        )?.getVideoTracks?.()[0];
+        const quality: GazeQuality =
+          this.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+          videoTrack?.readyState === "ended"
+            ? "frame_error"
+            : "processing_error";
         this.eyeStates.forEach(resetEyeState);
         this.lastRawGaze = null;
+        this.faceRegion = null;
         this.filterGaze(null, now);
         this.accumulator.add(null);
         this.onDebugFrame?.({
           faceDetected: false,
-          quality: "frame_error",
+          quality,
+          eyeWidthPx: null,
           rawGaze: null,
           gaze: null,
           screenPoint: null,
@@ -792,6 +907,33 @@ export class BrowserGazeTracker {
     }
     this.animationFrame = requestAnimationFrame(this.processFrame);
   };
+
+  private detectLandmarks(timestamp: number): NormalizedLandmark[] | undefined {
+    const region = this.faceRegion;
+    const context = this.faceCanvas?.getContext("2d");
+    if (!region || !this.faceCanvas || !context) {
+      return this.landmarker.detectForVideo(this.video, timestamp).faceLandmarks[0];
+    }
+
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(
+      this.video,
+      region.left * this.video.videoWidth,
+      region.top * this.video.videoHeight,
+      (region.right - region.left) * this.video.videoWidth,
+      (region.bottom - region.top) * this.video.videoHeight,
+      0,
+      0,
+      FACE_CROP_SIZE,
+      FACE_CROP_SIZE,
+    );
+    const landmarks = this.landmarker.detectForVideo(
+      this.faceCanvas,
+      timestamp,
+    ).faceLandmarks[0];
+    return landmarks ? landmarksFromFaceCrop(landmarks, region) : undefined;
+  }
 
   private filterGaze(gaze: GazePoint | null, now: number): GazePoint | null {
     if (!isValidGazePoint(gaze)) {

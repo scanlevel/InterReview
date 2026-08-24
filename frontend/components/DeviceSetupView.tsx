@@ -55,6 +55,8 @@ function gazeQualityMessage(quality: GazeQuality | null): string {
       return "시선 좌표를 안정적으로 읽지 못했습니다.";
     case "frame_error":
       return "카메라 프레임을 읽지 못했습니다.";
+    case "processing_error":
+      return "시선 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
     default:
       return "시선 상태를 확인하는 중입니다.";
   }
@@ -110,8 +112,12 @@ export default function DeviceSetupView({
   const onGazeFrame = useCallback((frame: GazeDebugFrame) => {
     setGazeFrame(frame);
     const target = calibrationTargetRef.current;
-    if (calibrationCollectingRef.current && target && frame.rawGaze) {
-      calibrationTargetSamplesRef.current.push({ gaze: frame.rawGaze, target });
+    if (calibrationCollectingRef.current && target && frame.gaze) {
+      calibrationTargetSamplesRef.current.push({
+        gaze: frame.gaze,
+        target,
+        eyeWidthPx: frame.eyeWidthPx ?? undefined,
+      });
       calibrationSampleCountRef.current = calibrationTargetSamplesRef.current.length;
       setCalibrationSampleCount(calibrationSampleCountRef.current);
     }
@@ -233,6 +239,7 @@ export default function DeviceSetupView({
     setCalibrationSampleCount(0);
     setCalibrationTargetIndex(0);
     calibrationTargetRef.current = null;
+    tracker.setCalibration(undefined);
 
     for (let count = 3; count >= 1; count -= 1) {
       if (calibrationRunRef.current !== run) return;
@@ -240,7 +247,6 @@ export default function DeviceSetupView({
       await wait(1000);
     }
     setCalibrationCountdown(null);
-    tracker.start();
 
     for (let index = 0; index < CALIBRATION_TARGETS.length; index += 1) {
       if (calibrationRunRef.current !== run) return;
@@ -313,7 +319,6 @@ export default function DeviceSetupView({
       return;
     }
     tracker.setCalibration(nextCalibration);
-    tracker.start();
     setCalibration(nextCalibration);
     setCalibrationState("success");
     setCalibrationMessage(null);
@@ -441,15 +446,21 @@ export default function DeviceSetupView({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <InterviewerStage>
-          <CalibrationGrid
+        <div className="flex min-w-0 flex-col gap-2">
+          <InterviewerStage showLabel={calibrationState !== "running"}>
+            <CalibrationGrid
+              activeIndex={calibrationTargetIndex}
+              countdown={calibrationCountdown}
+            />
+          </InterviewerStage>
+          <CalibrationStatus
             activeIndex={calibrationTargetIndex}
             phase={calibrationPhase}
             countdown={calibrationCountdown}
             sampleCount={calibrationSampleCount}
             quality={gazeFrame?.quality ?? null}
           />
-        </InterviewerStage>
+        </div>
         <div className="relative overflow-hidden rounded-lg bg-black">
           <video
             ref={videoRef}
@@ -503,7 +514,9 @@ export default function DeviceSetupView({
             {calibrationState === "running" ? "중단" : "건너뛰기"}
           </button>
           {calibrationState === "success" && (
-            <span className="text-sm text-emerald-600">완료 — 3×3 격자에서 수집한 시선 보정을 적용합니다.</span>
+            <span className="text-sm text-emerald-600">
+              완료 — 면접 중에는 왼쪽 가상 면접관의 눈을 바라보세요.
+            </span>
           )}
           {calibrationState === "failed" && (
             <span className="text-sm text-amber-600">{calibrationMessage ?? "시선 보정에 실패했습니다. 다시 시도하거나 건너뛰세요."}</span>
@@ -594,6 +607,45 @@ export default function DeviceSetupView({
 
 function CalibrationGrid({
   activeIndex,
+  countdown,
+}: {
+  activeIndex: number | null;
+  countdown: number | null;
+}) {
+  if (activeIndex === null && countdown === null) return null;
+
+  return (
+    <div className="absolute inset-0 z-20" aria-label="3×3 시선 캘리브레이션">
+      <div className="absolute inset-[10%] border border-slate-300/25">
+        <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-slate-300/20" />
+        <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-slate-300/20" />
+      </div>
+      {CALIBRATION_TARGETS.map((target, index) => {
+        const active = index === activeIndex;
+        const complete = activeIndex !== null && index < activeIndex;
+        return (
+          <span
+            key={target.key}
+            className={`absolute flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border transition-colors ${
+              active
+                ? "h-8 w-8 border-blue-100 bg-blue-500/80 shadow-lg shadow-blue-500/60"
+                : complete
+                  ? "border-emerald-200/70 bg-emerald-400/70"
+                  : "border-slate-200/70 bg-slate-500/60"
+            }`}
+            style={{ left: `${target.x}%`, top: `${target.y}%` }}
+            aria-label={`${target.label}${active ? " 측정 중" : complete ? " 완료" : " 대기"}`}
+          >
+            {active && <span className="h-2 w-2 rounded-full bg-white" />}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function CalibrationStatus({
+  activeIndex,
   phase,
   countdown,
   sampleCount,
@@ -619,39 +671,16 @@ function CalibrationGrid({
             : gazeQualityMessage(quality);
 
   return (
-    <div className="absolute inset-0 z-20" aria-live="polite">
-      <div className="absolute inset-[10%] border border-slate-300/25">
-        <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-slate-300/20" />
-        <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-slate-300/20" />
-      </div>
-      {CALIBRATION_TARGETS.map((target, index) => {
-        const active = index === activeIndex;
-        const complete = activeIndex !== null && index < activeIndex;
-        return (
-          <span
-            key={target.key}
-            className={`absolute flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border transition-colors ${
-              active
-                ? "h-8 w-8 border-blue-100 bg-blue-500/80 shadow-lg shadow-blue-500/60"
-                : complete
-                  ? "border-emerald-200/70 bg-emerald-400/70"
-                  : "border-slate-200/70 bg-slate-500/60"
-            }`}
-            style={{ left: `${target.x}%`, top: `${target.y}%` }}
-            aria-label={`${target.label}${active ? " 측정 중" : complete ? " 완료" : " 대기"}`}
-          >
-            {active && <span className="h-2 w-2 rounded-full bg-white" />}
-          </span>
-        );
-      })}
-      <div className="absolute inset-x-3 bottom-3 rounded-md bg-slate-950/80 px-3 py-2 text-center text-xs font-medium text-white">
-        <p>{status}{activeTarget ? ` · ${activeTarget.label} (${activeIndex! + 1}/9)` : ""}</p>
-        {activeTarget && phase !== "settle" && phase !== "retry" && (
-          <p className="mt-1 font-normal text-slate-300">
-            보정 사용 프레임 {sampleCount}/{CALIBRATION_SAMPLE_GOAL}
-          </p>
-        )}
-      </div>
+    <div
+      className="rounded-md bg-slate-950/80 px-3 py-2 text-center text-xs font-medium text-white"
+      aria-live="polite"
+    >
+      <p>{status}{activeTarget ? ` · ${activeTarget.label} (${activeIndex! + 1}/9)` : ""}</p>
+      {activeTarget && phase !== "settle" && phase !== "retry" && (
+        <p className="mt-1 font-normal text-slate-300">
+          보정 사용 프레임 {sampleCount}/{CALIBRATION_SAMPLE_GOAL}
+        </p>
+      )}
     </div>
   );
 }

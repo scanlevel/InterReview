@@ -236,8 +236,10 @@ export default function InterviewView({
       <div className="grid gap-4 lg:grid-cols-2">
         <InterviewerStage>
           <div className="absolute inset-x-4 bottom-4 rounded-md bg-slate-950/75 px-3 py-2 text-center text-sm text-slate-100">
-            <p className="text-xs text-slate-300">현재 질문을 듣고 있습니다</p>
-            <p className="mt-1">답변을 시작하면 녹음됩니다.</p>
+            <p className="text-xs text-slate-300">
+              {isRecording ? "답변을 듣고 있습니다" : "질문을 확인해 주세요"}
+            </p>
+            <p className="mt-1">답변할 때는 면접관의 눈을 바라보세요.</p>
           </div>
         </InterviewerStage>
         <div
@@ -256,6 +258,12 @@ export default function InterviewView({
             playsInline
             className="aspect-video w-full -scale-x-100 object-cover"
           />
+          {isRecording && (
+            <div className="pointer-events-none absolute inset-0 bg-black/15" />
+          )}
+          <div className="pointer-events-none absolute left-2 top-2 rounded bg-black/60 px-2 py-1 text-[10px] text-white">
+            내 화면 · 자세 확인용
+          </div>
           {debugGaze && (
             <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} verbose={debugGaze} />
           )}

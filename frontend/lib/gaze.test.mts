@@ -3,10 +3,12 @@ import test from "node:test";
 import {
   applyGazeCalibration,
   createGazeCalibration,
+  faceRegionFromLandmarks,
   GazeAccumulator,
   isEyeWidthUsable,
   isNewVideoFrame,
   isValidGazePoint,
+  landmarksFromFaceCrop,
   OneEuroGazeFilter,
 } from "./gaze.ts";
 
@@ -47,6 +49,7 @@ test("builds calibration from repeated, noisy target samples", () => {
   const samples = Array.from({ length: 8 }, (_, repeat) =>
     targetSamples.map((sample, index) => ({
       target: sample.target,
+      eyeWidthPx: 6,
       gaze: {
         x: sample.gaze.x + ((repeat + index) % 3 - 1) * 0.005,
         y: sample.gaze.y + ((repeat + index + 1) % 3 - 1) * 0.005,
@@ -56,6 +59,7 @@ test("builds calibration from repeated, noisy target samples", () => {
 
   const calibration = createGazeCalibration(samples);
   assert.ok(calibration);
+  assert.equal(calibration.minimumEyeWidthPx, 3);
   const center = applyGazeCalibration({ x: 0.1, y: 0 }, calibration);
   assert.ok(Math.abs(center.x - 0.5) < 0.03);
   assert.ok(Math.abs(center.y - 0.5) < 0.03);
@@ -66,6 +70,13 @@ test("builds calibration from repeated, noisy target samples", () => {
   const accumulator = new GazeAccumulator(calibration);
   assert.equal(accumulator.isFront({ x: 0.1, y: 0 }), true);
   assert.equal(accumulator.isFront({ x: 0.4, y: -0.3 }), false);
+
+  const liveAccumulator = new GazeAccumulator();
+  liveAccumulator.setCalibration(calibration);
+  assert.deepEqual(
+    liveAccumulator.screenPoint({ x: 0.1, y: 0 }),
+    applyGazeCalibration({ x: 0.1, y: 0 }, calibration),
+  );
 });
 
 test("fits cross-axis gaze distortion with a 2D calibration", () => {
@@ -130,11 +141,30 @@ test("requires every calibration target and a measurable axis span", () => {
 });
 
 test("keeps eye tracking active through the hysteresis release width", () => {
-  assert.equal(isEyeWidthUsable(7.9, false), false);
-  assert.equal(isEyeWidthUsable(8, false), true);
-  assert.equal(isEyeWidthUsable(7, true), true);
-  assert.equal(isEyeWidthUsable(6.5, true), true);
-  assert.equal(isEyeWidthUsable(6.49, true), false);
+  assert.equal(isEyeWidthUsable(3.9, false), false);
+  assert.equal(isEyeWidthUsable(4, false), true);
+  assert.equal(isEyeWidthUsable(3, true), true);
+  assert.equal(isEyeWidthUsable(2.99, true), false);
+  assert.equal(isEyeWidthUsable(3, false, 3), true);
+});
+
+test("expands a detected face region for the next interpolated frame", () => {
+  const region = faceRegionFromLandmarks([
+    { x: 0.2, y: 0.3, z: 0, visibility: 1 },
+    { x: 0.6, y: 0.7, z: 0, visibility: 1 },
+  ]);
+  assert.ok(region);
+  assert.ok(Math.abs(region.left - 0.1) < 1e-9);
+  assert.ok(Math.abs(region.top - 0.2) < 1e-9);
+  assert.ok(Math.abs(region.right - 0.7) < 1e-9);
+  assert.ok(Math.abs(region.bottom - 0.8) < 1e-9);
+
+  const restored = landmarksFromFaceCrop(
+    [{ x: 0.5, y: 0.5, z: 0, visibility: 1 }],
+    region,
+  );
+  assert.ok(Math.abs(restored[0].x - 0.4) < 1e-9);
+  assert.ok(Math.abs(restored[0].y - 0.5) < 1e-9);
 });
 
 test("One Euro filter reduces jumps and resets cleanly", () => {

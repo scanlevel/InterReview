@@ -16,6 +16,8 @@ function qualityLabel(quality: GazeQuality): string {
       return "● 시선 좌표 판정 불가";
     case "frame_error":
       return "● 카메라 프레임 오류";
+    case "processing_error":
+      return "● 시선 처리 오류";
   }
 }
 
