@@ -10,7 +10,6 @@ import {
   CALIBRATION_GRID_ORDER,
   CALIBRATION_POINT_SETTLE_MS,
   CALIBRATION_POINT_COLLECT_MS,
-  calibrationPathPoint,
   calibrationPathPoints,
   calibrationTargetAt,
   createGazeCalibration,
@@ -29,8 +28,9 @@ import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorde
 const CAN_DEBUG_GAZE = process.env.NODE_ENV !== "production";
 
 const TEST_SENTENCE = "안녕하세요. 지금부터 모의 면접을 시작하겠습니다.";
-const CALIBRATION_START_COUNTDOWN_SEC = 5;
-const CALIBRATION_PATH_SETTLE_MS = 800;
+const CALIBRATION_START_COUNTDOWN_SEC = 3;
+const CALIBRATION_PHASE_GUIDE_MS = 1500;
+const CALIBRATION_DIRECTION_PREVIEW_MS = 600;
 const CALIBRATION_POINT_PREVIEW_MS = 1000;
 const CALIBRATION_MIN_SAMPLES = 120;
 const CALIBRATION_PATHS: readonly CalibrationPath[] = ["plus", "x"];
@@ -74,6 +74,8 @@ export interface DeviceSetupResult {
 
 type CalibrationState = "idle" | "running" | "success" | "failed" | "skipped";
 type CalibrationPhase = "idle" | "countdown" | "preview" | "settle" | "moving" | "collecting" | "training" | "retry";
+type CalibrationStage = "moving" | "static" | null;
+type CalibrationGuide = "moving" | "static" | null;
 type SttState = "idle" | "recording" | "checking" | "review" | "success" | "failed" | "skipped";
 
 export default function DeviceSetupView({
@@ -92,9 +94,12 @@ export default function DeviceSetupView({
   const [gazeFrame, setGazeFrame] = useState<GazeDebugFrame | null>(null);
   const [calibrationState, setCalibrationState] = useState<CalibrationState>("idle");
   const [calibrationPhase, setCalibrationPhase] = useState<CalibrationPhase>("idle");
+  const [calibrationStage, setCalibrationStage] = useState<CalibrationStage>(null);
+  const [calibrationGuide, setCalibrationGuide] = useState<CalibrationGuide>(null);
   const [calibration, setCalibration] = useState<GazeCalibration | null>(null);
   const [calibrationCountdown, setCalibrationCountdown] = useState<number | null>(null);
   const [calibrationPath, setCalibrationPath] = useState<CalibrationPath | null>(null);
+  const [calibrationPathSegmentIndex, setCalibrationPathSegmentIndex] = useState<number | null>(null);
   const [calibrationTarget, setCalibrationTarget] = useState<GazePoint | null>(null);
   const [calibrationGridPointIndex, setCalibrationGridPointIndex] = useState<number | null>(null);
   const [calibrationGridPreview, setCalibrationGridPreview] = useState(false);
@@ -153,8 +158,11 @@ export default function DeviceSetupView({
     setCalibration(null);
     setCalibrationState("idle");
     setCalibrationPhase("idle");
+    setCalibrationStage(null);
+    setCalibrationGuide(null);
     setCalibrationCountdown(null);
     setCalibrationPath(null);
+    setCalibrationPathSegmentIndex(null);
     setCalibrationTarget(null);
     setCalibrationGridPointIndex(null);
     setCalibrationGridPreview(false);
@@ -279,7 +287,10 @@ export default function DeviceSetupView({
     setCalibrationMessage(null);
     setCalibrationState("running");
     setCalibrationPhase("countdown");
+    setCalibrationStage(null);
+    setCalibrationGuide(null);
     setCalibrationPath(null);
+    setCalibrationPathSegmentIndex(null);
     setCalibrationTarget(null);
     setCalibrationGridPointIndex(null);
     setCalibrationGridPreview(false);
@@ -301,57 +312,113 @@ export default function DeviceSetupView({
       }
       setCalibrationCountdown(null);
 
+      setCalibrationStage("moving");
+      setCalibrationGuide("moving");
+      setCalibrationPhase("settle");
+      setCalibrationPath(CALIBRATION_PATHS[0]);
+      setCalibrationPathSegmentIndex(0);
+      setCalibrationGridPointIndex(null);
+      setCalibrationTarget({ x: 0.5, y: 0.5 });
+      calibrationTargetRef.current = { x: 0.5, y: 0.5 };
+      await wait(CALIBRATION_PHASE_GUIDE_MS);
+      if (calibrationRunRef.current !== run) return;
+      setCalibrationGuide(null);
+      setCalibrationPath(null);
+      setCalibrationPathSegmentIndex(null);
+      setCalibrationTarget(null);
+      calibrationTargetRef.current = null;
+
       for (let pathIndex = 0; pathIndex < CALIBRATION_PATHS.length; pathIndex += 1) {
         if (calibrationRunRef.current !== run) return;
         const path = CALIBRATION_PATHS[pathIndex];
-        const initialTarget = calibrationPathPoint(path, 0);
+        const pathPoints = calibrationPathPoints(path);
+        const segmentCount = pathPoints.length - 1;
+        const segmentDurationMs = CALIBRATION_PATH_DURATION_MS / segmentCount;
         calibrationSourceRef.current = path;
         calibrationPointIdRef.current = null;
-        calibrationTargetRef.current = initialTarget;
         setCalibrationPath(path);
-        setCalibrationTarget(initialTarget);
         setCalibrationGridPointIndex(null);
-        setCalibrationProgress((pathIndex / CALIBRATION_STAGE_COUNT) * 100);
-        setCalibrationPhase("settle");
-        calibrationTargetHistoryRef.current = [{ at: performance.now(), target: initialTarget }];
-        await wait(CALIBRATION_PATH_SETTLE_MS);
-        if (calibrationRunRef.current !== run) return;
 
-        calibrationCollectingRef.current = true;
-        setCalibrationPhase("moving");
-        const completed = await new Promise<boolean>((resolve) => {
-          calibrationCancelRef.current = () => resolve(false);
-          let activeElapsed = 0;
-          let previousAt = performance.now();
-          const animate = (now: number) => {
-            if (calibrationRunRef.current !== run) { resolve(false); return; }
-            const delta = Math.min(100, Math.max(0, now - previousAt));
-            previousAt = now;
-            if (latestGazeQualityRef.current === "ok") activeElapsed += delta;
-            const progress = Math.min(1, activeElapsed / CALIBRATION_PATH_DURATION_MS);
-            const target = calibrationPathPoint(path, progress);
-            calibrationTargetRef.current = target;
-            setCalibrationTarget(target);
-            calibrationTargetHistoryRef.current.push({ at: now, target });
-            const cutoff = now - CALIBRATION_CONTINUOUS_TARGET_DELAY_MS - 1000;
-            while (calibrationTargetHistoryRef.current.length > 1 && calibrationTargetHistoryRef.current[0].at < cutoff) {
-              calibrationTargetHistoryRef.current.shift();
-            }
-            setCalibrationProgress(((pathIndex + progress) / CALIBRATION_STAGE_COUNT) * 100);
-            if (progress >= 1) { resolve(true); return; }
+        for (let segmentIndex = 0; segmentIndex < segmentCount; segmentIndex += 1) {
+          if (calibrationRunRef.current !== run) return;
+          const start = pathPoints[segmentIndex];
+          const end = pathPoints[segmentIndex + 1];
+          calibrationTargetRef.current = start;
+          calibrationCollectingRef.current = false;
+          calibrationTargetHistoryRef.current = [{ at: performance.now(), target: start }];
+          setCalibrationTarget(start);
+          setCalibrationPathSegmentIndex(segmentIndex);
+          setCalibrationProgress(
+            ((pathIndex + segmentIndex / segmentCount) / CALIBRATION_STAGE_COUNT) * 100,
+          );
+          const isCenterDeparture = segmentIndex % 2 === 0;
+          if (isCenterDeparture) {
+            setCalibrationPhase("settle");
+            await wait(CALIBRATION_DIRECTION_PREVIEW_MS);
+            if (calibrationRunRef.current !== run) return;
+          }
+
+          calibrationCollectingRef.current = true;
+          setCalibrationPhase("moving");
+          const completed = await new Promise<boolean>((resolve) => {
+            calibrationCancelRef.current = () => resolve(false);
+            let activeElapsed = 0;
+            let previousAt = performance.now();
+            const animate = (now: number) => {
+              if (calibrationRunRef.current !== run) { resolve(false); return; }
+              const delta = Math.min(100, Math.max(0, now - previousAt));
+              previousAt = now;
+              if (latestGazeQualityRef.current === "ok") activeElapsed += delta;
+              const progress = Math.min(1, activeElapsed / segmentDurationMs);
+              const eased = progress * progress * (3 - 2 * progress);
+              const target = {
+                x: start.x + (end.x - start.x) * eased,
+                y: start.y + (end.y - start.y) * eased,
+              };
+              calibrationTargetRef.current = target;
+              setCalibrationTarget(target);
+              calibrationTargetHistoryRef.current.push({ at: now, target });
+              const cutoff = now - CALIBRATION_CONTINUOUS_TARGET_DELAY_MS - 1000;
+              while (calibrationTargetHistoryRef.current.length > 1 && calibrationTargetHistoryRef.current[0].at < cutoff) {
+                calibrationTargetHistoryRef.current.shift();
+              }
+              setCalibrationProgress(
+                ((pathIndex + (segmentIndex + progress) / segmentCount) / CALIBRATION_STAGE_COUNT) * 100,
+              );
+              if (progress >= 1) { resolve(true); return; }
+              calibrationAnimationRef.current = requestAnimationFrame(animate);
+            };
             calibrationAnimationRef.current = requestAnimationFrame(animate);
-          };
-          calibrationAnimationRef.current = requestAnimationFrame(animate);
-        });
-        calibrationCancelRef.current = null;
-        calibrationAnimationRef.current = null;
-        calibrationCollectingRef.current = false;
-        if (!completed || calibrationRunRef.current !== run) return;
+          });
+          calibrationCancelRef.current = null;
+          calibrationAnimationRef.current = null;
+          calibrationCollectingRef.current = false;
+          if (!completed || calibrationRunRef.current !== run) return;
+        }
       }
 
       calibrationTargetHistoryRef.current = [];
       setCalibrationPath(null);
+      setCalibrationPathSegmentIndex(null);
       setCalibrationTarget(null);
+
+      const firstGridPointId = CALIBRATION_GRID_ORDER[0];
+      const firstGridTarget = CALIBRATION_GRID_POINTS[firstGridPointId];
+      if (!firstGridTarget) return;
+      setCalibrationStage("static");
+      setCalibrationGuide("static");
+      calibrationSourceRef.current = "grid";
+      calibrationPointIdRef.current = firstGridPointId;
+      calibrationTargetRef.current = firstGridTarget;
+      setCalibrationTarget(firstGridTarget);
+      setCalibrationGridPointIndex(0);
+      setCalibrationProgress((2 / CALIBRATION_STAGE_COUNT) * 100);
+      setCalibrationGridPreview(true);
+      setCalibrationPhase("preview");
+      await wait(CALIBRATION_PHASE_GUIDE_MS);
+      if (calibrationRunRef.current !== run) return;
+      setCalibrationGuide(null);
+      setCalibrationGridPreview(false);
 
       for (let gridIndex = 0; gridIndex < CALIBRATION_GRID_ORDER.length; gridIndex += 1) {
         if (calibrationRunRef.current !== run) return;
@@ -366,9 +433,10 @@ export default function DeviceSetupView({
         setCalibrationTarget(target);
         setCalibrationGridPointIndex(gridIndex);
         setCalibrationProgress(((2 + gridIndex / CALIBRATION_GRID_ORDER.length) / CALIBRATION_STAGE_COUNT) * 100);
-        setCalibrationGridPreview(true);
-        setCalibrationPhase("preview");
-        await wait(CALIBRATION_POINT_PREVIEW_MS);
+        const usesStaticGuide = gridIndex === 0;
+        setCalibrationGridPreview(!usesStaticGuide);
+        setCalibrationPhase(usesStaticGuide ? "settle" : "preview");
+        if (!usesStaticGuide) await wait(CALIBRATION_POINT_PREVIEW_MS);
         setCalibrationGridPreview(false);
         if (calibrationRunRef.current !== run) return;
         setCalibrationPhase("settle");
@@ -389,6 +457,8 @@ export default function DeviceSetupView({
       calibrationTargetHistoryRef.current = [];
       setCalibrationGridPointIndex(null);
       setCalibrationTarget(null);
+      setCalibrationStage(null);
+      setCalibrationGuide(null);
       if (calibrationRunRef.current !== run) return;
       if (calibrationSamplesRef.current.length < CALIBRATION_MIN_SAMPLES) {
         setCalibrationPhase("idle");
@@ -426,6 +496,9 @@ export default function DeviceSetupView({
     } finally {
       calibrationCollectingRef.current = false;
       setCalibrationGridPreview(false);
+      setCalibrationStage(null);
+      setCalibrationGuide(null);
+      setCalibrationPathSegmentIndex(null);
       calibrationSourceRef.current = null;
       calibrationPointIdRef.current = null;
       calibrationTargetRef.current = null;
@@ -488,7 +561,10 @@ export default function DeviceSetupView({
     }
     setCalibration(null);
     setCalibrationCountdown(null);
+    setCalibrationStage(null);
+    setCalibrationGuide(null);
     setCalibrationPath(null);
+    setCalibrationPathSegmentIndex(null);
     setCalibrationTarget(null);
     setCalibrationGridPointIndex(null);
     setCalibrationGridPreview(false);
@@ -584,9 +660,11 @@ export default function DeviceSetupView({
               )}
               <CalibrationPathOverlay
                 path={calibrationPath}
+                pathSegmentIndex={calibrationPathSegmentIndex}
                 target={calibrationTarget}
-                 gridPointIndex={calibrationGridPointIndex}
+                gridPointIndex={calibrationGridPointIndex}
                 preview={calibrationGridPreview}
+                guide={calibrationGuide}
                 phase={calibrationPhase}
                 countdown={calibrationCountdown}
               />
@@ -595,10 +673,12 @@ export default function DeviceSetupView({
           <div className="w-full max-w-full lg:max-w-[50vw]">
             <CalibrationStatus
               path={calibrationPath}
+              pathSegmentIndex={calibrationPathSegmentIndex}
               phase={calibrationPhase}
+              stage={calibrationStage}
               countdown={calibrationCountdown}
               progress={calibrationProgress}
-               gridPointIndex={calibrationGridPointIndex}
+              gridPointIndex={calibrationGridPointIndex}
               quality={gazeFrame?.quality ?? null}
             />
           </div>
@@ -614,7 +694,8 @@ export default function DeviceSetupView({
           {calibrationState === "running" && (
             <div className="absolute inset-x-3 bottom-3 rounded-md bg-slate-950/75 px-3 py-2 text-center text-xs text-slate-100">
               {gazeQualityMessage(gazeFrame?.quality ?? null)}
-              {gazeFrame?.quality === "ok" && " 표시된 +, X, 9-point를 순서대로 따라가 주세요."}
+              {gazeFrame?.quality === "ok" && calibrationStage === "moving" && " 1단계 이동 경로를 따라가 주세요."}
+              {gazeFrame?.quality === "ok" && calibrationStage === "static" && " 2단계 고정점을 차례로 바라봐 주세요."}
             </div>
           )}
         </div>
@@ -628,7 +709,7 @@ export default function DeviceSetupView({
       <section className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
         <h3 className="font-medium">1. 시선 캘리브레이션</h3>
         <p className="mt-1 text-sm text-gray-500">
-          시작 후 5초 동안 준비하고, +와 X 경로를 따라간 뒤 9개의 고정점을 차례로 바라봐 주세요. 측정이 끝나면 브라우저에서 작은 보정 모델을 학습합니다.
+          시작 후 3초 동안 준비하고, +와 X 경로를 따라간 뒤 9개의 고정점을 차례로 바라봐 주세요. 측정이 끝나면 브라우저에서 작은 보정 모델을 학습합니다.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
@@ -761,119 +842,183 @@ export default function DeviceSetupView({
 
 function CalibrationPathOverlay({
   path,
+  pathSegmentIndex,
   target,
   gridPointIndex,
   preview,
+  guide,
   phase,
   countdown,
 }: {
   path: CalibrationPath | null;
+  pathSegmentIndex: number | null;
   target: GazePoint | null;
   gridPointIndex: number | null;
   preview: boolean;
+  guide: CalibrationGuide;
   phase: CalibrationPhase;
   countdown: number | null;
 }) {
-  if (path === null && target === null && gridPointIndex === null && countdown === null && !preview) return null;
+  const isPhaseGuide = guide !== null;
+  if (path === null && target === null && gridPointIndex === null && countdown === null && !preview && !isPhaseGuide) return null;
   const points = path ? calibrationPathPoints(path) : [];
   const dot = target ?? points[0] ?? { x: 0.5, y: 0.5 };
   const polyline = points.map((point) => String(point.x * 100) + "," + String(point.y * 100)).join(" ");
-  const arrowStart = points[0] ?? { x: 0.5, y: 0.5 };
-  const arrowEnd = points[1] ?? arrowStart;
-  const arrowTip = {
-    x: arrowStart.x + (arrowEnd.x - arrowStart.x) * 0.82,
-    y: arrowStart.y + (arrowEnd.y - arrowStart.y) * 0.82,
+  const arrowStart = points[pathSegmentIndex ?? 0] ?? { x: 0.5, y: 0.5 };
+  const arrowEnd = points[(pathSegmentIndex ?? 0) + 1] ?? arrowStart;
+  const arrowDelta = { x: arrowEnd.x - arrowStart.x, y: arrowEnd.y - arrowStart.y };
+  const arrowLength = Math.hypot(arrowDelta.x, arrowDelta.y) || 1;
+  const arrowUnit = { x: arrowDelta.x / arrowLength, y: arrowDelta.y / arrowLength };
+  const arrowOrigin = { x: arrowStart.x * 100, y: arrowStart.y * 100 };
+  const arrowShaftStart = {
+    x: arrowOrigin.x + arrowUnit.x * 4,
+    y: arrowOrigin.y + arrowUnit.y * 4,
   };
-  const showDirectionArrow = path !== null && phase === "settle" && points.length > 1;
-
+  const arrowHeadBase = {
+    x: arrowOrigin.x + arrowUnit.x * 6.2,
+    y: arrowOrigin.y + arrowUnit.y * 6.2,
+  };
+  const arrowTip = {
+    x: arrowOrigin.x + arrowUnit.x * 8,
+    y: arrowOrigin.y + arrowUnit.y * 8,
+  };
+  const arrowHeadPoints = [
+    arrowTip,
+    { x: arrowHeadBase.x - arrowUnit.y * 1.9, y: arrowHeadBase.y + arrowUnit.x * 1.9 },
+    { x: arrowHeadBase.x + arrowUnit.y * 1.9, y: arrowHeadBase.y - arrowUnit.x * 1.9 },
+  ].map((point) => String(point.x) + "," + String(point.y)).join(" ");
+  const showDirectionArrow = path !== null && pathSegmentIndex !== null && pathSegmentIndex % 2 === 0 && phase === "settle";
+  const showGridInstruction =
+    path === null &&
+    gridPointIndex !== null &&
+    (phase === "preview" || phase === "settle" || phase === "collecting");
+  const instruction = guide === "moving"
+    ? "1단계 · 움직이는 점을 끝까지 따라갔다가 중앙으로 되돌아옵니다"
+    : guide === "static"
+      ? "2단계 · 표시되는 고정점을 바라보고 잠시 시선을 유지하세요"
+      : showDirectionArrow
+        ? "이 방향으로 이동합니다"
+        : showGridInstruction
+          ? "표시된 점을 바라보세요"
+          : null;
+  const isBlinking = preview || isPhaseGuide;
   return (
     <div className="absolute inset-0 z-20" aria-label="+와 X 및 9-point 시선 캘리브레이션">
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
         {points.length > 1 && (
-          <polyline points={polyline} fill="none" stroke="rgb(148 163 184 / 0.45)" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+          <polyline points={polyline} fill="none" stroke="rgb(148 163 184 / 0.22)" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
         )}
         {showDirectionArrow && (
-          <>
-            <defs>
-              <marker id="calibration-direction-arrow" viewBox="0 0 5 5" refX="4.5" refY="2.5" markerWidth="5" markerHeight="5" orient="auto">
-                <path d="M 0 0 L 5 2.5 L 0 5 Z" fill="rgb(96 165 250 / 0.95)" />
-              </marker>
-            </defs>
+          <g aria-hidden="true">
             <line
-              x1={String(arrowStart.x * 100)}
-              y1={String(arrowStart.y * 100)}
-              x2={String(arrowTip.x * 100)}
-              y2={String(arrowTip.y * 100)}
-              stroke="rgb(96 165 250 / 0.95)"
-              strokeWidth="1.6"
+              x1={String(arrowShaftStart.x)}
+              y1={String(arrowShaftStart.y)}
+              x2={String(arrowHeadBase.x)}
+              y2={String(arrowHeadBase.y)}
+              stroke="rgb(147 197 253 / 0.62)"
+              strokeWidth="5"
               strokeLinecap="round"
-              markerEnd="url(#calibration-direction-arrow)"
               vectorEffect="non-scaling-stroke"
             />
-          </>
+            <polygon points={arrowHeadPoints} fill="rgb(147 197 253 / 0.62)" />
+          </g>
         )}
       </svg>
       <span
         className={
           "absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-blue-100 text-sm font-semibold text-white " +
-          (preview
+          (isBlinking
             ? "bg-blue-400/35 blur-[2px] shadow-[0_0_18px_8px_rgba(96,165,250,0.55)] animate-pulse"
             : "bg-blue-500/85 shadow-lg shadow-blue-500/60")
         }
         style={{ left: String(dot.x * 100) + "%", top: String(dot.y * 100) + "%" }}
-        aria-label={preview ? "다음 9-point 미리보기" : countdown !== null ? "준비 " + countdown : gridPointIndex !== null ? "9-point " + String(gridPointIndex + 1) : "현재 시선 이동 위치"}
+        aria-label={guide === "moving" ? "1단계 이동 경로 안내" : guide === "static" ? "2단계 고정점 안내" : preview ? "다음 9-point 미리보기" : countdown !== null ? "준비 " + countdown : gridPointIndex !== null ? "9-point " + String(gridPointIndex + 1) : "현재 시선 이동 위치"}
       >
-        {preview ? (
+        {isBlinking ? (
           <span className="h-3 w-3 animate-ping rounded-full bg-white/80" />
         ) : countdown !== null ? countdown : <span className="h-2 w-2 rounded-full bg-white" />}
       </span>
+      {instruction !== null && (
+        <span
+          className={
+            "pointer-events-none absolute z-30 whitespace-nowrap rounded px-2 py-1 text-[11px] font-medium " +
+            (isPhaseGuide ? "bg-slate-950/35 text-white/70" : "bg-slate-950/25 text-white/60")
+          }
+          style={{
+            left: String(dot.x * 100) + "%",
+            top: String(dot.y * 100) + "%",
+            transform: "translate(-50%, calc(-100% - 10px))",
+          }}
+        >
+          {instruction}
+        </span>
+      )}
     </div>
   );
 }
 function CalibrationStatus({
   path,
+  pathSegmentIndex,
   phase,
+  stage,
   countdown,
   progress,
   gridPointIndex,
   quality,
 }: {
   path: CalibrationPath | null;
+  pathSegmentIndex: number | null;
   phase: CalibrationPhase;
+  stage: CalibrationStage;
   countdown: number | null;
   progress: number;
   gridPointIndex: number | null;
   quality: GazeQuality | null;
 }) {
+  const showInlineStatus = path === null && gridPointIndex === null;
+  const showProgress = phase === "moving" || phase === "preview" || phase === "collecting" || phase === "training";
+  const stageLabel = stage === "moving" ? "1 / 2 이동 경로" : stage === "static" ? "2 / 2 고정점" : null;
   if (path === null && countdown === null && gridPointIndex === null && phase === "idle") return null;
+  if (!showInlineStatus && !showProgress) return null;
   const pathLabel = path === "plus" ? "+ 경로" : path === "x" ? "X 경로" : null;
+  const pathStepLabel =
+    path === null || pathSegmentIndex === null
+      ? pathLabel
+      : (pathLabel ?? "경로") + " " + String(pathSegmentIndex + 1) + "/" + String(calibrationPathPoints(path).length - 1);
   const gridLabel = gridPointIndex === null ? null : "9-point " + String(gridPointIndex + 1) + "/" + String(CALIBRATION_GRID_POINTS.length);
   let status: string;
   if (countdown !== null) status = "준비 " + countdown;
-  else if (phase === "preview") status = "다음 9-point 점을 확인해 주세요";
+  else if (phase === "preview") status = "표시된 점을 바라볼 준비를 해주세요";
   else if (phase === "settle") {
-    status = path !== null
-      ? (pathLabel ?? "경로") + " 화살표 방향으로 이동할 준비를 해주세요"
-      : (gridLabel ?? "고정점") + " 시작 준비";
+    if (path !== null) {
+      status = (pathStepLabel ?? "경로") + " · 화살표 방향으로 끝까지 갔다가 중앙으로 되돌아옵니다";
+    } else {
+      status = (gridLabel ?? "고정점") + " · 표시된 점을 바라보세요";
+    }
   }
-  else if (phase === "collecting") status = (gridLabel ?? "고정점") + "을 바라보며 시선을 고정해 주세요";
+  else if (phase === "collecting") status = (gridLabel ?? "고정점") + " · 표시된 점에 시선을 고정해 주세요";
   else if (phase === "training") status = "보정 모델 학습 중";
   else if (phase === "retry") status = gazeQualityMessage(quality);
-  else if (quality === "ok") status = (pathLabel ?? "경로") + "를 따라 천천히 이동해 주세요";
+  else if (quality === "ok") {
+    status = path !== null
+      ? (pathStepLabel ?? "경로") + " · 표시된 방향으로 끝까지 이동해 주세요"
+      : gazeQualityMessage(quality);
+  }
   else status = gazeQualityMessage(quality);
 
   return (
-    <div className="rounded-md bg-slate-950/80 px-3 py-2 text-center text-xs font-medium text-white" aria-live="polite">
-      <p>{status}</p>
-      {(phase === "moving" || phase === "preview" || phase === "collecting" || phase === "training") && (
+    <div className="rounded-md bg-slate-950/35 px-3 py-2 text-center text-xs font-medium text-white/70" aria-live="polite">
+      {showInlineStatus && <p>{status}</p>}
+      {showProgress && (
         <div className="mt-2 flex items-center gap-2">
+          {stageLabel !== null && <span className="shrink-0 text-[11px] text-slate-300">{stageLabel}</span>}
           <progress
             className="h-2 min-w-0 flex-1 accent-blue-500"
             max={100}
             value={Math.max(0, Math.min(100, progress))}
-            aria-label={phase === "training" ? "MLP 학습 진행률" : gridPointIndex !== null ? "9-point 측정 진행률" : "경로 측정 진행률"}
+            aria-label={phase === "training" ? "MLP 학습 진행률" : gridPointIndex !== null ? "2단계 고정점 측정 진행률" : "1단계 이동 경로 측정 진행률"}
           />
-          <span className="font-normal text-slate-300">{Math.round(progress)}%</span>
+          {showInlineStatus && <span className="font-normal text-slate-300">{Math.round(progress)}%</span>}
         </div>
       )}
     </div>

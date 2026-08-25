@@ -58,8 +58,12 @@ test("rejects invalid gaze points", () => {
 test("defines smooth plus and X calibration paths across the full interviewer stage", () => {
   for (const path of ["plus", "x"] as const) {
     const points = calibrationPathPoints(path);
+    assert.equal(points.length, 9);
     assert.deepEqual(points[0], { x: 0.5, y: 0.5 });
     assert.deepEqual(points.at(-1), { x: 0.5, y: 0.5 });
+    for (let index = 0; index < points.length; index += 2) {
+      assert.deepEqual(points[index], { x: 0.5, y: 0.5 });
+    }
     assert.ok(points.some((point) => point.x === 0));
     assert.ok(points.some((point) => point.x === 1));
     assert.ok(points.some((point) => point.y === 0));
