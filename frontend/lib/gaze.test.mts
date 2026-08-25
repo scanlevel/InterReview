@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyGazeCalibration,
+  calibrationPathPoint,
+  calibrationPathPoints,
+  calibrationTargetAt,
   createGazeCalibration,
   faceRegionFromLandmarks,
   GazeAccumulator,
@@ -11,6 +14,15 @@ import {
   landmarksFromFaceCrop,
   EmaGazeFilter,
 } from "./gaze.ts";
+
+function syntheticGaze(targetX: number, targetY: number) {
+  const deltaX = targetX - 0.5;
+  const deltaY = targetY - 0.5;
+  return {
+    x: 0.1 - 0.7 * deltaX + 0.15 * deltaY + 0.08 * deltaX * deltaY,
+    y: -0.35 + 0.85 * deltaY - 0.12 * deltaX + 0.05 * deltaY * deltaY,
+  };
+}
 
 test("keeps the gaze result as a heatmap", () => {
   const accumulator = new GazeAccumulator();
@@ -34,110 +46,68 @@ test("rejects invalid gaze points", () => {
   assert.equal(isValidGazePoint({ x: Number.POSITIVE_INFINITY, y: 0 }), false);
 });
 
-test("builds calibration from repeated, noisy target samples", () => {
-  const targetSamples = [
-    { target: { x: 0.1, y: 0.1 }, gaze: { x: 0.4, y: -0.3 } },
-    { target: { x: 0.5, y: 0.1 }, gaze: { x: 0.1, y: -0.3 } },
-    { target: { x: 0.9, y: 0.1 }, gaze: { x: -0.2, y: -0.3 } },
-    { target: { x: 0.1, y: 0.5 }, gaze: { x: 0.4, y: 0 } },
-    { target: { x: 0.5, y: 0.5 }, gaze: { x: 0.1, y: 0 } },
-    { target: { x: 0.9, y: 0.5 }, gaze: { x: -0.2, y: 0 } },
-    { target: { x: 0.1, y: 0.9 }, gaze: { x: 0.4, y: 0.3 } },
-    { target: { x: 0.5, y: 0.9 }, gaze: { x: 0.1, y: 0.3 } },
-    { target: { x: 0.9, y: 0.9 }, gaze: { x: -0.2, y: 0.3 } },
+test("defines smooth plus and X calibration paths inside the screen margin", () => {
+  for (const path of ["plus", "x"] as const) {
+    const points = calibrationPathPoints(path);
+    assert.deepEqual(points[0], { x: 0.5, y: 0.5 });
+    assert.deepEqual(points.at(-1), { x: 0.5, y: 0.5 });
+    for (const progress of [0, 0.1, 0.35, 0.5, 0.8, 1]) {
+      const point = calibrationPathPoint(path, progress);
+      assert.ok(point.x >= 0.1 && point.x <= 0.9);
+      assert.ok(point.y >= 0.1 && point.y <= 0.9);
+    }
+  }
+});
+
+test("matches gaze frames to a delayed calibration target", () => {
+  const history = [
+    { at: 100, target: { x: 0.1, y: 0.1 } },
+    { at: 200, target: { x: 0.9, y: 0.9 } },
   ];
-  const samples = Array.from({ length: 8 }, (_, repeat) =>
-    targetSamples.map((sample, index) => ({
-      target: sample.target,
+  assert.equal(calibrationTargetAt(history, 99), null);
+  assert.deepEqual(calibrationTargetAt(history, 199), { x: 0.1, y: 0.1 });
+  assert.deepEqual(calibrationTargetAt(history, 200), { x: 0.9, y: 0.9 });
+});
+
+test("trains a small MLP on nonlinear MediaPipe gaze samples", async () => {
+  const samples = Array.from({ length: 200 }, (_, index) => {
+    const targetX = 0.1 + 0.8 * ((index % 20) / 19);
+    const targetY = 0.1 + 0.8 * (Math.floor(index / 20) / 9);
+    return {
+      target: { x: targetX, y: targetY },
+      gaze: syntheticGaze(targetX, targetY),
       eyeWidthPx: 6,
-      gaze: {
-        x: sample.gaze.x + ((repeat + index) % 3 - 1) * 0.005,
-        y: sample.gaze.y + ((repeat + index + 1) % 3 - 1) * 0.005,
-      },
-    })),
-  ).flat();
+    };
+  });
+  const progress: number[] = [];
+  const calibration = await createGazeCalibration(samples, {
+    onProgress: (value) => progress.push(value),
+  });
 
-  const calibration = createGazeCalibration(samples);
   assert.ok(calibration);
+  assert.equal(calibration.kind, "mlp");
   assert.equal(calibration.minimumEyeWidthPx, 3);
-  const center = applyGazeCalibration({ x: 0.1, y: 0 }, calibration);
-  assert.ok(Math.abs(center.x - 0.5) < 0.03);
-  assert.ok(Math.abs(center.y - 0.5) < 0.03);
-  const topLeft = applyGazeCalibration({ x: 0.4, y: -0.3 }, calibration);
-  assert.ok(Math.abs(topLeft.x - 0.1) < 0.03);
-  assert.ok(Math.abs(topLeft.y - 0.1) < 0.03);
+  assert.equal(progress[0], 0);
+  assert.equal(progress.at(-1), 100);
+  assert.ok(progress.every((value, index) => index === 0 || value >= progress[index - 1]));
 
-  const accumulator = new GazeAccumulator(calibration);
-  assert.equal(accumulator.isFront({ x: 0.1, y: 0 }), true);
-  assert.equal(accumulator.isFront({ x: 0.4, y: -0.3 }), false);
-
-  const liveAccumulator = new GazeAccumulator();
-  liveAccumulator.setCalibration(calibration);
-  assert.deepEqual(
-    liveAccumulator.stagePoint({ x: 0.1, y: 0 }),
-    applyGazeCalibration({ x: 0.1, y: 0 }, calibration),
-  );
+  for (const target of [
+    { x: 0.15, y: 0.2 },
+    { x: 0.5, y: 0.5 },
+    { x: 0.85, y: 0.75 },
+  ]) {
+    const mapped = applyGazeCalibration(syntheticGaze(target.x, target.y), calibration);
+    assert.ok(Math.abs(mapped.x - target.x) < 0.12);
+    assert.ok(Math.abs(mapped.y - target.y) < 0.12);
+  }
 });
 
-test("fits cross-axis gaze distortion with a 2D calibration", () => {
-  const levels = [0.1, 0.5, 0.9];
-  const samples = levels.flatMap((y) =>
-    levels.flatMap((x) =>
-      Array.from({ length: 8 }, () => {
-        const deltaX = x - 0.5;
-        const deltaY = y - 0.5;
-        return {
-          target: { x, y },
-          gaze: {
-            x: 0.1 - 0.75 * deltaX + 0.18 * deltaY,
-            y: -0.4 + deltaY - 0.15 * deltaX,
-          },
-        };
-      }),
-    ),
-  );
-  const calibration = createGazeCalibration(samples);
-  assert.ok(calibration);
-
-  const deltaX = 0.7 - 0.5;
-  const deltaY = 0.2 - 0.5;
-  const mapped = applyGazeCalibration(
-    {
-      x: 0.1 - 0.75 * deltaX + 0.18 * deltaY,
-      y: -0.4 + deltaY - 0.15 * deltaX,
-    },
-    calibration,
-  );
-  assert.ok(Math.abs(mapped.x - 0.7) < 0.03);
-  assert.ok(Math.abs(mapped.y - 0.2) < 0.03);
-});
-
-test("requires every calibration target and a measurable axis span", () => {
-  const levels = [0.1, 0.5, 0.9];
-  const complete = levels.flatMap((y) =>
-    levels.flatMap((x) =>
-      Array.from({ length: 8 }, () => ({
-        target: { x, y },
-        gaze: { x: 0.475 - x * 0.75, y: y - 0.4 },
-      })),
-    ),
-  );
-  assert.ok(createGazeCalibration(complete));
-  assert.equal(
-    createGazeCalibration(
-      complete.filter((sample) => sample.target.x !== 0.9 || sample.target.y !== 0.9),
-    ),
-    null,
-  );
-  assert.equal(
-    createGazeCalibration(
-      complete.map((sample) => ({
-        ...sample,
-        gaze: { x: sample.target.x * 0.01, y: sample.target.y * 0.01 },
-      })),
-    ),
-    null,
-  );
+test("rejects a calibration with too few valid samples", async () => {
+  const samples = Array.from({ length: 119 }, (_, index) => ({
+    target: { x: index / 118, y: index / 118 },
+    gaze: { x: index / 118, y: index / 118 },
+  }));
+  assert.equal(await createGazeCalibration(samples), null);
 });
 
 test("keeps eye tracking active through the hysteresis release width", () => {

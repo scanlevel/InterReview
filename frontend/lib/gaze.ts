@@ -25,19 +25,64 @@ const SAMPLE_INTERVAL_MS = 50;
 const GAZE_EMA_ALPHA = 0.15;
 export const HEATMAP_COLUMNS = 12;
 const SMOOTHING_RESET_AFTER_MS = 500;
-const CALIBRATION_LEVELS = [0.1, 0.5, 0.9] as const;
-const CALIBRATION_TARGET_TOLERANCE = 0.02;
-const MIN_CALIBRATION_SAMPLES_PER_TARGET = 8;
-const MAX_CALIBRATION_MAD = 0.12;
+export const CALIBRATION_PATH_DURATION_MS = 7000;
+export const CALIBRATION_TARGET_DELAY_MS = 200;
+const CALIBRATION_MIN_SAMPLES = 120;
 const MIN_CALIBRATION_GAZE_SPAN = 0.01;
-const CALIBRATION_RIDGE_LAMBDA = 0.0001;
-const CALIBRATION_FEATURE_COUNT = 6;
+const CALIBRATION_HIDDEN_UNITS = 8;
+const CALIBRATION_EPOCHS = 200;
+const CALIBRATION_YIELD_EVERY = 5;
+const CALIBRATION_LEARNING_RATE = 0.03;
 const VIDEO_TIME_EPSILON = 0.0001;
 const FACE_CROP_SIZE = 512;
 export const HEATMAP_ROWS = 8;
 
 type Point = { x: number; y: number };
 export type GazePoint = { x: number; y: number };
+
+export type CalibrationPath = "plus" | "x";
+
+const CALIBRATION_PATHS: Record<CalibrationPath, readonly GazePoint[]> = {
+  plus: [
+    { x: 0.5, y: 0.5 },
+    { x: 0.1, y: 0.5 },
+    { x: 0.9, y: 0.5 },
+    { x: 0.5, y: 0.5 },
+    { x: 0.5, y: 0.1 },
+    { x: 0.5, y: 0.9 },
+    { x: 0.5, y: 0.5 },
+  ],
+  x: [
+    { x: 0.5, y: 0.5 },
+    { x: 0.1, y: 0.1 },
+    { x: 0.9, y: 0.9 },
+    { x: 0.5, y: 0.5 },
+    { x: 0.9, y: 0.1 },
+    { x: 0.1, y: 0.9 },
+    { x: 0.5, y: 0.5 },
+  ],
+};
+
+export function calibrationPathPoints(
+  path: CalibrationPath,
+): readonly GazePoint[] {
+  return CALIBRATION_PATHS[path];
+}
+
+export interface CalibrationTargetHistoryEntry {
+  at: number;
+  target: GazePoint;
+}
+
+export function calibrationTargetAt(
+  history: readonly CalibrationTargetHistoryEntry[],
+  timestamp: number,
+): GazePoint | null {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    if (history[index].at <= timestamp) return history[index].target;
+  }
+  return null;
+}
 
 const MAX_ABS_GAZE = 1;
 
@@ -69,10 +114,13 @@ export interface GazeCalibrationSample {
 }
 
 export interface GazeCalibration {
+  kind: "mlp";
   mean: GazePoint;
   scale: GazePoint;
-  xCoefficients: number[];
-  yCoefficients: number[];
+  hiddenWeights: number[][];
+  hiddenBias: number[];
+  outputWeights: number[][];
+  outputBias: GazePoint;
   minimumEyeWidthPx: number;
 }
 
@@ -364,163 +412,233 @@ function median(values: number[]): number | null {
     : (orderedValues[middle - 1] + orderedValues[middle]) / 2;
 }
 
-function calibrationTargetMedians(
+export function calibrationPathPoint(
+  path: CalibrationPath,
+  progress: number,
+): GazePoint {
+  const points = calibrationPathPoints(path);
+  const position = clamp(progress);
+  if (points.length < 2) return { ...points[0] };
+
+  const lengths = points.slice(1).map((point, index) =>
+    Math.hypot(point.x - points[index].x, point.y - points[index].y),
+  );
+  const totalLength = lengths.reduce((sum, length) => sum + length, 0);
+  let remaining = position * totalLength;
+  for (let index = 0; index < lengths.length; index += 1) {
+    const length = lengths[index];
+    if (remaining <= length || index === lengths.length - 1) {
+      const ratio = length === 0 ? 0 : clamp(remaining / length);
+      const eased = ratio * ratio * (3 - 2 * ratio);
+      return {
+        x: points[index].x + (points[index + 1].x - points[index].x) * eased,
+        y: points[index].y + (points[index + 1].y - points[index].y) * eased,
+      };
+    }
+    remaining -= length;
+  }
+  return { ...points[points.length - 1] };
+}
+
+export interface GazeCalibrationTrainingOptions {
+  onProgress?: (progress: number) => void;
+  shouldCancel?: () => boolean;
+}
+
+type MlpSample = { input: [number, number]; target: [number, number] };
+
+type MlpWeights = Pick<
+  GazeCalibration,
+  "hiddenWeights" | "hiddenBias" | "outputWeights" | "outputBias"
+>;
+
+function createSeededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (1664525 * state + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
+function createInitialMlp(): MlpWeights {
+  const random = createSeededRandom(0x51a7e);
+  return {
+    hiddenWeights: Array.from({ length: CALIBRATION_HIDDEN_UNITS }, () => [
+      (random() - 0.5) * 0.6,
+      (random() - 0.5) * 0.6,
+    ]),
+    hiddenBias: new Array<number>(CALIBRATION_HIDDEN_UNITS).fill(0),
+    outputWeights: Array.from({ length: 2 }, () =>
+      Array.from({ length: CALIBRATION_HIDDEN_UNITS }, () =>
+        (random() - 0.5) * 0.6,
+      ),
+    ),
+    outputBias: { x: 0.5, y: 0.5 },
+  };
+}
+
+function cloneMlp(weights: MlpWeights): MlpWeights {
+  return {
+    hiddenWeights: weights.hiddenWeights.map((row) => [...row]),
+    hiddenBias: [...weights.hiddenBias],
+    outputWeights: weights.outputWeights.map((row) => [...row]),
+    outputBias: { ...weights.outputBias },
+  };
+}
+
+function mlpPredict(input: [number, number], weights: MlpWeights): [number, number] {
+  const hidden = weights.hiddenWeights.map((row, index) =>
+    Math.tanh(
+      weights.hiddenBias[index] + row[0] * input[0] + row[1] * input[1],
+    ),
+  );
+  return [
+    weights.outputBias.x +
+      weights.outputWeights[0].reduce((sum, value, index) => sum + value * hidden[index], 0),
+    weights.outputBias.y +
+      weights.outputWeights[1].reduce((sum, value, index) => sum + value * hidden[index], 0),
+  ];
+}
+
+function clippedGradient(value: number): number {
+  return Math.max(-3, Math.min(3, value));
+}
+
+function trainMlpEpoch(weights: MlpWeights, samples: MlpSample[]): void {
+  const hiddenWeights = weights.hiddenWeights.map((row) => row.map(() => 0));
+  const hiddenBias = weights.hiddenBias.map(() => 0);
+  const outputWeights = weights.outputWeights.map((row) => row.map(() => 0));
+  const outputBias = { x: 0, y: 0 };
+
+  for (const sample of samples) {
+    const hidden = weights.hiddenWeights.map((row, index) =>
+      Math.tanh(
+        weights.hiddenBias[index] + row[0] * sample.input[0] + row[1] * sample.input[1],
+      ),
+    );
+    const output = mlpPredict(sample.input, weights);
+    const outputGradient = [output[0] - sample.target[0], output[1] - sample.target[1]];
+
+    outputBias.x += outputGradient[0];
+    outputBias.y += outputGradient[1];
+    for (let outputIndex = 0; outputIndex < 2; outputIndex += 1) {
+      for (let hiddenIndex = 0; hiddenIndex < CALIBRATION_HIDDEN_UNITS; hiddenIndex += 1) {
+        outputWeights[outputIndex][hiddenIndex] +=
+          outputGradient[outputIndex] * hidden[hiddenIndex];
+      }
+    }
+
+    for (let hiddenIndex = 0; hiddenIndex < CALIBRATION_HIDDEN_UNITS; hiddenIndex += 1) {
+      const hiddenGradient =
+        (outputGradient[0] * weights.outputWeights[0][hiddenIndex] +
+          outputGradient[1] * weights.outputWeights[1][hiddenIndex]) *
+        (1 - hidden[hiddenIndex] ** 2);
+      hiddenBias[hiddenIndex] += hiddenGradient;
+      hiddenWeights[hiddenIndex][0] += hiddenGradient * sample.input[0];
+      hiddenWeights[hiddenIndex][1] += hiddenGradient * sample.input[1];
+    }
+  }
+
+  const scale = CALIBRATION_LEARNING_RATE / samples.length;
+  for (let hiddenIndex = 0; hiddenIndex < CALIBRATION_HIDDEN_UNITS; hiddenIndex += 1) {
+    for (let inputIndex = 0; inputIndex < 2; inputIndex += 1) {
+      weights.hiddenWeights[hiddenIndex][inputIndex] -=
+        scale * clippedGradient(hiddenWeights[hiddenIndex][inputIndex]);
+    }
+    weights.hiddenBias[hiddenIndex] -= scale * clippedGradient(hiddenBias[hiddenIndex]);
+  }
+  for (let outputIndex = 0; outputIndex < 2; outputIndex += 1) {
+    for (let hiddenIndex = 0; hiddenIndex < CALIBRATION_HIDDEN_UNITS; hiddenIndex += 1) {
+      weights.outputWeights[outputIndex][hiddenIndex] -=
+        scale * clippedGradient(outputWeights[outputIndex][hiddenIndex]);
+    }
+  }
+  weights.outputBias.x -= scale * clippedGradient(outputBias.x);
+  weights.outputBias.y -= scale * clippedGradient(outputBias.y);
+}
+
+function mlpError(weights: MlpWeights, samples: MlpSample[]): number {
+  if (!samples.length) return Number.POSITIVE_INFINITY;
+  const total = samples.reduce((sum, sample) => {
+    const output = mlpPredict(sample.input, weights);
+    return sum + (output[0] - sample.target[0]) ** 2 + (output[1] - sample.target[1]) ** 2;
+  }, 0);
+  return total / samples.length;
+}
+
+function yieldToBrowser(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => resolve());
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+}
+
+function isCalibrationTarget(target: GazePoint): boolean {
+  return (
+    Number.isFinite(target.x) &&
+    Number.isFinite(target.y) &&
+    target.x >= 0 &&
+    target.x <= 1 &&
+    target.y >= 0 &&
+    target.y <= 1
+  );
+}
+
+export async function createGazeCalibration(
   samples: GazeCalibrationSample[],
-): GazeCalibrationSample[] | null {
-  const medians: GazeCalibrationSample[] = [];
-  for (const y of CALIBRATION_LEVELS) {
-    for (const x of CALIBRATION_LEVELS) {
-      const targetSamples = samples.filter(
-        (sample) =>
-          Math.abs(sample.target.x - x) <= CALIBRATION_TARGET_TOLERANCE &&
-          Math.abs(sample.target.y - y) <= CALIBRATION_TARGET_TOLERANCE,
-      );
-      const validSamples = targetSamples.filter((sample) =>
-        isValidGazePoint(sample.gaze),
-      );
-      if (validSamples.length < MIN_CALIBRATION_SAMPLES_PER_TARGET) {
-        return null;
-      }
-      const gazeXValues = validSamples.map((sample) => sample.gaze.x);
-      const gazeYValues = validSamples.map((sample) => sample.gaze.y);
-      const gazeX = median(gazeXValues);
-      const gazeY = median(gazeYValues);
-      if (gazeX === null || gazeY === null) return null;
-      const madX = median(
-        gazeXValues.map((value) => Math.abs(value - gazeX)),
-      );
-      const madY = median(
-        gazeYValues.map((value) => Math.abs(value - gazeY)),
-      );
-      if (
-        madX === null ||
-        madY === null ||
-        Math.max(madX, madY) > MAX_CALIBRATION_MAD
-      ) {
-        return null;
-      }
-      medians.push({ gaze: { x: gazeX, y: gazeY }, target: { x, y } });
-    }
-  }
-  return medians;
-}
+  options: GazeCalibrationTrainingOptions = {},
+): Promise<GazeCalibration | null> {
+  const validSamples = samples.filter(
+    (sample) => isValidGazePoint(sample.gaze) && isCalibrationTarget(sample.target),
+  );
+  if (validSamples.length < CALIBRATION_MIN_SAMPLES) return null;
 
-function calibrationFeatures(
-  gaze: GazePoint,
-  mean: GazePoint,
-  scale: GazePoint,
-): number[] {
-  const x = (gaze.x - mean.x) / scale.x;
-  const y = (gaze.y - mean.y) / scale.y;
-  return [1, x, y, x * x, x * y, y * y];
-}
-
-function solveLinearSystem(
-  matrix: number[][],
-  vector: number[],
-): number[] | null {
-  const size = vector.length;
-  const augmented = matrix.map((row, index) => [...row, vector[index]]);
-  for (let column = 0; column < size; column += 1) {
-    let pivotRow = column;
-    for (let row = column + 1; row < size; row += 1) {
-      if (
-        Math.abs(augmented[row][column]) >
-        Math.abs(augmented[pivotRow][column])
-      ) {
-        pivotRow = row;
-      }
-    }
-    const pivot = augmented[pivotRow][column];
-    if (!Number.isFinite(pivot) || Math.abs(pivot) < 1e-9) return null;
-    [augmented[column], augmented[pivotRow]] = [
-      augmented[pivotRow],
-      augmented[column],
-    ];
-    for (let index = column; index <= size; index += 1) {
-      augmented[column][index] /= pivot;
-    }
-    for (let row = 0; row < size; row += 1) {
-      if (row === column) continue;
-      const factor = augmented[row][column];
-      if (factor === 0) continue;
-      for (let index = column; index <= size; index += 1) {
-        augmented[row][index] -= factor * augmented[column][index];
-      }
-    }
-  }
-  const result = augmented.map((row) => row[size]);
-  return result.every(Number.isFinite) ? result : null;
-}
-
-function fitCalibrationModel(
-  targetMedians: GazeCalibrationSample[],
-  minimumEyeWidthPx: number,
-): GazeCalibration | null {
-  const gazeXValues = targetMedians.map((sample) => sample.gaze.x);
-  const gazeYValues = targetMedians.map((sample) => sample.gaze.y);
+  const gazeXValues = validSamples.map((sample) => sample.gaze.x);
+  const gazeYValues = validSamples.map((sample) => sample.gaze.y);
   const xSpan = Math.max(...gazeXValues) - Math.min(...gazeXValues);
   const ySpan = Math.max(...gazeYValues) - Math.min(...gazeYValues);
-  if (xSpan < MIN_CALIBRATION_GAZE_SPAN || ySpan < MIN_CALIBRATION_GAZE_SPAN) {
-    return null;
-  }
+  if (xSpan < MIN_CALIBRATION_GAZE_SPAN || ySpan < MIN_CALIBRATION_GAZE_SPAN) return null;
 
   const mean = {
     x: gazeXValues.reduce((sum, value) => sum + value, 0) / gazeXValues.length,
     y: gazeYValues.reduce((sum, value) => sum + value, 0) / gazeYValues.length,
   };
   const scale = {
-    x: Math.max(
-      0.05,
-      Math.sqrt(
-        gazeXValues.reduce((sum, value) => sum + (value - mean.x) ** 2, 0) /
-          gazeXValues.length,
-      ),
-    ),
-    y: Math.max(
-      0.05,
-      Math.sqrt(
-        gazeYValues.reduce((sum, value) => sum + (value - mean.y) ** 2, 0) /
-          gazeYValues.length,
-      ),
-    ),
+    x: Math.max(0.05, Math.sqrt(gazeXValues.reduce((sum, value) => sum + (value - mean.x) ** 2, 0) / gazeXValues.length)),
+    y: Math.max(0.05, Math.sqrt(gazeYValues.reduce((sum, value) => sum + (value - mean.y) ** 2, 0) / gazeYValues.length)),
   };
+  const dataset = validSamples.map<MlpSample>((sample) => ({
+    input: [(sample.gaze.x - mean.x) / scale.x, (sample.gaze.y - mean.y) / scale.y],
+    target: [sample.target.x, sample.target.y],
+  }));
+  const training = dataset.filter((_, index) => index % 5 !== 0);
+  const validation = dataset.filter((_, index) => index % 5 === 0);
+  const weights = createInitialMlp();
+  let best = cloneMlp(weights);
+  let bestError = Number.POSITIVE_INFINITY;
+  options.onProgress?.(0);
 
-  const normal = Array.from(
-    { length: CALIBRATION_FEATURE_COUNT },
-    () => new Array<number>(CALIBRATION_FEATURE_COUNT).fill(0),
-  );
-  const targetX = new Array<number>(CALIBRATION_FEATURE_COUNT).fill(0);
-  const targetY = new Array<number>(CALIBRATION_FEATURE_COUNT).fill(0);
-  for (const sample of targetMedians) {
-    const features = calibrationFeatures(sample.gaze, mean, scale);
-    for (let row = 0; row < CALIBRATION_FEATURE_COUNT; row += 1) {
-      targetX[row] += features[row] * sample.target.x;
-      targetY[row] += features[row] * sample.target.y;
-      for (let column = 0; column < CALIBRATION_FEATURE_COUNT; column += 1) {
-        normal[row][column] += features[row] * features[column];
-      }
+  for (let epoch = 0; epoch < CALIBRATION_EPOCHS; epoch += 1) {
+    if (options.shouldCancel?.()) return null;
+    trainMlpEpoch(weights, training);
+    const error = mlpError(weights, validation);
+    if (Number.isFinite(error) && error < bestError) {
+      bestError = error;
+      best = cloneMlp(weights);
+    }
+    if ((epoch + 1) % CALIBRATION_YIELD_EVERY === 0 || epoch === CALIBRATION_EPOCHS - 1) {
+      options.onProgress?.(((epoch + 1) / CALIBRATION_EPOCHS) * 100);
+      await yieldToBrowser();
     }
   }
-  for (let index = 1; index < CALIBRATION_FEATURE_COUNT; index += 1) {
-    normal[index][index] += CALIBRATION_RIDGE_LAMBDA;
-  }
 
-  const xCoefficients = solveLinearSystem(normal, targetX);
-  const yCoefficients = solveLinearSystem(normal, targetY);
-  if (!xCoefficients || !yCoefficients) return null;
-  return { mean, scale, xCoefficients, yCoefficients, minimumEyeWidthPx };
-}
-
-export function createGazeCalibration(
-  samples: GazeCalibrationSample[],
-): GazeCalibration | null {
-  const targetMedians = calibrationTargetMedians(samples);
-  if (!targetMedians) return null;
   const observedEyeWidth = median(
-    samples
+    validSamples
       .map((sample) => sample.eyeWidthPx)
-      .filter((width): width is number => Number.isFinite(width) && width! > 0),
+      .filter((width): width is number => typeof width === "number" && Number.isFinite(width) && width > 0),
   );
   const minimumEyeWidthPx =
     observedEyeWidth === null
@@ -530,29 +648,19 @@ export function createGazeCalibration(
           ABSOLUTE_MIN_EYE_WIDTH_PX,
           DEFAULT_MIN_EYE_WIDTH_PX,
         );
-  return fitCalibrationModel(targetMedians, minimumEyeWidthPx);
-}
-
-function predictCalibration(
-  gaze: GazePoint,
-  calibration: GazeCalibration,
-  coefficients: number[],
-): number {
-  const features = calibrationFeatures(gaze, calibration.mean, calibration.scale);
-  return features.reduce(
-    (sum, feature, index) => sum + feature * coefficients[index],
-    0,
-  );
+  return { kind: "mlp", mean, scale, ...best, minimumEyeWidthPx };
 }
 
 export function applyGazeCalibration(
   gaze: GazePoint,
   calibration: GazeCalibration,
 ): GazePoint {
-  return {
-    x: clamp(predictCalibration(gaze, calibration, calibration.xCoefficients)),
-    y: clamp(predictCalibration(gaze, calibration, calibration.yCoefficients)),
-  };
+  const input: [number, number] = [
+    (gaze.x - calibration.mean.x) / calibration.scale.x,
+    (gaze.y - calibration.mean.y) / calibration.scale.y,
+  ];
+  const [x, y] = mlpPredict(input, calibration);
+  return { x: clamp(x), y: clamp(y) };
 }
 
 export class GazeAccumulator {
