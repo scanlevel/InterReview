@@ -3,7 +3,6 @@
 export interface Profile {
   name?: string;
   job?: string;
-  experience?: "NEW" | "EXPERIENCED" | string;
   resume_text?: string;
   technologies?: string;
   projects?: string;
@@ -15,7 +14,6 @@ export interface Question {
   category: string;
   rule_group: string;
   subcategory: string;
-  experience: string;
   text: string;
   original_text?: string | null;
   source_file?: string | null;
@@ -23,7 +21,6 @@ export interface Question {
 }
 
 export interface GenerateQuestionsResponse {
-  experience: string;
   questions: Question[];
 }
 

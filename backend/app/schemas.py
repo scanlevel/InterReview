@@ -85,7 +85,6 @@ class Question(BaseModel):
     category: str  # rule group name, e.g. "자기소개·이력"
     rule_group: str  # rule group id, e.g. "resume"
     subcategory: str  # "<category>::<expression>" from the source domain
-    experience: str  # NEW | EXPERIENCED
     text: str
     original_text: str | None = None
     source_file: str | None = None
@@ -103,7 +102,6 @@ class GenerateQuestionsRequest(BaseModel):
 class GenerateQuestionsResponse(BaseModel):
     """Response of ``POST /questions``."""
 
-    experience: str
     questions: list[Question]
 
 

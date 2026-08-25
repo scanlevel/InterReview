@@ -19,6 +19,7 @@ import AnalysisView from "@/components/AnalysisView";
 import DeviceSetupView, {
   type DeviceSetupResult,
 } from "@/components/DeviceSetupView";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type Phase =
   | "setup"
@@ -157,6 +158,7 @@ export default function InterviewApp() {
       {phase === "analysis" && report && (
         <AnalysisView report={report} onReset={handleReset} />
       )}
+      <ThemeToggle />
     </main>
   );
 }
