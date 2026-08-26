@@ -34,6 +34,17 @@ const UNAVAILABLE_CONTENT: ContentFeedback = {
   reason: "답변 내용 판별을 사용할 수 없습니다.",
   missing_points: [],
 };
+import EssayView from "@/components/EssayView";
+
+// "essay" is Track A (자소서 첨삭); the rest are Track B (면접 연습). The two
+// tracks are independent entry points — plan.md §1.
+type Phase =
+  | "setup"
+  | "essay"
+  | "generating"
+  | "interview"
+  | "evaluating"
+  | "analysis";
 
 export default function InterviewApp() {
   const [phase, setPhase] = useState<Phase>("setup");
@@ -130,7 +141,23 @@ export default function InterviewApp() {
         </div>
       )}
 
-      {phase === "setup" && <SetupView onStart={handleStart} />}
+      {phase === "setup" && (
+        <div className="flex flex-col gap-6">
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setPhase("essay");
+            }}
+            className="self-start rounded-md border border-gray-300 px-4 py-2 text-sm dark:border-gray-700"
+          >
+            자소서 첨삭 먼저 하기
+          </button>
+          <SetupView onStart={handleStart} />
+        </div>
+      )}
+
+      {phase === "essay" && <EssayView onBack={() => setPhase("setup")} />}
 
       {phase === "generating" && <Busy label="질문을 생성하는 중입니다…" />}
 

@@ -7,9 +7,9 @@ is supplied by Track A when that contract is connected.
 from __future__ import annotations
 
 import math
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 SttStatus = Literal[
     "not_attempted", "ok", "no_speech", "empty", "not_configured", "error"
@@ -166,3 +166,78 @@ class MeasurementReport(BaseModel):
     summary_feedback: str
     measurement_summary: MeasurementSummary
     results: list[QuestionResult]
+
+
+# --- Track A: 자소서 분석 ------------------------------------------------------
+
+class EssayWeakness(BaseModel):
+    """One line of attack an interviewer could take on an experience."""
+
+    description: str = Field(description="면접관이 파고들 수 있는 약점")
+    expected_questions: list[str] = Field(
+        default_factory=list, description="이 약점에서 나올 예상 질문"
+    )
+
+
+class EssayExperience(BaseModel):
+    """One experience from the essay, with the claims it is meant to support."""
+
+    experience: str = Field(description="경험 요약")
+    claims: list[str] = Field(
+        default_factory=list, description="이 경험이 뒷받침한다고 주장하는 것"
+    )
+    risk_level: Literal[1, 2, 3, 4, 5] = Field(
+        description="면접에서 공격받을 가능성. 5가 가장 위험하다."
+    )
+    risk_reason: str = Field(description="그 위험도로 판단한 이유")
+    weaknesses: list[EssayWeakness] = Field(default_factory=list)
+
+
+class EssayAnalysis(BaseModel):
+    """Result of one essay analysis, experiences sorted most-risky first."""
+
+    experiences: list[EssayExperience] = Field(default_factory=list)
+    unsupported_claims: list[str] = Field(
+        default_factory=list, description="뒷받침하는 경험이 없는 주장"
+    )
+
+
+class EssayAnalyzeRequest(BaseModel):
+    """Payload for ``POST /essay/analyze``."""
+
+    essay: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
+    ]
+    profile: dict[str, Any] = Field(default_factory=dict)
+
+
+# --- Track B 중 A 담당: 답변 내용 판별 ----------------------------------------
+
+AnswerStatus = Literal[
+    "good", "partial", "off_topic", "insufficient", "unavailable"
+]
+
+
+class AnswerReview(BaseModel):
+    """Content-only review of one interview answer, without a numeric score."""
+
+    answer_status: AnswerStatus
+    reason: str
+    missing_points: list[str]
+    follow_up_question: str | None
+
+
+class AnswerReviewRequest(BaseModel):
+    """Payload for ``POST /answers/review``."""
+
+    question: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1_000)
+    ]
+    transcript: Annotated[
+        str, StringConstraints(strip_whitespace=True, max_length=10_000)
+    ]
+    essay: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=10_000)]
+        | None
+    ) = None
+    profile: dict[str, Any] = Field(default_factory=dict)
