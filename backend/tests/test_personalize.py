@@ -150,3 +150,61 @@ def test_not_configured_skips_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     result = personalize_service.personalize_question({}, None, _question())
     assert result == ORIGINAL_TEXT
     assert captured["calls"] == 0
+
+
+def test_personalize_questions_preserves_order_and_tracks_original(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    questions = [_question("첫 질문?"), _question("둘째 질문?"), _question("셋째 질문?")]
+    results = {
+        "첫 질문?": "개인화 첫 질문?",
+        "둘째 질문?": "둘째 질문?",
+        "셋째 질문?": "개인화 셋째 질문?",
+    }
+    monkeypatch.setattr(personalize_service.llm, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        personalize_service,
+        "personalize_question",
+        lambda _profile, _essay, question: results[question.text],
+    )
+
+    personalized = personalize_service.personalize_questions(
+        {"job": "백엔드 개발자"}, None, questions
+    )
+
+    assert [question.text for question in personalized] == [
+        "개인화 첫 질문?",
+        "둘째 질문?",
+        "개인화 셋째 질문?",
+    ]
+    assert personalized[0].original_text == "첫 질문?"
+    assert personalized[1] is questions[1]
+    assert personalized[1].original_text is None
+    assert personalized[2].original_text == "셋째 질문?"
+
+
+def test_personalize_questions_skips_without_profile_or_essay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No personal context means nothing to personalize with — zero calls."""
+    questions = [_question()]
+    monkeypatch.setattr(personalize_service.llm, "is_configured", lambda: True)
+
+    def unexpected_call(*_args: Any) -> str:
+        raise AssertionError("personalize_question must not be called")
+
+    monkeypatch.setattr(personalize_service, "personalize_question", unexpected_call)
+    assert personalize_service.personalize_questions({}, None, questions) is questions
+
+
+def test_personalize_questions_not_configured_returns_input_without_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    questions = [_question()]
+    monkeypatch.setattr(personalize_service.llm, "is_configured", lambda: False)
+
+    def unexpected_call(*_args: Any) -> str:
+        raise AssertionError("personalize_question must not be called")
+
+    monkeypatch.setattr(personalize_service, "personalize_question", unexpected_call)
+    assert personalize_service.personalize_questions({}, None, questions) is questions

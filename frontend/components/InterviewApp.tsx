@@ -8,7 +8,7 @@ import {
 } from "@/lib/api";
 import type {
   AnswerItem,
-  ContentFeedback,
+  AnswerReview,
   MeasurementReport,
   Profile,
   Question,
@@ -29,10 +29,11 @@ type Phase =
   | "measuring"
   | "analysis";
 
-const UNAVAILABLE_CONTENT: ContentFeedback = {
+const UNAVAILABLE_CONTENT: AnswerReview = {
   answer_status: "unavailable",
   reason: "답변 내용 판별을 사용할 수 없습니다.",
   missing_points: [],
+  follow_up_question: null,
 };
 import EssayView from "@/components/EssayView";
 
@@ -94,7 +95,7 @@ export default function InterviewApp() {
       const reviewResults = await Promise.allSettled(
         answers.map((answer) => reviewAnswer(answer, profile)),
       );
-      const contentByQuestion = new Map<string, ContentFeedback>();
+      const contentByQuestion = new Map<string, AnswerReview>();
       reviewResults.forEach((result, index) => {
         if (result.status === "fulfilled") {
           contentByQuestion.set(answers[index].question_id, result.value);

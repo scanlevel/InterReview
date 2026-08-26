@@ -3,9 +3,8 @@
 
 import type {
   AnswerItem,
-  ContentFeedback,
+  AnswerReview,
   EssayAnalysis,
-  EvaluationReport,
   GenerateQuestionsResponse,
   MeasurementReport,
   Profile,
@@ -57,8 +56,8 @@ export function getMeasurementReport(
 export function reviewAnswer(
   answer: AnswerItem,
   profile: Profile,
-): Promise<ContentFeedback> {
-  return postJson<ContentFeedback>("/answers/review", {
+): Promise<AnswerReview> {
+  return postJson<AnswerReview>("/answers/review", {
     question: answer.question,
     transcript: answer.transcript,
     essay: profile.resume_text ?? null,

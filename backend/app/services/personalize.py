@@ -7,6 +7,7 @@ the original text so personalization can never interrupt an interview session.
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from app.config import get_settings
@@ -72,3 +73,26 @@ def personalize_question(
     except Exception as error:  # Defensive: personalization must never stop a session.
         logger.warning("질문 개인화 fallback: 예상하지 못한 오류: %s", error)
         return original
+
+
+def personalize_questions(
+    profile: dict[str, Any],
+    essay: str | None,
+    questions: list[Question],
+) -> list[Question]:
+    """Personalize a question set concurrently while preserving input order."""
+    if not questions or not llm.is_configured() or (not essay and not profile):
+        return questions
+
+    with ThreadPoolExecutor(max_workers=min(8, len(questions))) as executor:
+        personalized_texts = executor.map(
+            lambda question: personalize_question(profile, essay, question), questions
+        )
+        return [
+            question.model_copy(
+                update={"text": personalized, "original_text": question.text}
+            )
+            if personalized != question.text
+            else question
+            for question, personalized in zip(questions, personalized_texts, strict=True)
+        ]
