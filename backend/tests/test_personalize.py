@@ -25,10 +25,10 @@ ORIGINAL_TEXT = "가장 기억에 남는 프로젝트 경험은 무엇인가요?
 def _question(text: str = ORIGINAL_TEXT) -> Question:
     return Question(
         id="q-1",
+        question_id="background__c_person::0",
         category="자기소개·이력",
         rule_group="resume",
         subcategory="자기소개·이력::프로젝트",
-        experience="NEW",
         text=text,
     )
 
