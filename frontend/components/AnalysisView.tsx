@@ -180,6 +180,12 @@ function ContentPanel({ result }: { result: QuestionResult }) {
           </ul>
         </div>
       )}
+      {result.content.follow_up_question && (
+        <div className="mt-3 text-sm">
+          <p className="text-gray-500">예상 꼬리질문</p>
+          <p className="mt-1">Q. {result.content.follow_up_question}</p>
+        </div>
+      )}
     </div>
   );
 }

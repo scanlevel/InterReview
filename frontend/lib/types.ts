@@ -83,10 +83,11 @@ export type AnswerStatus =
   | "insufficient"
   | "unavailable";
 
-export interface ContentFeedback {
+export interface AnswerReview {
   answer_status: AnswerStatus;
   reason: string;
   missing_points: string[];
+  follow_up_question: string | null;
 }
 
 export interface MeasurementSummary {
@@ -111,7 +112,7 @@ export interface QuestionResult {
   transcript: string;
   speech_metrics?: SpeechMetrics | null;
   eye_tracking?: EyeTrackingSummary | null;
-  content?: ContentFeedback | null;
+  content?: AnswerReview | null;
 }
 
 export interface MeasurementReport {

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.routers import questions as questions_router
 from app.services.questions import _load_rules, generate_questions
 
 client = TestClient(app)
@@ -48,4 +52,25 @@ def test_questions_endpoint() -> None:
     first = body["questions"][0]
     assert {"id", "question_id", "category", "rule_group", "subcategory", "text"} <= first.keys()
     assert "experience" not in first
-    assert first["original_text"] == first["text"]
+    assert first["original_text"] is None
+
+
+def test_questions_endpoint_passes_resume_to_personalization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_personalize(
+        profile: dict[str, Any], essay: str | None, questions: list[Any]
+    ) -> list[Any]:
+        captured.update(profile=profile, essay=essay, questions=questions)
+        return questions
+
+    monkeypatch.setattr(questions_router, "personalize_questions", fake_personalize)
+    profile = {"job": "백엔드 개발자", "resume_text": "자기소개서 본문"}
+    response = client.post("/questions", json={"profile": profile, "seed": 5})
+
+    assert response.status_code == 200
+    assert captured["profile"] == profile
+    assert captured["essay"] == "자기소개서 본문"
+    assert len(captured["questions"]) == _group_count()

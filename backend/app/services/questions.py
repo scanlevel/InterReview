@@ -150,7 +150,6 @@ def generate_questions(seed: int | None = None) -> list[Question]:
                 rule_group=group["id"],
                 subcategory=f"{domain['category']}::{domain['expression']}",
                 text=text,
-                original_text=text,
                 source_file=source.get("source_file"),
                 occurrence_count=source.get("occurrence_count", 1),
             )

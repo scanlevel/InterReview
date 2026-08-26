@@ -121,14 +121,18 @@ class TranscriptResponse(BaseModel):
     segment_count: int | None = None
 
 
-class ContentFeedback(BaseModel):
-    """Track A answer-content result, without a numeric score."""
+AnswerStatus = Literal[
+    "good", "partial", "off_topic", "insufficient", "unavailable"
+]
 
-    answer_status: Literal[
-        "good", "partial", "off_topic", "insufficient", "unavailable"
-    ]
+
+class AnswerReview(BaseModel):
+    """Content-only review of one interview answer, without a numeric score."""
+
+    answer_status: AnswerStatus
     reason: str
-    missing_points: list[str] = Field(default_factory=list)
+    missing_points: list[str]
+    follow_up_question: str | None
 
 
 class MeasurementSummary(BaseModel):
@@ -157,7 +161,7 @@ class QuestionResult(BaseModel):
     transcript: str
     speech_metrics: SpeechMetrics | None = None
     eye_tracking: EyeTrackingSummary | None = None
-    content: ContentFeedback | None = None
+    content: AnswerReview | None = None
 
 
 class MeasurementReport(BaseModel):
@@ -212,20 +216,6 @@ class EssayAnalyzeRequest(BaseModel):
 
 
 # --- Track B 중 A 담당: 답변 내용 판별 ----------------------------------------
-
-AnswerStatus = Literal[
-    "good", "partial", "off_topic", "insufficient", "unavailable"
-]
-
-
-class AnswerReview(BaseModel):
-    """Content-only review of one interview answer, without a numeric score."""
-
-    answer_status: AnswerStatus
-    reason: str
-    missing_points: list[str]
-    follow_up_question: str | None
-
 
 class AnswerReviewRequest(BaseModel):
     """Payload for ``POST /answers/review``."""
