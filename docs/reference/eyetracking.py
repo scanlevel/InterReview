@@ -1,4 +1,5 @@
-# module/eyetracking.py
+# Legacy reference only: this file is not imported by the Track B runtime.
+# Current browser implementation: frontend/lib/gaze.ts.
 
 from __future__ import annotations
 

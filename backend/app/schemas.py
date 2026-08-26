@@ -1,32 +1,65 @@
-"""Pydantic request/response models for the InterReview API.
+"""Pydantic contracts for the Track B interview flow.
 
-These mirror the data contract the Streamlit app used (``total_score`` /
-``summary_feedback`` / ``results[]`` with per-question ``evaluation_items``) so
-the evaluation output stays compatible while the frontend is rebuilt.
+Vision and audio fields are measurements, not scores.  Answer-content review
+is supplied by Track A when that contract is connected.
 """
 
 from __future__ import annotations
 
+import math
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_validator
+
+SttStatus = Literal[
+    "not_attempted", "ok", "no_speech", "empty", "not_configured", "error"
+]
 
 
 class EyeTrackingSummary(BaseModel):
-    """Per-question gaze summary produced in the browser (MediaPipe).
+    """Per-question gaze heatmap produced in the browser."""
 
-    All fields are optional so a question with no camera data still validates.
-    """
+    gaze_heatmap: "GazeHeatmap | None" = None
 
-    front_gaze_ratio: float | None = Field(
-        default=None, description="정면 응시 프레임 비율 (0..1)"
-    )
-    face_detected_ratio: float | None = Field(
-        default=None, description="얼굴이 검출된 프레임 비율 (0..1)"
-    )
-    std_gaze: float | None = Field(
-        default=None, description="시선 좌표 표준편차 (흔들림, 클수록 산만)"
-    )
+
+class GazeHeatmap(BaseModel):
+    """Compact row-major gaze histogram for rendering without raw video."""
+
+    columns: int = Field(default=12, ge=1, le=64)
+    rows: int = Field(default=8, ge=1, le=64)
+    counts: list[int] = Field(default_factory=list)
+    total: int = Field(default=0, ge=0)
+
+
+class AudioTimeline(BaseModel):
+    """Compact, privacy-safe audio activity bins for one answer."""
+
+    energy: list[float] = Field(default_factory=list, max_length=120)
+    speech: list[bool] = Field(default_factory=list, max_length=120)
+    long_pause: list[bool] = Field(default_factory=list, max_length=120)
+
+    @model_validator(mode="after")
+    def validate_bins(self) -> "AudioTimeline":
+        lengths = {len(self.energy), len(self.speech), len(self.long_pause)}
+        if len(lengths) != 1:
+            raise ValueError("audio timeline arrays must have equal lengths")
+        if any(not math.isfinite(value) or not 0 <= value <= 1 for value in self.energy):
+            raise ValueError("audio timeline energy must be finite and between 0 and 1")
+        return self
+
+
+class SpeechMetrics(BaseModel):
+    """VAD-derived timing values for one answer."""
+
+    total_duration_sec: float = Field(default=0, ge=0)
+    speech_duration_sec: float = Field(default=0, ge=0)
+    speech_rate_eojeol_per_min: float | None = Field(default=None, ge=0)
+    silence_duration_sec: float = Field(default=0, ge=0)
+    silence_ratio: float = Field(default=0, ge=0, le=1)
+    long_pause_count: int = Field(default=0, ge=0)
+    max_pause_sec: float = Field(default=0, ge=0)
+    long_pause_threshold_sec: float = Field(default=2.0, gt=0)
+    audio_timeline: AudioTimeline | None = None
 
 
 class AnswerItem(BaseModel):
@@ -34,20 +67,26 @@ class AnswerItem(BaseModel):
 
     question_id: str
     question: str
+    original_question: str | None = None
     category: str | None = None
     transcript: str = ""
+    stt_status: "SttStatus" = "not_attempted"
+    stt_error: str | None = None
     eye_tracking: EyeTrackingSummary | None = None
+    speech_metrics: SpeechMetrics | None = None
 
 
 class Question(BaseModel):
     """One generated interview question, tagged with its rule-bank origin."""
 
     id: str
+    # Stable source-derived identifier; id remains for frontend compatibility.
+    question_id: str
     category: str  # rule group name, e.g. "자기소개·이력"
     rule_group: str  # rule group id, e.g. "resume"
     subcategory: str  # "<category>::<expression>" from the source domain
-    experience: str  # NEW | EXPERIENCED
     text: str
+    original_text: str | None = None
     source_file: str | None = None
     occurrence_count: int = 1
 
@@ -63,28 +102,73 @@ class GenerateQuestionsRequest(BaseModel):
 class GenerateQuestionsResponse(BaseModel):
     """Response of ``POST /questions``."""
 
-    experience: str
     questions: list[Question]
+
+
+class MeasurementRequest(BaseModel):
+    """Payload for the B-owned measurement report endpoint."""
+
+    answers: list[AnswerItem] = Field(default_factory=list)
 
 
 class TranscriptResponse(BaseModel):
     """Result of ``POST /stt`` — transcription of one answer's audio."""
 
     transcript: str
-    # ok | no_speech | empty | not_configured | error
-    status: str
+    status: "SttStatus"
     error: str | None = None
     confidence: float | None = None
     segment_count: int | None = None
 
 
-# --- Track A: 자소서 분석 ------------------------------------------------------
-# These are the output schema for `POST /essay/analyze`. Because the analysis
-# model is handed to the API as a structured-output format, only JSON Schema
-# features the API supports may appear here — notably `Literal` (rendered as
-# `enum`, enforced server-side) rather than numeric range constraints, which
-# the SDK strips from the schema and can only check after the fact.
+class ContentFeedback(BaseModel):
+    """Track A answer-content result, without a numeric score."""
 
+    answer_status: Literal[
+        "good", "partial", "off_topic", "insufficient", "unavailable"
+    ]
+    reason: str
+    missing_points: list[str] = Field(default_factory=list)
+
+
+class MeasurementSummary(BaseModel):
+    """Descriptive session averages; these are never converted to scores."""
+
+    reference_source: str = "ICT 데이터 분석 참고값"
+    reference_average_total_duration_sec: float = 90.0
+    reference_average_answer_length_eojeol: int = 131
+    average_answer_length_eojeol: float | None = None
+    average_total_duration_sec: float | None = None
+    average_speech_duration_sec: float | None = None
+    average_silence_duration_sec: float | None = None
+    average_silence_ratio: float | None = None
+    average_long_pause_count: float | None = None
+
+
+class QuestionResult(BaseModel):
+    """All user-visible measurements and optional Track A feedback."""
+
+    stt_status: SttStatus = "not_attempted"
+    stt_error: str | None = None
+    question_id: str | None
+    question: str | None
+    category: str | None
+    original_question: str | None = None
+    transcript: str
+    speech_metrics: SpeechMetrics | None = None
+    eye_tracking: EyeTrackingSummary | None = None
+    content: ContentFeedback | None = None
+
+
+class MeasurementReport(BaseModel):
+    """Full question-by-question Track B measurement report."""
+
+    summary_feedback: str
+    measurement_summary: MeasurementSummary
+    results: list[QuestionResult]
+
+
+# --- Track A: 자소서 분석 ------------------------------------------------------
 
 class EssayWeakness(BaseModel):
     """One line of attack an interviewer could take on an experience."""
@@ -121,17 +205,17 @@ class EssayAnalysis(BaseModel):
 class EssayAnalyzeRequest(BaseModel):
     """Payload for ``POST /essay/analyze``."""
 
-    # Bounded because this is a user-input boundary: the text is billed as
-    # input tokens, and a 자기소개서 is a few thousand characters at most.
     essay: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
     ]
     profile: dict[str, Any] = Field(default_factory=dict)
 
 
-# --- Track B 중 A 담당: 답변 내용 판별 (plan-A §8) -----------------------------
+# --- Track B 중 A 담당: 답변 내용 판별 ----------------------------------------
 
-AnswerStatus = Literal["good", "partial", "off_topic", "insufficient", "unavailable"]
+AnswerStatus = Literal[
+    "good", "partial", "off_topic", "insufficient", "unavailable"
+]
 
 
 class AnswerReview(BaseModel):
@@ -144,12 +228,7 @@ class AnswerReview(BaseModel):
 
 
 class AnswerReviewRequest(BaseModel):
-    """Payload for ``POST /answers/review``.
-
-    Bounds mirror ``EssayAnalyzeRequest``: user-supplied text is capped before
-    it becomes eval-model token cost. ``transcript`` may be empty — no speech
-    is a legitimate interview outcome, answered without an LLM call.
-    """
+    """Payload for ``POST /answers/review``."""
 
     question: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1_000)

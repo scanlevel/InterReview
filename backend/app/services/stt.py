@@ -1,9 +1,8 @@
 """Speech-to-text via Naver CLOVA Speech.
 
-Ported from the Streamlit ``module/stt.py``, but only the network half: the
-browser now captures and encodes the audio (``MediaRecorder``), so the server no
-longer needs the thread-safe ``AudioBuffer``/resampler. This module just proxies
-one uploaded audio blob to CLOVA's long-sentence ``/recognizer/upload`` endpoint.
+The browser captures and encodes audio (``MediaRecorder``), so the server only
+proxies one uploaded audio blob to CLOVA's long-sentence ``/recognizer/upload``
+endpoint.
 
 ``transcribe_audio`` never raises for expected conditions — it always returns a
 result dict whose ``status`` is one of ``ok``/``no_speech``/``empty``/

@@ -1,24 +1,185 @@
 "use client";
 
-import type { EvaluationItem, EvaluationReport } from "@/lib/types";
+import type {
+  AnswerStatus,
+  EyeTrackingSummary,
+  GazeHeatmap,
+  MeasurementReport,
+  MeasurementSummary,
+  QuestionResult,
+  SpeechMetrics,
+  SttStatus,
+} from "@/lib/types";
+import AudioActivityTimeline from "@/components/AudioActivityTimeline";
+import InterviewerStage from "@/components/InterviewerStage";
 
-function scoreColor(score: number | null): string {
-  if (score === null) return "text-gray-400";
-  if (score >= 70) return "text-green-600";
-  if (score >= 45) return "text-amber-600";
-  return "text-red-600";
+const STATUS_LABELS: Record<AnswerStatus, string> = {
+  good: "답변함",
+  partial: "부분 답변",
+  off_topic: "질문과 다른 방향",
+  insufficient: "답변 부족",
+  unavailable: "내용 판단 불가",
+};
+
+const STT_STATUS_LABELS: Record<SttStatus, string> = {
+  not_attempted: "미시도",
+  ok: "인식 완료",
+  no_speech: "음성 없음",
+  empty: "빈 오디오",
+  not_configured: "STT 미설정",
+  error: "인식 오류",
+};
+
+function fixed(value: number | null | undefined, digits = 2): string {
+  return value === null || value === undefined ? "—" : value.toFixed(digits);
 }
 
-function ItemRow({ item }: { item: EvaluationItem }) {
+function percent(value: number | null | undefined): string {
+  return value === null || value === undefined ? "—" : `${fixed(value * 100, 1)}%`;
+}
+
+function MetricRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-t border-gray-100 py-2 dark:border-gray-800">
+    <div className="flex items-center justify-between border-t border-gray-100 py-2 text-sm dark:border-gray-800">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  );
+}
+
+function SpeechPanel({
+  metrics,
+  sttStatus,
+  sttError,
+}: {
+  metrics: SpeechMetrics | null | undefined;
+  sttStatus: SttStatus;
+  sttError?: string | null;
+}) {
+  if (!metrics) {
+    return (
       <div>
-        <p className="text-sm font-medium">{item.name}</p>
-        <p className="text-xs text-gray-500">{item.comment}</p>
+        <MetricRow label="STT 상태" value={STT_STATUS_LABELS[sttStatus]} />
+        {sttError && <p className="mt-2 text-xs text-amber-600">{sttError}</p>}
+        <p className="text-sm text-gray-500">녹음 측정값이 없습니다.</p>
       </div>
-      <span className={`shrink-0 text-sm font-semibold ${scoreColor(item.score)}`}>
-        {item.score === null ? "—" : item.score}
-      </span>
+    );
+  }
+  return (
+    <div>
+      <MetricRow label="STT 상태" value={STT_STATUS_LABELS[sttStatus]} />
+      {sttError && <p className="mb-2 text-xs text-amber-600">{sttError}</p>}
+      <div className="mt-3">
+        <p className="mb-2 text-xs text-gray-500">오디오 활동</p>
+        <AudioActivityTimeline timeline={metrics.audio_timeline} />
+      </div>
+      <div className="mt-3">
+        <MetricRow
+          label="발화 속도"
+          value={`${fixed(metrics.speech_rate_eojeol_per_min, 1)}어절/분`}
+        />
+        <MetricRow label="무음 비율" value={percent(metrics.silence_ratio)} />
+        <MetricRow label="긴 무음 횟수" value={`${metrics.long_pause_count}회`} />
+      </div>
+    </div>
+  );
+}
+
+function Heatmap({ heatmap }: { heatmap: GazeHeatmap | null | undefined }) {
+  if (!heatmap || !heatmap.counts.length) {
+    return <p className="text-sm text-gray-500">유효한 시선 프레임이 없습니다.</p>;
+  }
+  const peak = Math.max(...heatmap.counts, 1);
+  return (
+    <InterviewerStage showLabel={false} className="w-full max-w-xl">
+      <div
+        className="pointer-events-none absolute inset-0 grid"
+        style={{ gridTemplateColumns: "repeat(" + heatmap.columns + ", minmax(0, 1fr))" }}
+        aria-label="질문별 시선 Heatmap"
+      >
+        {heatmap.counts.map((count, index) => (
+          <span
+            key={String(index) + "-" + String(count)}
+            title={String(count) + " 프레임"}
+            className="border-[0.5px] border-white/30 dark:border-black/20"
+            style={{
+              backgroundColor: "rgba(239, 68, 68, " + (count ? 0.12 + (count / peak) * 0.88 : 0) + ")",
+            }}
+          />
+        ))}
+      </div>
+    </InterviewerStage>
+  );
+}
+
+function GazePanel({ summary }: { summary: EyeTrackingSummary | null | undefined }) {
+  if (!summary) {
+    return <p className="text-sm text-gray-500">시선 측정값이 없습니다.</p>;
+  }
+  return (
+    <Heatmap heatmap={summary.gaze_heatmap} />
+  );
+}
+
+function SessionMeasurementPanel({ summary }: { summary: MeasurementSummary }) {
+  return (
+    <div className="mt-4 rounded-md border border-gray-200 p-3 dark:border-gray-800">
+      <h3 className="font-medium">최종 측정 요약</h3>
+      <p className="mt-1 text-xs text-gray-500">
+        음성은 질문별 활동 타임라인과 중립적인 측정값으로, 시선은 질문별 Heatmap으로 표시합니다.
+      </p>
+      <div className="mt-2 grid gap-x-6 md:grid-cols-2">
+        <MetricRow
+          label="참고 평균 답변 어절"
+          value={`${summary.reference_average_answer_length_eojeol}어절`}
+        />
+        <MetricRow
+          label="내 평균 답변 어절"
+          value={`${fixed(summary.average_answer_length_eojeol, 1)}어절`}
+        />
+        <MetricRow label="내 평균 무음 비율" value={percent(summary.average_silence_ratio)} />
+        <MetricRow
+          label="내 평균 긴 무음 횟수"
+          value={`${fixed(summary.average_long_pause_count, 1)}회`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ContentPanel({ result }: { result: QuestionResult }) {
+  if (!result.content) {
+    return (
+      <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
+        <h3 className="font-medium">내용</h3>
+        <p className="mt-2 text-sm text-gray-500">
+          답변 내용 판별을 사용할 수 없습니다. 세션은 유지됩니다.
+        </p>
+      </div>
+    );
+  }
+  const status = result.content.answer_status;
+  return (
+    <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-medium">내용</h3>
+        <span className="rounded-full bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800">
+          {STATUS_LABELS[status]}
+        </span>
+      </div>
+      <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+        {result.content.reason}
+      </p>
+      {result.content.missing_points.length > 0 && (
+        <div className="mt-3 text-sm">
+          <p className="text-gray-500">빠진 내용</p>
+          <ul className="mt-1 list-disc pl-5">
+            {result.content.missing_points.map((point) => (
+              <li key={point}>{point}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -27,49 +188,62 @@ export default function AnalysisView({
   report,
   onReset,
 }: {
-  report: EvaluationReport;
+  report: MeasurementReport;
   onReset: () => void;
 }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="rounded-lg border border-gray-200 p-5 dark:border-gray-800">
-        <div className="flex items-end justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm text-gray-500">총점</p>
-            <p className={`text-4xl font-bold ${scoreColor(report.total_score)}`}>
-              {report.total_score === null ? "—" : report.total_score}
+            <h2 className="text-lg font-semibold">면접 결과</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              시선과 음성은 측정값으로 표시합니다.
             </p>
           </div>
-          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-            {report.engine === "rule_based" ? "규칙 기반 예비평가" : report.engine}
-          </span>
         </div>
         <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
           {report.summary_feedback}
         </p>
+        <SessionMeasurementPanel summary={report.measurement_summary} />
       </section>
 
-      {report.results.map((result) => (
+      {report.results.map((result, index) => (
         <section
-          key={result.question_id ?? result.question}
+          key={result.question_id ?? `${result.question}-${index}`}
           className="rounded-lg border border-gray-200 p-5 dark:border-gray-800"
         >
           <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
-            <span>{result.category}</span>
+            <span>질문 {index + 1} · {result.category}</span>
           </div>
-          <p className="mb-3 text-sm font-medium leading-relaxed">
-            {result.question}
-          </p>
+          <p className="text-sm font-medium leading-relaxed">{result.question}</p>
+          {result.original_question && result.original_question !== result.question && (
+            <p className="mt-1 text-xs text-gray-500">질문은행 원문: {result.original_question}</p>
+          )}
 
-          <div>
-            {result.evaluation_items.map((item) => (
-              <ItemRow key={item.name} item={item} />
-            ))}
+          <div className="mt-4 rounded-md bg-gray-50 p-3 dark:bg-gray-900">
+            <p className="text-xs text-gray-500">답변 transcript</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm">
+              {result.transcript || "(인식된 답변 없음)"}
+            </p>
           </div>
 
-          <p className="mt-3 rounded-md bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-            {result.feedback}
-          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <ContentPanel result={result} />
+            <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
+              <h3 className="font-medium">음성</h3>
+              <SpeechPanel
+                metrics={result.speech_metrics}
+                sttStatus={result.stt_status}
+                sttError={result.stt_error}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-md border border-gray-200 p-3 dark:border-gray-800">
+            <h3 className="mb-3 font-medium">시선</h3>
+            <GazePanel summary={result.eye_tracking} />
+          </div>
         </section>
       ))}
 

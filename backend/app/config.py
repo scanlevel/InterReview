@@ -1,9 +1,7 @@
-"""Runtime settings loaded from the environment (and ``.env`` in development).
+"""Track B runtime settings loaded from the environment and development ``.env``.
 
-Ported and generalized from the Streamlit ``module/config.py``: alongside the
-CLOVA Speech credentials this now also carries LLM settings and the CORS
-allow-list for the Next.js frontend. Secrets are never hard-coded; ``.env`` is
-git-ignored and ``.env.example`` documents every key.
+Secrets are never hard-coded; ``.env`` is git-ignored and ``.env.example``
+documents every supported key.
 """
 
 from __future__ import annotations
@@ -45,12 +43,6 @@ class Settings(BaseSettings):
     # length). Sync recognition of a long answer can take a while, so keep this
     # generous. Tune via CLOVA_SPEECH_TIMEOUT.
     clova_speech_timeout: float = Field(default=180.0, alias="CLOVA_SPEECH_TIMEOUT")
-
-    # --- LLM (evaluation / personalization) — filled in during the LLM port ---
-    anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
-    eval_model: str = Field(default="claude-sonnet-5", alias="EVAL_MODEL")
-    personalize_model: str = Field(default="claude-haiku-4-5-20251001", alias="PERSONALIZE_MODEL")
-
 
 @lru_cache
 def get_settings() -> Settings:

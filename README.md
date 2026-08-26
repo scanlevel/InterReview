@@ -1,18 +1,18 @@
 # InterReview
 
 AI 모의면접 서비스. 지원자가 가상 면접관의 질문을 받고 → 카메라·마이크로
-답변하고 → 답변 내용과 태도를 AI가 평가한다.
+답변하고 → 시선·음성은 점수 없이 측정값으로 확인한다.
 
 **아키텍처:** Next.js(프론트) + FastAPI(백엔드). 캠·마이크·시선 캡처는
-브라우저가 담당하고, 서버는 STT/LLM 호출과 시크릿 보관만 맡는다.
-(Streamlit 기반 구버전에서 전환 — 배경은 `docs/migration-plan.md` 참고.)
+브라우저가 담당하고, 서버는 STT 호출과 시크릿 보관만 맡는다.
+(최종 범위와 현재 상태는 `docs/plan.md`를 기준으로 한다.)
 
 ## 구조
 
 ```
-backend/    FastAPI + uv — /questions /stt /evaluate /health
-frontend/   Next.js (App Router, TS, Tailwind) — 면접 UI
-docs/       migration-plan.md, reference/(구 로직 참고)
+backend/    FastAPI + uv — 질문은행 / STT / 음성·시선 측정
+frontend/   Next.js (App Router, TS, Tailwind) — 면접·결과 UI
+docs/       plan.md, reference/(구 로직 참고)
 ```
 
 ## 실행
@@ -26,14 +26,18 @@ uv sync
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-- `POST /questions` — 프로필 → 룰 기반 6문항
+- `POST /questions` — 질문은행 항목별 Random Pick → 선택 원문 보존
 - `POST /stt` — 오디오 blob(multipart) → CLOVA Speech 전사
-- `POST /evaluate` — {프로필, 답변들} → 평가 리포트
+- `POST /measurements` — {답변들} → 질문별 시선·음성 측정값과 세션 평균
+
+답변 내용 판별과 질문 개인화 LLM은 Track A의 `/answers/review`와
+`personalize_question()` 계약으로 연결한다. B 런타임은 LLM 클라이언트나
+내용 판별 fallback을 소유하지 않는다.
 - 테스트: `uv run pytest`
 
-필수/선택 환경변수는 `backend/.env.example` 참고. 주요 키:
-`CLOVA_SPEECH_INVOKE_URL`, `CLOVA_SPEECH_SECRET` (STT),
-`ANTHROPIC_API_KEY` (LLM 평가 — 없으면 룰기반으로 자동 fallback).
+필수/선택 환경변수는 `backend/.env.example` 참고. CLOVA STT를 사용하려면
+`CLOVA_SPEECH_INVOKE_URL`, `CLOVA_SPEECH_SECRET`를 설정한다. 키가 없으면
+STT는 `not_configured` 상태로 반환되고 직접 transcript를 입력할 수 있다.
 
 ### 프론트엔드 (Next.js)
 
@@ -48,9 +52,15 @@ npm run dev               # http://localhost:3000
 
 > 캠·마이크 권한은 **localhost 또는 HTTPS**에서만 열린다. 배포 시 HTTPS 필수.
 
-## 상태 (2026-07-19)
+## Track B 상태 (2026-08-21)
 
-- ✅ 백엔드 코어: 질문 생성 / STT(CLOVA) / 룰기반 평가
-- ✅ 프론트: setup → 면접(캠+녹음+STT) → 평가 리포트
-- ⏸️ 시선 추적(Milestone C): 인계 예정 — 계약은 `docs/migration-plan.md` §8
-- ⏳ LLM 평가 경로: `ANTHROPIC_API_KEY` 확보 후 (현재는 룰기반)
+- ✅ 질문은행 6개 항목별 Random Pick·중복 방지·선택 원문 보존
+- ✅ 선택된 원문 질문 보존
+- ✅ 장치 선택·9점 시선 캘리브레이션·질문별 기존 CLOVA STT 흐름
+- ✅ 발화 시간·실제 발화 시간·발화 속도·무음·긴 무음 계산
+- ✅ 질문별 시선 Heatmap·저화질 대응 EMA 평활화·반복 이동 캘리브레이션
+- ⏳ A 담당 `/answers/review` 연결 후 질문별 내용 상태/이유/빠진 내용 표시
+- ⏳ 실제 카메라·마이크 권한을 포함한 브라우저 E2E는 별도 장치에서 확인 필요
+
+시선과 음성은 측정값으로만 제공하며, raw audio/video는 브라우저 측정 후 결과에 필요한
+요약값만 전송합니다.

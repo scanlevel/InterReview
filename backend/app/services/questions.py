@@ -1,16 +1,12 @@
 """Generate interview questions from the ICT question-bank rules.
 
-Ported from the Streamlit ``module/question_generator.py`` with the Kanana
-local-model dependency and the Streamlit progress callback removed. Question
-personalization (previously Kanana) will be reintroduced later as an optional
-LLM step; for now the rule-bank text is returned verbatim.
-
-``rules.json`` is the single source of truth: it defines the service-facing
-groups and, per group, the source domains to draw one question from.
+``rules.json`` defines the service-facing groups and the source domains from
+which one question is randomly selected per group.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
@@ -26,23 +22,26 @@ QUESTION_BANK_ROOT = Path(
     os.environ.get("QUESTION_BANK_ROOT", _BACKEND_ROOT / "question_banks" / "ict")
 ).expanduser()
 RULES_PATH = QUESTION_BANK_ROOT / "rules.json"
-
-EXPERIENCE_ALIASES = {
-    "NEW": "NEW",
-    "신입": "NEW",
-    "EXPERIENCED": "EXPERIENCED",
-    "경력": "EXPERIENCED",
-}
+NEW_QUESTION_BANK_ROOT = QUESTION_BANK_ROOT / "new"
 
 
 class QuestionBankError(RuntimeError):
     """Raised when the configured question bank or its rules are unusable."""
 
 
-def _experience_from_profile(profile: dict[str, Any]) -> str:
-    """Normalize a profile experience value, defaulting to the new bank."""
-    value = str(profile.get("experience", "NEW")).strip().upper()
-    return EXPERIENCE_ALIASES.get(value, "NEW")
+def _question_id(
+    category: str, expression: str, source: dict[str, Any]
+) -> str:
+    identity = "\x1f".join(
+        [
+            "NEW",
+            category,
+            expression,
+            str(source.get("source_file") or ""),
+            str(source["question"]),
+        ]
+    )
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
 
 
 @lru_cache(maxsize=1)
@@ -87,10 +86,10 @@ def _load_rules() -> dict[str, Any]:
 
 @lru_cache(maxsize=64)
 def _load_domain_questions(
-    experience: str, category: str, expression: str
+    category: str, expression: str
 ) -> tuple[dict[str, Any], ...]:
-    """Load and cache one experience/domain question-bank JSON file."""
-    path = QUESTION_BANK_ROOT / experience.lower() / f"{category}__{expression}.json"
+    """Load and cache one domain from the new-applicant question bank."""
+    path = NEW_QUESTION_BANK_ROOT / f"{category}__{expression}.json"
     try:
         with path.open("r", encoding="utf-8") as handle:
             payload = json.load(handle)
@@ -106,8 +105,8 @@ def _load_domain_questions(
 
 
 def _pick_group_question(
-    experience: str,
     domains: list[dict[str, str]],
+    used_ids: set[str],
     used_texts: set[str],
     rng: random.Random,
 ) -> tuple[dict[str, str], dict[str, Any]]:
@@ -118,44 +117,40 @@ def _pick_group_question(
         category, expression = domain["category"], domain["expression"]
         questions = [
             item
-            for item in _load_domain_questions(experience, category, expression)
+            for item in _load_domain_questions(category, expression)
             if item["question"] not in used_texts
+            and _question_id(category, expression, item) not in used_ids
         ]
         if questions:
             return domain, rng.choice(questions)
     raise QuestionBankError(
-        f"{experience} 질문은행에서 규칙 그룹에 맞는 질문을 찾지 못했습니다."
+        "신입 질문은행에서 규칙 그룹에 맞는 질문을 찾지 못했습니다."
     )
 
 
-def generate_questions(profile: dict[str, Any], seed: int | None = None) -> list[Question]:
-    """Generate the rule-balanced set of interview questions (one per group).
-
-    Set ``profile['experience']`` to ``NEW``/``신입`` or ``EXPERIENCED``/``경력``
-    to choose a bank. Pass ``seed`` for reproducible selection.
-    """
+def generate_questions(seed: int | None = None) -> list[Question]:
+    """Generate a rule-balanced new-applicant question set."""
     rules = _load_rules()
-    experience = _experience_from_profile(profile)
-    # ``profile['question_seed']`` kept for backward compatibility with callers.
-    effective_seed = seed if seed is not None else profile.get("question_seed")
-    rng = random.Random(effective_seed) if effective_seed is not None else random.SystemRandom()
+    rng = random.Random(seed) if seed is not None else random.SystemRandom()
 
+    used_ids: set[str] = set()
     used_texts: set[str] = set()
     selected: list[Question] = []
     for index, group in enumerate(rules["groups"], start=1):
-        domain, source = _pick_group_question(
-            experience, group["domains"], used_texts, rng
-        )
+        domain, source = _pick_group_question(group["domains"], used_ids, used_texts, rng)
         text = source["question"]
+        question_id = _question_id(domain["category"], domain["expression"], source)
+        used_ids.add(question_id)
         used_texts.add(text)
         selected.append(
             Question(
                 id=f"q{index}",
+                question_id=question_id,
                 category=group["name"],
                 rule_group=group["id"],
                 subcategory=f"{domain['category']}::{domain['expression']}",
-                experience=experience,
                 text=text,
+                original_text=text,
                 source_file=source.get("source_file"),
                 occurrence_count=source.get("occurrence_count", 1),
             )

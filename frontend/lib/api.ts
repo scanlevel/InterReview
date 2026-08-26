@@ -3,15 +3,17 @@
 
 import type {
   AnswerItem,
+  ContentFeedback,
   EssayAnalysis,
   EvaluationReport,
   GenerateQuestionsResponse,
+  MeasurementReport,
   Profile,
   TranscriptResponse,
 } from "@/lib/types";
 
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE ?? "/api";
 
 export interface HealthResponse {
   status: string;
@@ -45,11 +47,23 @@ export function generateQuestions(
   return postJson<GenerateQuestionsResponse>("/questions", { profile, seed });
 }
 
-export function evaluateInterview(
-  profile: Profile,
+export function getMeasurementReport(
   answers: AnswerItem[],
-): Promise<EvaluationReport> {
-  return postJson<EvaluationReport>("/evaluate", { profile, answers });
+): Promise<MeasurementReport> {
+  return postJson<MeasurementReport>("/measurements", { answers });
+}
+
+/** Call the Track A per-question review contract; A owns the implementation. */
+export function reviewAnswer(
+  answer: AnswerItem,
+  profile: Profile,
+): Promise<ContentFeedback> {
+  return postJson<ContentFeedback>("/answers/review", {
+    question: answer.question,
+    transcript: answer.transcript,
+    essay: profile.resume_text ?? null,
+    profile,
+  });
 }
 
 /** Pull FastAPI's `detail` out of an error response, falling back to `fallback`.

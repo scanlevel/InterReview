@@ -1,9 +1,4 @@
-"""InterReview FastAPI application entry point.
-
-Skeleton stage: exposes a health check and permissive CORS for the Next.js dev
-server. STT, question generation, and LLM evaluation endpoints are added as the
-Streamlit logic is ported into ``app/services``.
-"""
+"""InterReview FastAPI application entry point for the Track B runtime."""
 
 from __future__ import annotations
 
@@ -11,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import answers, essay, questions, stt
+from app.routers import answers, essay, measurements, questions, stt
 
 settings = get_settings()
 
@@ -27,6 +22,7 @@ app.add_middleware(
 
 app.include_router(answers.router)
 app.include_router(essay.router)
+app.include_router(measurements.router)
 app.include_router(questions.router)
 app.include_router(stt.router)
 

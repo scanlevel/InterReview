@@ -1,7 +1,7 @@
 [project]
 name = "interreview-backend"
 version = "0.1.0"
-description = "InterReview API — FastAPI backend (STT proxy, question generation, LLM evaluation)"
+description = "InterReview API — FastAPI backend (STT proxy, question generation, measurements)"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
