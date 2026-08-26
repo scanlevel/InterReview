@@ -24,6 +24,29 @@ QUESTION_BANK_ROOT = Path(
 RULES_PATH = QUESTION_BANK_ROOT / "rules.json"
 NEW_QUESTION_BANK_ROOT = QUESTION_BANK_ROOT / "new"
 
+# The source's NEW split still contains mislabeled questions that assume prior
+# employment. Keep them out at the shared loading boundary so every caller gets
+# a genuinely new-applicant question pool.
+_EXPERIENCED_QUESTION_MARKERS = (
+    "경력",
+    "이전 직장",
+    "이전 회사",
+    "전 직장",
+    "전 회사",
+    "전에 회사",
+    "현 직장",
+    "퇴사",
+    "재직",
+    "다니던 직장",
+    "다니던 회사",
+    "직장 생활을 할 때",
+    "직장생활을 할 때",
+)
+
+
+def has_experienced_context(text: str) -> bool:
+    return any(marker in text for marker in _EXPERIENCED_QUESTION_MARKERS)
+
 
 class QuestionBankError(RuntimeError):
     """Raised when the configured question bank or its rules are unusable."""
@@ -100,7 +123,11 @@ def _load_domain_questions(
     if not isinstance(questions, list):
         raise QuestionBankError(f"질문은행 형식이 올바르지 않습니다: {path}")
     return tuple(
-        q for q in questions if isinstance(q, dict) and q.get("question")
+        q
+        for q in questions
+        if isinstance(q, dict)
+        and q.get("question")
+        and not has_experienced_context(q["question"])
     )
 
 

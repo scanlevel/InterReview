@@ -9,7 +9,12 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.routers import questions as questions_router
-from app.services.questions import _load_rules, generate_questions
+from app.services.questions import (
+    has_experienced_context,
+    _load_domain_questions,
+    _load_rules,
+    generate_questions,
+)
 
 client = TestClient(app)
 
@@ -41,6 +46,19 @@ def test_seed_is_reproducible() -> None:
     b = generate_questions(seed=123)
     assert [q.text for q in a] == [q.text for q in b]
     assert [q.question_id for q in a] == [q.question_id for q in b]
+
+
+def test_excludes_experienced_questions_from_new_applicant_pool() -> None:
+    for group in _load_rules()["groups"]:
+        for domain in group["domains"]:
+            questions = _load_domain_questions(
+                domain["category"], domain["expression"]
+            )
+            assert questions
+            assert all(
+                not has_experienced_context(question["question"])
+                for question in questions
+            )
 
 
 def test_questions_endpoint() -> None:

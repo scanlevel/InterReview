@@ -127,6 +127,12 @@ def test_accepts_fullwidth_question_mark(monkeypatch: pytest.MonkeyPatch) -> Non
 # --- output validation fallbacks --------------------------------------------
 
 
+def test_fallback_on_experienced_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_llm(monkeypatch, "이전 직장에서 맡았던 역할은 무엇인가요?")
+    result = personalize_service.personalize_question({}, None, _question())
+    assert result == ORIGINAL_TEXT
+
+
 def test_fallback_on_missing_question_mark(monkeypatch: pytest.MonkeyPatch) -> None:
     """A statement is not a question; keep the original instead."""
     _stub_llm(monkeypatch, "물음표 없이 끝나는 문장입니다.")

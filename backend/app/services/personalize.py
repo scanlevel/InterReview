@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.prompts.personalize import PERSONALIZE_SYSTEM_PROMPT, build_user_prompt
 from app.schemas import Question
 from app.services import llm
+from app.services.questions import has_experienced_context
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ def personalize_question(
         if (
             not personalized
             or len(personalized) > _MAX_LENGTH
+            or has_experienced_context(personalized)
             or not personalized.endswith(_QUESTION_MARKS)
         ):
             logger.warning("질문 개인화 fallback: LLM 응답 검증에 실패했습니다.")
