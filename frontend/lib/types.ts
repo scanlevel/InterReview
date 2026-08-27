@@ -134,6 +134,8 @@ export interface TranscriptResponse {
 export interface EssayWeakness {
   description: string;
   expected_questions: string[];
+  /** 이 약점이 드러나는 원문 문장 — 하이라이트 매칭용. */
+  source_quotes: string[];
 }
 
 /** risk_level ranks how exposed the experience is in an interview, 5 = most. */
@@ -142,6 +144,8 @@ export type RiskLevel = 1 | 2 | 3 | 4 | 5;
 export interface EssayExperience {
   experience: string;
   claims: string[];
+  /** 원문에서 그대로 복사된 근거 문장 — 하이라이트 매칭용. 검증은 프론트에서. */
+  source_quotes: string[];
   risk_level: RiskLevel;
   risk_reason: string;
   weaknesses: EssayWeakness[];

@@ -181,6 +181,13 @@ class EssayWeakness(BaseModel):
     expected_questions: list[str] = Field(
         default_factory=list, description="이 약점에서 나올 예상 질문"
     )
+    source_quotes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "이 약점이 드러나는 자기소개서 원문 문장. "
+            "원문에서 한 글자도 바꾸지 않고 그대로 복사한다."
+        ),
+    )
 
 
 class EssayExperience(BaseModel):
@@ -189,6 +196,13 @@ class EssayExperience(BaseModel):
     experience: str = Field(description="경험 요약")
     claims: list[str] = Field(
         default_factory=list, description="이 경험이 뒷받침한다고 주장하는 것"
+    )
+    source_quotes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "이 경험의 근거가 된 자기소개서 원문 문장. "
+            "원문에서 한 글자도 바꾸지 않고 그대로 복사한다."
+        ),
     )
     risk_level: Literal[1, 2, 3, 4, 5] = Field(
         description="면접에서 공격받을 가능성. 5가 가장 위험하다."

@@ -121,6 +121,41 @@ def test_route_returns_sorted_analysis(monkeypatch: pytest.MonkeyPatch) -> None:
     assert body["experiences"][0]["weaknesses"][0]["expected_questions"]
 
 
+def test_route_passes_source_quotes_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    """source_quotes reach the frontend verbatim; absent ones default to []."""
+    quoted_weakness = EssayWeakness(
+        description="본인 기여도가 드러나지 않음",
+        expected_questions=["직접 담당한 부분은 무엇인가요?"],
+        source_quotes=["팀 프로젝트에서 API를 설계했습니다."],
+    )
+    analysis = EssayAnalysis(
+        experiences=[
+            _experience("경험", 3).model_copy(
+                update={
+                    "source_quotes": ["3개월간 팀 프로젝트에서 API를 설계했습니다."],
+                    "weaknesses": [quoted_weakness],
+                }
+            )
+        ]
+    )
+    _stub_llm(monkeypatch, analysis)
+    response = client.post("/essay/analyze", json={"essay": "자소서 본문"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["experiences"][0]["source_quotes"] == [
+        "3개월간 팀 프로젝트에서 API를 설계했습니다."
+    ]
+    assert body["experiences"][0]["weaknesses"][0]["source_quotes"] == [
+        "팀 프로젝트에서 API를 설계했습니다."
+    ]
+    # Both fields are optional in the model output: missing → empty list, so
+    # the frontend never needs a null check.
+    default = _experience("기본값", 2)
+    assert default.source_quotes == []
+    assert default.weaknesses[0].source_quotes == []
+
+
 def test_route_reports_502_when_the_call_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     """No degraded output: Track A has nothing to fall back to."""
     _stub_llm(monkeypatch, llm.LLMCallError("boom"))

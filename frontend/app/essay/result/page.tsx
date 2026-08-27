@@ -14,6 +14,7 @@ import {
   subscribeToStore,
 } from "@/lib/essayStore";
 import EssayAnalysisResult from "@/components/EssayAnalysisResult";
+import EssayHighlightView from "@/components/EssayHighlightView";
 import PageShell from "@/components/PageShell";
 
 /** Track A — 분석 결과. 자소서를 바로 수정해 다시 첨삭받거나,
@@ -37,8 +38,20 @@ export default function EssayResultPage() {
   const [freshAnalysis, setFreshAnalysis] = useState<EssayAnalysis | null>(null);
   const essay = edited ?? storedDraft ?? "";
   const analysis = freshAnalysis ?? storedAnalysis;
+  const [mode, setMode] = useState<"highlight" | "edit">("highlight");
+  // Edited since the analysis currently on screen was produced?
+  const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 결과 카드 hover → 해당 원문 인용 강조; 클릭 → nonce를 올려 스크롤 요청.
+  const [focusQuotes, setFocusQuotes] = useState<string[] | null>(null);
+  const [scrollNonce, setScrollNonce] = useState(0);
+
+  function handleSelectQuotes(quotes: string[]) {
+    setMode("highlight");
+    setFocusQuotes(quotes);
+    setScrollNonce((nonce) => nonce + 1);
+  }
 
   const trimmed = essay.trim();
   const canSubmit =
@@ -46,6 +59,7 @@ export default function EssayResultPage() {
 
   function handleChange(next: string) {
     setEdited(next);
+    setDirty(true);
     saveEssayDraft(next);
   }
 
@@ -56,6 +70,7 @@ export default function EssayResultPage() {
       const next = await analyzeEssay(trimmed);
       saveAnalysis(next);
       setFreshAnalysis(next);
+      setDirty(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -97,7 +112,30 @@ export default function EssayResultPage() {
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">자기소개서 수정</h2>
+            <div className="flex items-center gap-1 rounded-md border border-gray-300 p-0.5 text-sm dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setMode("highlight")}
+                className={`rounded px-3 py-1 ${
+                  mode === "highlight"
+                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                    : "text-gray-500"
+                }`}
+              >
+                하이라이트 보기
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("edit")}
+                className={`rounded px-3 py-1 ${
+                  mode === "edit"
+                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                    : "text-gray-500"
+                }`}
+              >
+                편집
+              </button>
+            </div>
             <Link
               href="/essay"
               className="text-sm text-gray-500 underline underline-offset-4"
@@ -106,24 +144,42 @@ export default function EssayResultPage() {
             </Link>
           </div>
 
-          <label className="flex flex-col gap-1 text-sm">
-            <textarea
-              value={essay}
-              onChange={(e) => handleChange(e.target.value)}
-              rows={22}
-              className="rounded-md border border-gray-300 px-3 py-2 leading-relaxed dark:border-gray-700 dark:bg-gray-900"
+          {mode === "highlight" && dirty && (
+            <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-500 dark:bg-gray-900">
+              수정한 뒤 아직 재분석하지 않았습니다 — 하이라이트는 마지막 분석
+              기준이라, 고친 문장의 표시는 사라져 있을 수 있습니다.
+            </p>
+          )}
+
+          {mode === "highlight" && analysis && (
+            <EssayHighlightView
+              essay={essay}
+              analysis={analysis}
+              focusQuotes={focusQuotes}
+              scrollNonce={scrollNonce}
             />
-            <span
-              className={`self-end text-xs ${
-                trimmed.length > ESSAY_MAX_LENGTH
-                  ? "text-red-600"
-                  : "text-gray-500"
-              }`}
-            >
-              {trimmed.length.toLocaleString()} /{" "}
-              {ESSAY_MAX_LENGTH.toLocaleString()}자
-            </span>
-          </label>
+          )}
+
+          {mode === "edit" && (
+            <label className="flex flex-col gap-1 text-sm">
+              <textarea
+                value={essay}
+                onChange={(e) => handleChange(e.target.value)}
+                rows={22}
+                className="rounded-md border border-gray-300 px-3 py-2 leading-relaxed dark:border-gray-700 dark:bg-gray-900"
+              />
+              <span
+                className={`self-end text-xs ${
+                  trimmed.length > ESSAY_MAX_LENGTH
+                    ? "text-red-600"
+                    : "text-gray-500"
+                }`}
+              >
+                {trimmed.length.toLocaleString()} /{" "}
+                {ESSAY_MAX_LENGTH.toLocaleString()}자
+              </span>
+            </label>
+          )}
 
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -151,7 +207,17 @@ export default function EssayResultPage() {
           )}
         </div>
 
-        <div>{analysis && <EssayAnalysisResult analysis={analysis} />}</div>
+        {/* 좁은 화면에서는 페이지 스크롤이 자연스러우므로 lg 이상에서만
+            내부 스크롤로 잘라 두 패널이 한 화면에 들어오게 한다. */}
+        <div className="lg:max-h-[80vh] lg:overflow-y-auto lg:pr-1">
+          {analysis && (
+            <EssayAnalysisResult
+              analysis={analysis}
+              onFocusQuotes={setFocusQuotes}
+              onSelectQuotes={handleSelectQuotes}
+            />
+          )}
+        </div>
       </div>
     </PageShell>
   );
