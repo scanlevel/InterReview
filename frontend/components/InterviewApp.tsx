@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   generateQuestions,
   getMeasurementReport,
@@ -20,6 +20,12 @@ import DeviceSetupView, {
   type DeviceSetupResult,
 } from "@/components/DeviceSetupView";
 import ThemeToggle from "@/components/ThemeToggle";
+import Link from "next/link";
+import {
+  loadInterviewEssay,
+  saveInterviewEssay,
+  subscribeToStore,
+} from "@/lib/essayStore";
 
 type Phase =
   | "setup"
@@ -35,17 +41,6 @@ const UNAVAILABLE_CONTENT: AnswerReview = {
   missing_points: [],
   follow_up_question: null,
 };
-import EssayView from "@/components/EssayView";
-
-// "essay" is Track A (자소서 첨삭); the rest are Track B (면접 연습). The two
-// tracks are independent entry points — plan.md §1.
-type Phase =
-  | "setup"
-  | "essay"
-  | "generating"
-  | "interview"
-  | "evaluating"
-  | "analysis";
 
 export default function InterviewApp() {
   const [phase, setPhase] = useState<Phase>("setup");
@@ -54,6 +49,15 @@ export default function InterviewApp() {
   const [report, setReport] = useState<MeasurementReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deviceSetup, setDeviceSetup] = useState<DeviceSetupResult | null>(null);
+  // 자소서 첨삭(/essay/result)에서 넘어온 자소서 — Track A 연동 (A 담당).
+  // 서버 스냅샷은 null: SSR에는 연동 배너가 없다가 hydration 후 나타난다.
+  const storedEssay = useSyncExternalStore(
+    subscribeToStore,
+    loadInterviewEssay,
+    () => null,
+  );
+  const [linkDismissed, setLinkDismissed] = useState(false);
+  const linkedEssay = linkDismissed ? null : storedEssay;
   const deviceStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(
@@ -68,11 +72,17 @@ export default function InterviewApp() {
   }
 
   async function handleStart(nextProfile: Profile) {
+    // 설정 화면에서 자소서를 따로 입력하지 않았다면 첨삭 탭에서 넘어온
+    // 자소서로 질문을 개인화한다. 직접 입력한 값이 항상 우선.
+    const merged: Profile =
+      !nextProfile.resume_text?.trim() && linkedEssay
+        ? { ...nextProfile, resume_text: linkedEssay }
+        : nextProfile;
     setError(null);
-    setProfile(nextProfile);
+    setProfile(merged);
     setPhase("generating");
     try {
-      const res = await generateQuestions(nextProfile);
+      const res = await generateQuestions(merged);
       setQuestions(res.questions);
       setPhase("device-setup");
     } catch (e) {
@@ -132,7 +142,9 @@ export default function InterviewApp() {
   return (
     <main className={`mx-auto px-6 py-10 ${phase === "device-setup" || phase === "interview" ? "max-w-5xl" : "max-w-2xl"}`}>
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold">InterReview</h1>
+        <Link href="/" className="inline-block">
+          <h1 className="text-2xl font-semibold">InterReview</h1>
+        </Link>
         <p className="text-sm text-gray-500">AI 모의면접 · Next.js + FastAPI</p>
       </header>
 
@@ -144,21 +156,27 @@ export default function InterviewApp() {
 
       {phase === "setup" && (
         <div className="flex flex-col gap-6">
-          <button
-            type="button"
-            onClick={() => {
-              setError(null);
-              setPhase("essay");
-            }}
-            className="self-start rounded-md border border-gray-300 px-4 py-2 text-sm dark:border-gray-700"
-          >
-            자소서 첨삭 먼저 하기
-          </button>
+          {linkedEssay && (
+            <div className="flex items-start justify-between gap-4 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+              <p>
+                자소서 첨삭에서 넘어온 자소서가 연동되어 있습니다. 아래에서
+                자소서를 따로 입력하지 않으면 이 자소서로 질문을 개인화합니다.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  saveInterviewEssay(null);
+                  setLinkDismissed(true);
+                }}
+                className="shrink-0 text-sm underline underline-offset-4"
+              >
+                연동 해제
+              </button>
+            </div>
+          )}
           <SetupView onStart={handleStart} />
         </div>
       )}
-
-      {phase === "essay" && <EssayView onBack={() => setPhase("setup")} />}
 
       {phase === "generating" && <Busy label="질문을 생성하는 중입니다…" />}
 
