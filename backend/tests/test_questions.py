@@ -7,6 +7,8 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.routers import questions as questions_router
+from app.schemas import Question
 from app.services.questions import (
     GROUPS,
     _load_group_questions,
@@ -92,3 +94,76 @@ def test_questions_endpoint_returns_raw_questions_and_metadata() -> None:
         assert question["source_file"] is None
         assert question["occurrence_count"] == 1
         assert "experience" not in question
+
+
+def test_target_groups_filter_by_role_scope() -> None:
+    bank = {
+        group_id: {
+            row["question"]: row
+            for row in _load_group_questions(group_id)
+        }
+        for group_id in ("job_technology", "problem_solving")
+    }
+    selected = {
+        question.rule_group: question
+        for question in generate_questions(seed=42, job_role="mobile")
+    }
+
+    for group_id in ("job_technology", "problem_solving"):
+        row = bank[group_id][selected[group_id].text]
+        assert "mobile" in row["role_scopes"]
+
+
+def test_unknown_role_prefers_common_target_questions() -> None:
+    bank = {
+        group_id: {
+            row["question"]: row
+            for row in _load_group_questions(group_id)
+        }
+        for group_id in ("job_technology", "problem_solving")
+    }
+    selected = {
+        question.rule_group: question
+        for question in generate_questions(seed=42, job_role="unclassified role")
+    }
+
+    for group_id in ("job_technology", "problem_solving"):
+        row = bank[group_id][selected[group_id].text]
+        assert "common" in row["role_scopes"]
+
+
+def test_role_filter_runs_before_personalization(
+    monkeypatch: Any,
+) -> None:
+    events: list[tuple[str, Any]] = []
+    source_question = Question(
+        id="q1",
+        question_id="question-id",
+        category="직무·기술",
+        rule_group="job_technology",
+        subcategory="technology::i_prg",
+        text="원문 질문?",
+        original_text="원문 질문?",
+    )
+
+    def fake_generate_questions(*, seed: int | None, job_role: Any) -> list[Question]:
+        events.append(("select", job_role))
+        return [source_question]
+
+    def fake_personalize(profile: dict[str, Any], essay: str | None, question: Question) -> str:
+        events.append(("personalize", question.rule_group))
+        return question.text
+
+    monkeypatch.setattr(questions_router, "generate_questions", fake_generate_questions)
+    monkeypatch.setattr(questions_router, "personalize_question", fake_personalize)
+
+    response = client.post(
+        "/questions",
+        json={"profile": {"job": "프론트엔드 개발자"}, "seed": 7},
+    )
+
+    assert response.status_code == 200
+    assert events == [
+        ("select", "프론트엔드 개발자"),
+        ("personalize", "job_technology"),
+    ]

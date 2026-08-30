@@ -36,6 +36,20 @@ SERVICE_GROUPS = (
 )
 EXPECTED_ITEM_KEYS = {"question", "answer_intent"}
 EXPECTED_INTENT_KEYS = {"category", "expression"}
+ROLE_SCOPED_GROUPS = frozenset({"job_technology", "problem_solving"})
+ROLE_SCOPES = frozenset(
+    {
+        "common",
+        "frontend",
+        "backend",
+        "data_ai",
+        "database",
+        "security",
+        "infra_cloud",
+        "devops",
+        "mobile",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +58,7 @@ class QuestionEntry:
     service_group: str
     question: str
     answer_intent: dict[str, Any]
+    role_scopes: tuple[str, ...] = ()
 
 
 def default_bank_root() -> Path:
@@ -90,7 +105,12 @@ def collect_entries(bank_root: Path) -> tuple[list[QuestionEntry], list[str]]:
             if not isinstance(item, dict):
                 errors.append(f"문항이 객체가 아닙니다: {file_name}:{index}")
                 continue
-            if set(item) != EXPECTED_ITEM_KEYS:
+            expected_item_keys = (
+                EXPECTED_ITEM_KEYS | {"role_scopes"}
+                if group_id in ROLE_SCOPED_GROUPS
+                else EXPECTED_ITEM_KEYS
+            )
+            if set(item) not in (EXPECTED_ITEM_KEYS, expected_item_keys):
                 errors.append(f"문항 필드가 최소 스키마와 다릅니다: {file_name}:{index}")
             question = item.get("question")
             answer_intent = item.get("answer_intent")
@@ -108,12 +128,26 @@ def collect_entries(bank_root: Path) -> tuple[list[QuestionEntry], list[str]]:
             ):
                 errors.append(f"answer_intent 형식 오류: {file_name}:{index}")
                 continue
+            has_role_scopes = "role_scopes" in item
+            role_scopes = item.get("role_scopes")
+            if has_role_scopes and (
+                group_id not in ROLE_SCOPED_GROUPS
+                or not isinstance(role_scopes, list)
+                or not role_scopes
+                or not all(
+                    isinstance(scope, str) and scope in ROLE_SCOPES
+                    for scope in role_scopes
+                )
+            ):
+                errors.append(f"role_scopes 형식 오류: {file_name}:{index}")
+                continue
             entries.append(
                 QuestionEntry(
                     file_name=file_name,
                     service_group=group_id,
                     question=question,
                     answer_intent=answer_intent,
+                    role_scopes=tuple(role_scopes or ()),
                 )
             )
     return entries, errors
@@ -130,6 +164,20 @@ def validate_question_bank(bank_root: Path | None = None) -> dict[str, Any]:
     service_unique_counts = Counter()
     for text, group in by_text.items():
         service_unique_counts[group[0].service_group] += 1
+    role_scope_counts: dict[str, dict[str, int]] = {}
+    role_scope_unscoped: dict[str, int] = {}
+    for group_id in ROLE_SCOPED_GROUPS:
+        group_entries = [entry for entry in entries if entry.service_group == group_id]
+        role_scope_counts[group_id] = dict(
+            Counter(
+                scope
+                for entry in group_entries
+                for scope in entry.role_scopes
+            )
+        )
+        role_scope_unscoped[group_id] = sum(
+            not entry.role_scopes for entry in group_entries
+        )
     career_candidates = [entry for entry in entries if _career_candidate(entry.question)]
     expected_files = {f"{group}.json" for group in SERVICE_GROUPS}
     actual_files = {path.name for path in (root / "new").glob("*.json")}
@@ -147,6 +195,8 @@ def validate_question_bank(bank_root: Path | None = None) -> dict[str, Any]:
         "service_group_unique_candidates": {
             group: service_unique_counts.get(group, 0) for group in SERVICE_GROUPS
         },
+        "role_scope_counts": role_scope_counts,
+        "role_scope_unscoped": role_scope_unscoped,
         "service_group_files": len(actual_files & expected_files),
         "question_bank_files": sorted(actual_files),
     }
@@ -162,6 +212,12 @@ def print_report(report: dict[str, Any]) -> None:
     for group_id, count in report["service_group_candidates"].items():
         unique_count = report["service_group_unique_candidates"][group_id]
         print(f"  {group_id}: {count} (unique={unique_count})")
+    print("role scope별 후보 수:")
+    for group_id in sorted(ROLE_SCOPED_GROUPS):
+        print(
+            f"  {group_id}: {report['role_scope_counts'][group_id]} "
+            f"(unscoped={report['role_scope_unscoped'][group_id]})"
+        )
     if report["career_candidates"]:
         print("경력 전제 후보:")
         for entry in report["career_candidates"]:

@@ -28,6 +28,72 @@ GROUPS = (
     ("motivation_commitment", "지원동기·직무몰입"),
 )
 _GROUP_IDS = {group_id for group_id, _ in GROUPS}
+ROLE_SCOPED_GROUPS = frozenset({"job_technology", "problem_solving"})
+ROLE_SCOPES = frozenset(
+    {
+        "common",
+        "frontend",
+        "backend",
+        "data_ai",
+        "database",
+        "security",
+        "infra_cloud",
+        "devops",
+        "mobile",
+    }
+)
+# ponytail: conservative free-text mapping; use explicit canonical scopes if coverage grows.
+_ROLE_SCOPE_ALIASES = {
+    "common": ("common", "공통", "일반"),
+    "frontend": ("frontend", "front end", "front-end", "프론트"),
+    "backend": ("backend", "back end", "back-end", "백엔드", "서버"),
+    "data_ai": (
+        "data_ai",
+        "data ai",
+        "data scientist",
+        "data analyst",
+        "data engineer",
+        "machine learning",
+        "deep learning",
+        "인공지능",
+        "머신러닝",
+        "딥러닝",
+        "데이터 사이언스",
+        "데이터 분석",
+        "데이터 엔지니어",
+    ),
+    "database": ("database", "data base", "dba", "sql", "데이터베이스"),
+    "security": ("security", "cyber", "보안", "정보보안", "정보 보호"),
+    "infra_cloud": (
+        "infra_cloud",
+        "infra cloud",
+        "infrastructure",
+        "infra",
+        "cloud",
+        "aws",
+        "azure",
+        "gcp",
+        "클라우드",
+        "인프라",
+    ),
+    "devops": (
+        "devops",
+        "dev ops",
+        "sre",
+        "platform",
+        "플랫폼",
+        "배포",
+        "운영",
+    ),
+    "mobile": (
+        "mobile",
+        "android",
+        "ios",
+        "모바일",
+        "안드로이드",
+        "아이폰",
+    ),
+}
 
 _EXPERIENCED_QUESTION_MARKERS = (
     "경력",
@@ -48,6 +114,26 @@ _EXPERIENCED_QUESTION_MARKERS = (
 
 def has_experienced_context(text: str) -> bool:
     return any(marker in text for marker in _EXPERIENCED_QUESTION_MARKERS)
+
+
+def resolve_role_scopes(job_role: Any) -> frozenset[str]:
+    """Resolve canonical role scopes from a profile job label."""
+    if isinstance(job_role, str):
+        values = (job_role,)
+    elif isinstance(job_role, (list, tuple, set, frozenset)):
+        values = tuple(value for value in job_role if isinstance(value, str))
+    else:
+        values = ()
+
+    scopes: set[str] = set()
+    for value in values:
+        normalized = " ".join(
+            value.casefold().replace("_", " ").replace("-", " ").split()
+        )
+        for scope, aliases in _ROLE_SCOPE_ALIASES.items():
+            if any(alias in normalized for alias in aliases):
+                scopes.add(scope)
+    return frozenset(scopes)
 
 
 class QuestionBankError(RuntimeError):
@@ -83,6 +169,16 @@ def _load_group_questions(group_id: str) -> tuple[dict[str, Any], ...]:
         raise QuestionBankError(f"질문은행 형식이 올바르지 않거나 비어 있습니다: {path}")
     for index, item in enumerate(payload, start=1):
         intent = item.get("answer_intent") if isinstance(item, dict) else None
+        role_scopes = item.get("role_scopes") if isinstance(item, dict) else None
+        role_scopes_valid = role_scopes is None or (
+            group_id in ROLE_SCOPED_GROUPS
+            and isinstance(role_scopes, list)
+            and bool(role_scopes)
+            and all(
+                isinstance(scope, str) and scope in ROLE_SCOPES
+                for scope in role_scopes
+            )
+        )
         if (
             not isinstance(item, dict)
             or not isinstance(item.get("question"), str)
@@ -90,9 +186,43 @@ def _load_group_questions(group_id: str) -> tuple[dict[str, Any], ...]:
             or not isinstance(intent, dict)
             or not isinstance(intent.get("category"), str)
             or not isinstance(intent.get("expression"), str)
+            or not role_scopes_valid
         ):
             raise QuestionBankError(f"질문은행 문항 형식이 올바르지 않습니다: {path}:{index}")
     return tuple(payload)
+
+
+def _role_filtered_candidates(
+    group_id: str,
+    candidates: list[dict[str, Any]],
+    requested_scopes: frozenset[str],
+) -> list[dict[str, Any]]:
+    if group_id not in ROLE_SCOPED_GROUPS:
+        return candidates
+
+    if requested_scopes:
+        matching = [
+            item
+            for item in candidates
+            if set(item.get("role_scopes") or ()) & requested_scopes
+        ]
+        if matching:
+            return matching
+
+    common = [
+        item for item in candidates if "common" in (item.get("role_scopes") or ())
+    ]
+    if common:
+        return common
+
+    multi_scope = [
+        item
+        for item in candidates
+        if len(item.get("role_scopes") or ()) > 1
+    ]
+    if multi_scope:
+        return multi_scope
+    return candidates
 
 
 def _pick_group_question(
@@ -100,6 +230,7 @@ def _pick_group_question(
     used_ids: set[str],
     used_texts: set[str],
     rng: random.Random,
+    requested_scopes: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     candidates = [
         item
@@ -107,19 +238,31 @@ def _pick_group_question(
         if item["question"] not in used_texts
         and _question_id(group_id, item) not in used_ids
     ]
+    candidates = _role_filtered_candidates(
+        group_id,
+        candidates,
+        requested_scopes,
+    )
     if not candidates:
         raise QuestionBankError(f"질문 그룹에 사용 가능한 문항이 없습니다: {group_id}")
     return rng.choice(candidates)
 
 
-def generate_questions(seed: int | None = None) -> list[Question]:
+def generate_questions(seed: int | None = None, job_role: Any = None) -> list[Question]:
     """Generate one random new-applicant question from each service group."""
     rng = random.Random(seed) if seed is not None else random.SystemRandom()
     used_ids: set[str] = set()
+    requested_scopes = resolve_role_scopes(job_role)
     used_texts: set[str] = set()
     selected: list[Question] = []
     for index, (group_id, group_name) in enumerate(GROUPS, start=1):
-        source = _pick_group_question(group_id, used_ids, used_texts, rng)
+        source = _pick_group_question(
+            group_id,
+            used_ids,
+            used_texts,
+            rng,
+            requested_scopes,
+        )
         answer_intent = source["answer_intent"]
         text = source["question"]
         question_id = _question_id(group_id, source)

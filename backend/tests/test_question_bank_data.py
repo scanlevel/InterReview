@@ -9,11 +9,11 @@ from tools.validate_ict_question_bank import validate_question_bank
 
 EXPECTED_COUNTS = {
     "resume": 111,
-    "values_personality": 291,
-    "job_technology": 224,
-    "problem_solving": 65,
+    "values_personality": 288,
+    "job_technology": 93,
+    "problem_solving": 21,
     "collaboration_organization": 197,
-    "motivation_commitment": 109,
+    "motivation_commitment": 110,
 }
 
 
@@ -23,9 +23,10 @@ def test_ict_question_bank_is_clean_and_all_groups_have_candidates() -> None:
     )
 
     assert report["errors"] == []
-    assert report["total_questions"] == 997
-    assert report["exact_unique_questions"] == 997
+    assert report["total_questions"] == 820
+    assert report["exact_unique_questions"] == 820
     assert report["duplicate_questions"] == 0
+    assert report["role_scope_unscoped"] == {"job_technology": 0, "problem_solving": 0}
     assert report["career_context_candidates"] == 0
     assert report["service_group_files"] == 6
     assert report["service_group_candidates"] == EXPECTED_COUNTS
