@@ -5,71 +5,71 @@
       "attitude::i_hwsw_prfi": [
         {
           "file": "new/attitude__i_hwsw_prfi.json",
-          "question_count": 86,
-          "record_count": 86
+          "question_count": 72,
+          "record_count": 72
         }
       ],
       "attitude::i_secty": [
         {
           "file": "new/attitude__i_secty.json",
-          "question_count": 30,
-          "record_count": 30
+          "question_count": 28,
+          "record_count": 28
         }
       ],
       "attitude::i_tech_orien": [
         {
           "file": "new/attitude__i_tech_orien.json",
-          "question_count": 37,
-          "record_count": 37
+          "question_count": 33,
+          "record_count": 33
         }
       ],
       "background::c_person": [
         {
           "file": "new/background__c_person.json",
-          "question_count": 205,
-          "record_count": 205
+          "question_count": 181,
+          "record_count": 181
         }
       ],
       "background::c_private": [
         {
           "file": "new/background__c_private.json",
-          "question_count": 213,
-          "record_count": 214
+          "question_count": 171,
+          "record_count": 172
         }
       ],
       "background::c_value": [
         {
           "file": "new/background__c_value.json",
-          "question_count": 49,
-          "record_count": 49
+          "question_count": 42,
+          "record_count": 42
         }
       ],
       "etc::c_sincere_co": [
         {
           "file": "new/etc__c_sincere_co.json",
-          "question_count": 29,
-          "record_count": 29
+          "question_count": 16,
+          "record_count": 16
         }
       ],
       "etc::c_sincere_job": [
         {
           "file": "new/etc__c_sincere_job.json",
-          "question_count": 97,
-          "record_count": 97
+          "question_count": 84,
+          "record_count": 84
         }
       ],
       "personality::c_adp": [
         {
           "file": "new/personality__c_adp.json",
-          "question_count": 26,
-          "record_count": 26
+          "question_count": 20,
+          "record_count": 20
         }
       ],
       "personality::c_chl": [
         {
           "file": "new/personality__c_chl.json",
-          "question_count": 25,
-          "record_count": 25
+          "question_count": 23,
+          "record_count": 23
         }
       ],
       "personality::c_confl_mg": [
@@ -82,36 +82,36 @@
       "personality::c_cop": [
         {
           "file": "new/personality__c_cop.json",
-          "question_count": 86,
-          "record_count": 86
+          "question_count": 81,
+          "record_count": 81
         }
       ],
       "personality::c_imp": [
         {
           "file": "new/personality__c_imp.json",
-          "question_count": 28,
-          "record_count": 28
+          "question_count": 26,
+          "record_count": 26
         }
       ],
       "technology::i_dev_mth": [
         {
           "file": "new/technology__i_dev_mth.json",
-          "question_count": 20,
-          "record_count": 20
+          "question_count": 19,
+          "record_count": 19
         }
       ],
       "technology::i_dis_coping": [
         {
           "file": "new/technology__i_dis_coping.json",
-          "question_count": 32,
-          "record_count": 32
+          "question_count": 30,
+          "record_count": 30
         }
       ],
       "technology::i_prg": [
         {
           "file": "new/technology__i_prg.json",
-          "question_count": 102,
-          "record_count": 103
+          "question_count": 97,
+          "record_count": 98
         }
       ]
     }

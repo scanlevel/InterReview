@@ -24,9 +24,9 @@ QUESTION_BANK_ROOT = Path(
 RULES_PATH = QUESTION_BANK_ROOT / "rules.json"
 NEW_QUESTION_BANK_ROOT = QUESTION_BANK_ROOT / "new"
 
-# The source's NEW split still contains mislabeled questions that assume prior
-# employment. Keep them out at the shared loading boundary so every caller gets
-# a genuinely new-applicant question pool.
+# Kept as a shared semantic check for Track A's personalized-text validation.
+# The cleaned NEW bank is validated as data; the loader must not discard future
+# hypothetical questions merely because a substring happens to match.
 _EXPERIENCED_QUESTION_MARKERS = (
     "경력",
     "이전 직장",
@@ -127,12 +127,12 @@ def _load_domain_questions(
         for q in questions
         if isinstance(q, dict)
         and q.get("question")
-        and not has_experienced_context(q["question"])
     )
 
 
 def _pick_group_question(
     domains: list[dict[str, str]],
+    rule_group: str,
     used_ids: set[str],
     used_texts: set[str],
     rng: random.Random,
@@ -147,6 +147,7 @@ def _pick_group_question(
             for item in _load_domain_questions(category, expression)
             if item["question"] not in used_texts
             and _question_id(category, expression, item) not in used_ids
+            and item.get("service_group") == rule_group
         ]
         if questions:
             return domain, rng.choice(questions)
@@ -163,8 +164,19 @@ def generate_questions(seed: int | None = None) -> list[Question]:
     used_ids: set[str] = set()
     used_texts: set[str] = set()
     selected: list[Question] = []
+    all_domains = [
+        domain
+        for group in rules["groups"]
+        for domain in group["domains"]
+    ]
     for index, group in enumerate(rules["groups"], start=1):
-        domain, source = _pick_group_question(group["domains"], used_ids, used_texts, rng)
+        domain, source = _pick_group_question(
+            all_domains,
+            group["id"],
+            used_ids,
+            used_texts,
+            rng,
+        )
         text = source["question"]
         question_id = _question_id(domain["category"], domain["expression"], source)
         used_ids.add(question_id)
@@ -177,6 +189,7 @@ def generate_questions(seed: int | None = None) -> list[Question]:
                 rule_group=group["id"],
                 subcategory=f"{domain['category']}::{domain['expression']}",
                 text=text,
+                original_text=text,
                 source_file=source.get("source_file"),
                 occurrence_count=source.get("occurrence_count", 1),
             )
