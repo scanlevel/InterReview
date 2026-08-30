@@ -31,6 +31,11 @@ CAREER_CONTEXT_MARKERS = (
     "직장생활을 할 때",
 )
 
+ROLE_SCOPES = {
+    "common", "frontend", "backend", "data_ai", "database",
+    "security", "infra_cloud", "devops", "mobile",
+}
+
 
 @dataclass(frozen=True)
 class QuestionEntry:
@@ -42,6 +47,8 @@ class QuestionEntry:
     source_file: str | None
     answer_intent: dict[str, Any] | None
     occurrence_count: Any
+    review_index: int
+    review_decision: str
 
 
 def default_bank_root() -> Path:
@@ -70,6 +77,11 @@ def collect_entries(bank_root: Path) -> tuple[dict[str, Any], list[QuestionEntry
     expected_count = selection.get("questions_per_interview") if isinstance(selection, dict) else None
     if not isinstance(groups, list) or expected_count != len(groups):
         errors.append("rules.json의 groups와 questions_per_interview가 일치하지 않습니다.")
+    group_ids = (
+        {group.get("id") for group in groups if isinstance(group, dict)}
+        if isinstance(groups, list)
+        else set()
+    )
 
     entries: list[QuestionEntry] = []
     referenced_files: set[str] = set()
@@ -122,6 +134,11 @@ def collect_entries(bank_root: Path) -> tuple[dict[str, Any], list[QuestionEntry
                 answer_intent = item.get("answer_intent")
                 source_file = item.get("source_file")
                 occurrence_count = item.get("occurrence_count")
+                service_group = item.get("service_group")
+                role_scopes = item.get("role_scopes")
+                review_index = item.get("review_index")
+                review_decision = item.get("review_decision")
+                original_question = item.get("original_question")
                 if not isinstance(question, str) or not question.strip():
                     errors.append(f"빈 질문: {file_name}:{index}")
                     continue
@@ -134,16 +151,36 @@ def collect_entries(bank_root: Path) -> tuple[dict[str, Any], list[QuestionEntry
                     errors.append(f"answer_intent 불일치: {file_name}:{index}")
                 if not isinstance(occurrence_count, int) or occurrence_count < 1:
                     errors.append(f"occurrence_count 오류: {file_name}:{index}")
+                if service_group not in group_ids:
+                    errors.append(f"service_group 오류: {file_name}:{index}")
+                if (
+                    not isinstance(role_scopes, list)
+                    or not role_scopes
+                    or any(scope not in ROLE_SCOPES for scope in role_scopes)
+                ):
+                    errors.append(f"role_scopes 오류: {file_name}:{index}")
+                if not isinstance(review_index, int) or review_index < 1:
+                    errors.append(f"review_index 오류: {file_name}:{index}")
+                if review_decision not in {"keep", "comment"}:
+                    errors.append(f"review_decision 오류: {file_name}:{index}")
+                if review_decision == "comment" and (
+                    not isinstance(original_question, str)
+                    or not original_question.strip()
+                    or original_question == question
+                ):
+                    errors.append(f"comment 미정제: {file_name}:{index}")
                 entries.append(
                     QuestionEntry(
                         file_name=file_name,
                         category=category,
                         expression=expression,
-                        rule_group=rule_group,
+                        rule_group=service_group,
                         question=question,
                         source_file=source_file,
                         answer_intent=answer_intent,
                         occurrence_count=occurrence_count,
+                        review_index=review_index,
+                        review_decision=review_decision,
                     )
                 )
 
@@ -160,6 +197,10 @@ def validate_question_bank(bank_root: Path | None = None) -> dict[str, Any]:
     for entry in entries:
         by_text[entry.question].append(entry)
     duplicate_groups = {text: group for text, group in by_text.items() if len(group) > 1}
+    review_indices = Counter(entry.review_index for entry in entries)
+    duplicate_review_indices = [key for key, count in review_indices.items() if count > 1]
+    if duplicate_review_indices:
+        errors.append(f"중복 review_index: {sorted(duplicate_review_indices)}")
     service_counts = Counter(entry.rule_group for entry in entries)
     service_unique_counts = Counter()
     for text, group in by_text.items():
@@ -172,6 +213,8 @@ def validate_question_bank(bank_root: Path | None = None) -> dict[str, Any]:
         "exact_unique_questions": len(by_text),
         "duplicate_questions": len(entries) - len(by_text),
         "duplicate_groups": len(duplicate_groups),
+        "review_index_count": len(review_indices),
+        "review_decision_counts": dict(Counter(entry.review_decision for entry in entries)),
         "career_context_candidates": len(career_candidates),
         "career_candidates": career_candidates,
         "service_group_candidates": {group_id: service_counts.get(group_id, 0) for group_id in group_ids},
@@ -189,6 +232,8 @@ def print_report(report: dict[str, Any]) -> None:
     print(f"전체 질문 수: {report['total_questions']}")
     print(f"exact unique 질문 수: {report['exact_unique_questions']}")
     print(f"duplicate 수: {report['duplicate_questions']} ({report['duplicate_groups']} groups)")
+    print(f"review_index 수: {report['review_index_count']}")
+    print(f"review decision: {report['review_decision_counts']}")
     print(f"경력 전제 후보 수: {report['career_context_candidates']}")
     print("service group별 후보 수:")
     for group_id, count in report["service_group_candidates"].items():

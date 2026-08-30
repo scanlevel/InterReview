@@ -15,5 +15,7 @@ def test_ict_question_bank_is_clean_and_all_groups_have_candidates() -> None:
     assert report["errors"] == []
     assert report["duplicate_questions"] == 0
     assert report["career_context_candidates"] == 0
+    assert report["review_index_count"] == 997
+    assert report["review_decision_counts"] == {"comment": 133, "keep": 864}
     assert len(report["service_group_candidates"]) == 6
     assert all(report["service_group_candidates"].values())
