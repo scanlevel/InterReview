@@ -1,94 +1,94 @@
-"""Tests for rule-based question generation and the /questions route."""
+"""Tests for the six-file ICT question selector and raw-question contract."""
 
 from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.routers import questions as questions_router
 from app.services.questions import (
-    has_experienced_context,
-    _load_domain_questions,
-    _load_rules,
+    GROUPS,
+    _load_group_questions,
     generate_questions,
+    has_experienced_context,
 )
 
 client = TestClient(app)
 
 
-def _group_count() -> int:
-    return len(_load_rules()["groups"])
-
-
 def test_generates_one_question_per_group() -> None:
     questions = generate_questions(seed=42)
-    assert len(questions) == _group_count()
-    assert [q.id for q in questions] == [f"q{i}" for i in range(1, len(questions) + 1)]
-    assert len({q.id for q in questions}) == len(questions)
-    assert all(len(q.question_id) == 16 for q in questions)
-    assert len({q.question_id for q in questions}) == len(questions)
-    # every question maps to a distinct rule group
-    assert len({q.rule_group for q in questions}) == len(questions)
 
-
-def test_no_duplicate_question_text() -> None:
-    questions = generate_questions(seed=7)
-    texts = [q.text for q in questions]
-    assert len(set(texts)) == len(texts)
-    assert all(q.text.strip() for q in questions)
+    assert len(questions) == len(GROUPS) == 6
+    assert [question.id for question in questions] == [
+        f"q{index}" for index in range(1, 7)
+    ]
+    assert len({question.id for question in questions}) == 6
+    assert len({question.question_id for question in questions}) == 6
+    assert len({question.text for question in questions}) == 6
+    assert [question.rule_group for question in questions] == [
+        group_id for group_id, _ in GROUPS
+    ]
+    assert [question.category for question in questions] == [
+        group_name for _, group_name in GROUPS
+    ]
+    assert all(question.original_text == question.text for question in questions)
+    assert all(question.source_file is None for question in questions)
+    assert all(question.occurrence_count == 1 for question in questions)
 
 
 def test_seed_is_reproducible() -> None:
-    a = generate_questions(seed=123)
-    b = generate_questions(seed=123)
-    assert [q.text for q in a] == [q.text for q in b]
-    assert [q.question_id for q in a] == [q.question_id for q in b]
+    first = generate_questions(seed=123)
+    second = generate_questions(seed=123)
+
+    assert [
+        (question.question_id, question.text, question.original_text)
+        for question in first
+    ] == [
+        (question.question_id, question.text, question.original_text)
+        for question in second
+    ]
 
 
 def test_excludes_experienced_questions_from_new_applicant_pool() -> None:
-    for group in _load_rules()["groups"]:
-        for domain in group["domains"]:
-            questions = _load_domain_questions(
-                domain["category"], domain["expression"]
-            )
-            assert questions
-            assert all(
-                not has_experienced_context(question["question"])
-                for question in questions
-            )
+    for group_id, _ in GROUPS:
+        questions = _load_group_questions(group_id)
+        assert questions
+        assert all(
+            not has_experienced_context(question["question"])
+            for question in questions
+        )
 
 
-def test_questions_endpoint() -> None:
-    response = client.post("/questions", json={"profile": {}, "seed": 5})
-    assert response.status_code == 200
-    body = response.json()
-    assert set(body) == {"questions"}
-    assert len(body["questions"]) == _group_count()
-    first = body["questions"][0]
-    assert {"id", "question_id", "category", "rule_group", "subcategory", "text"} <= first.keys()
-    assert "experience" not in first
-    assert first["original_text"] is None
-
-
-def test_questions_endpoint_passes_resume_to_personalization(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, Any] = {}
-
-    def fake_personalize(
-        profile: dict[str, Any], essay: str | None, questions: list[Any]
-    ) -> list[Any]:
-        captured.update(profile=profile, essay=essay, questions=questions)
-        return questions
-
-    monkeypatch.setattr(questions_router, "personalize_questions", fake_personalize)
-    profile = {"job": "백엔드 개발자", "resume_text": "자기소개서 본문"}
+def test_questions_endpoint_returns_raw_questions_and_metadata() -> None:
+    profile: dict[str, Any] = {
+        "name": "홍길동",
+        "job": "백엔드 개발자",
+        "resume_text": "자기소개서 본문",
+        "ignored": "B 단계에서 사용하지 않는 값",
+    }
     response = client.post("/questions", json={"profile": profile, "seed": 5})
 
     assert response.status_code == 200
-    assert captured["profile"] == profile
-    assert captured["essay"] == "자기소개서 본문"
-    assert len(captured["questions"]) == _group_count()
+    body = response.json()
+    assert set(body) == {"questions"}
+    assert len(body["questions"]) == 6
+
+    required = {
+        "id",
+        "question_id",
+        "category",
+        "rule_group",
+        "subcategory",
+        "text",
+        "original_text",
+        "source_file",
+        "occurrence_count",
+    }
+    for question in body["questions"]:
+        assert required <= question.keys()
+        assert question["text"] == question["original_text"]
+        assert question["source_file"] is None
+        assert question["occurrence_count"] == 1
+        assert "experience" not in question
