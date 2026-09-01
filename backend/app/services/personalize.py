@@ -1,4 +1,4 @@
-"""Question personalization service (``plan.md`` §4.2, ``docs/plan-A.md`` §7).
+"""B-owned question personalization service using the shared LLM client.
 
 The selected question alone is sent to the LLM.  Every failure falls back to
 the original text so personalization can never interrupt an interview session.
@@ -64,6 +64,8 @@ def personalize_question(
             or len(personalized) > _MAX_LENGTH
             or has_experienced_context(personalized)
             or not personalized.endswith(_QUESTION_MARKS)
+            or sum(personalized.count(mark) for mark in _QUESTION_MARKS) != 1
+            or any(mark in personalized[:-1] for mark in ("!", "！", "。"))
         ):
             logger.warning("질문 개인화 fallback: LLM 응답 검증에 실패했습니다.")
             return original

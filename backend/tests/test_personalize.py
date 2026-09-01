@@ -1,11 +1,4 @@
-"""Tests for Track B question personalization (``docs/plan-A.md`` §7, §10).
-
-The LLM is mocked, so these need neither a key nor network. They cover the
-happy path (the personalized sentence and the request the service builds),
-post-processing (whitespace collapse, quote stripping), and every fallback
-path — the contract is that ``personalize_question`` never raises and any
-failure returns ``question.text`` unchanged (plan.md §14-7).
-"""
+"""Tests for B-owned question personalization."""
 
 from __future__ import annotations
 
@@ -62,7 +55,13 @@ def test_returns_personalized_text(monkeypatch: pytest.MonkeyPatch) -> None:
     captured = _stub_llm(monkeypatch, personalized)
 
     result = personalize_service.personalize_question(
-        {"job": "백엔드"}, "자소서 본문", _question()
+        {
+            "job": "백엔드",
+            "technologies": "FastAPI",
+            "projects": "주문 처리 프로젝트",
+        },
+        "자소서 본문",
+        _question(),
     )
 
     assert result == personalized
@@ -70,6 +69,8 @@ def test_returns_personalized_text(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["effort"] == "low"
     assert captured["system"] == PERSONALIZE_SYSTEM_PROMPT
     assert ORIGINAL_TEXT in captured["user"]
+    assert "FastAPI" in captured["user"]
+    assert "주문 처리 프로젝트" in captured["user"]
 
 
 # --- failure fallbacks (never raise, return the original text) --------------
@@ -136,6 +137,12 @@ def test_fallback_on_experienced_context(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_fallback_on_missing_question_mark(monkeypatch: pytest.MonkeyPatch) -> None:
     """A statement is not a question; keep the original instead."""
     _stub_llm(monkeypatch, "물음표 없이 끝나는 문장입니다.")
+    result = personalize_service.personalize_question({}, None, _question())
+    assert result == ORIGINAL_TEXT
+
+
+def test_fallback_on_multiple_sentences(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_llm(monkeypatch, "첫 질문인가요? 두 번째 질문인가요?")
     result = personalize_service.personalize_question({}, None, _question())
     assert result == ORIGINAL_TEXT
 

@@ -1,7 +1,6 @@
 "use client";
 
 import type {
-  AnswerStatus,
   EyeTrackingSummary,
   GazeHeatmap,
   MeasurementReport,
@@ -12,14 +11,6 @@ import type {
 } from "@/lib/types";
 import AudioActivityTimeline from "@/components/AudioActivityTimeline";
 import InterviewerStage from "@/components/InterviewerStage";
-
-const STATUS_LABELS: Record<AnswerStatus, string> = {
-  good: "답변함",
-  partial: "부분 답변",
-  off_topic: "질문과 다른 방향",
-  insufficient: "답변 부족",
-  unavailable: "내용 판단 불가",
-};
 
 const STT_STATUS_LABELS: Record<SttStatus, string> = {
   not_attempted: "미시도",
@@ -151,39 +142,37 @@ function ContentPanel({ result }: { result: QuestionResult }) {
   if (!result.content) {
     return (
       <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
-        <h3 className="font-medium">내용</h3>
+        <h3 className="font-medium">답변 피드백</h3>
         <p className="mt-2 text-sm text-gray-500">
-          답변 내용 판별을 사용할 수 없습니다. 세션은 유지됩니다.
+          답변 피드백을 사용할 수 없습니다. 세션은 유지됩니다.
         </p>
       </div>
     );
   }
-  const status = result.content.answer_status;
   return (
     <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="font-medium">내용</h3>
-        <span className="rounded-full bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800">
-          {STATUS_LABELS[status]}
-        </span>
-      </div>
+      <h3 className="font-medium">답변 피드백</h3>
       <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-        {result.content.reason}
+        {result.content.summary}
       </p>
-      {result.content.missing_points.length > 0 && (
+      {result.content.strengths.length > 0 && (
         <div className="mt-3 text-sm">
-          <p className="text-gray-500">빠진 내용</p>
+          <p className="text-gray-500">답변에서 확인된 강점</p>
           <ul className="mt-1 list-disc pl-5">
-            {result.content.missing_points.map((point) => (
-              <li key={point}>{point}</li>
+            {result.content.strengths.map((strength) => (
+              <li key={strength}>{strength}</li>
             ))}
           </ul>
         </div>
       )}
-      {result.content.follow_up_question && (
+      {result.content.improvements.length > 0 && (
         <div className="mt-3 text-sm">
-          <p className="text-gray-500">예상 꼬리질문</p>
-          <p className="mt-1">Q. {result.content.follow_up_question}</p>
+          <p className="text-gray-500">다음 답변에서 시도할 보완</p>
+          <ul className="mt-1 list-disc pl-5">
+            {result.content.improvements.map((improvement) => (
+              <li key={improvement}>{improvement}</li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

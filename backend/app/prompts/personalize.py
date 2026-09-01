@@ -1,7 +1,6 @@
-"""Prompts for question personalization (``plan.md`` §4.2, ``docs/plan-A.md`` §7.2).
+"""Prompt for B-owned question personalization.
 
-The question bank is never sent here in bulk (§4.1) — one already-selected
-question at a time.
+The question bank is never sent here in bulk — one already-selected question at a time.
 """
 
 from __future__ import annotations
@@ -20,6 +19,7 @@ PERSONALIZE_SYSTEM_PROMPT = """\
 - 답변을 생성하지 않는다.
 - 설명, 머리말, 따옴표를 붙이지 않는다.
 - 질문 한 문장만 출력한다.
+- 문장 끝에 물음표 하나만 둔다.
 """
 
 

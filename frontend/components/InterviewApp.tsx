@@ -20,9 +20,11 @@ import DeviceSetupView, {
   type DeviceSetupResult,
 } from "@/components/DeviceSetupView";
 import ThemeToggle from "@/components/ThemeToggle";
+import EssayView from "@/components/EssayView";
 
 type Phase =
   | "setup"
+  | "essay"
   | "generating"
   | "device-setup"
   | "interview"
@@ -30,22 +32,10 @@ type Phase =
   | "analysis";
 
 const UNAVAILABLE_CONTENT: AnswerReview = {
-  answer_status: "unavailable",
-  reason: "답변 내용 판별을 사용할 수 없습니다.",
-  missing_points: [],
-  follow_up_question: null,
+  summary: "답변 피드백을 사용할 수 없습니다.",
+  strengths: [],
+  improvements: [],
 };
-import EssayView from "@/components/EssayView";
-
-// "essay" is Track A (자소서 첨삭); the rest are Track B (면접 연습). The two
-// tracks are independent entry points — plan.md §1.
-type Phase =
-  | "setup"
-  | "essay"
-  | "generating"
-  | "interview"
-  | "evaluating"
-  | "analysis";
 
 export default function InterviewApp() {
   const [phase, setPhase] = useState<Phase>("setup");

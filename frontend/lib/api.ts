@@ -52,13 +52,14 @@ export function getMeasurementReport(
   return postJson<MeasurementReport>("/measurements", { answers });
 }
 
-/** Call the Track A per-question review contract; A owns the implementation. */
+/** Call the B-owned per-question transcript coaching contract. */
 export function reviewAnswer(
   answer: AnswerItem,
   profile: Profile,
 ): Promise<AnswerReview> {
   return postJson<AnswerReview>("/answers/review", {
-    question: answer.question,
+    original_question: answer.original_question ?? answer.question,
+    personalized_question: answer.question,
     transcript: answer.transcript,
     essay: profile.resume_text ?? null,
     profile,

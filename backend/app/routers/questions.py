@@ -13,7 +13,7 @@ router = APIRouter(tags=["questions"])
 
 @router.post("/questions", response_model=GenerateQuestionsResponse)
 def create_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsResponse:
-    """Filter target groups before personalizing the selected questions."""
+    """Select six questions, then personalize each independently with fallback."""
     profile = dict(request.profile)
     job_role = profile.get("job_role") or profile.get("job")
     resume_text = profile.pop("resume_text", None)
@@ -34,6 +34,9 @@ def create_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsResp
             personalized = personalize_question(profile, essay, question)
             if personalized != question.text:
                 questions[index] = question.model_copy(
-                    update={"text": personalized, "original_text": question.text}
+                    update={
+                        "text": personalized,
+                        "original_text": question.original_text or question.text,
+                    }
                 )
     return GenerateQuestionsResponse(questions=questions)
