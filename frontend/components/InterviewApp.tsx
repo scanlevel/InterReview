@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   generateQuestions,
+  getInterviewerImages,
   getMeasurementReport,
   reviewAnswer,
 } from "@/lib/api";
@@ -21,6 +22,7 @@ import DeviceSetupView, {
 } from "@/components/DeviceSetupView";
 import ThemeToggle from "@/components/ThemeToggle";
 import EssayView from "@/components/EssayView";
+import { pickInterviewerImage } from "@/lib/interviewerImages";
 
 type Phase =
   | "setup"
@@ -44,7 +46,9 @@ export default function InterviewApp() {
   const [report, setReport] = useState<MeasurementReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deviceSetup, setDeviceSetup] = useState<DeviceSetupResult | null>(null);
+  const [interviewerImageSrc, setInterviewerImageSrc] = useState<string | null>(null);
   const deviceStreamRef = useRef<MediaStream | null>(null);
+  const reviewRequestsRef = useRef<Map<string, ReviewRequest>>(new Map());
 
   useEffect(
     () => () => deviceStreamRef.current?.getTracks().forEach((track) => track.stop()),
@@ -59,11 +63,15 @@ export default function InterviewApp() {
 
   async function handleStart(nextProfile: Profile) {
     setError(null);
+    reviewRequestsRef.current.clear();
+    setInterviewerImageSrc(null);
     setProfile(nextProfile);
     setPhase("generating");
     try {
       const res = await generateQuestions(nextProfile);
       setQuestions(res.questions);
+      const interviewerImages = await getInterviewerImages().catch(() => []);
+      setInterviewerImageSrc(pickInterviewerImage(interviewerImages));
       setPhase("device-setup");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -77,21 +85,35 @@ export default function InterviewApp() {
     setPhase("interview");
   }
 
+  function startAnswerReview(answer: AnswerItem) {
+    const revision = getAnswerRevision(answer);
+    const existing = reviewRequestsRef.current.get(answer.question_id);
+    if (existing?.revision === revision) return existing.promise;
+
+    const promise = reviewAnswer(answer, profile).catch((reviewError) => {
+      console.warn("Answer review failed for " + answer.question_id, reviewError);
+      return UNAVAILABLE_CONTENT;
+    });
+    reviewRequestsRef.current.set(answer.question_id, { revision, promise });
+    return promise;
+  }
+
+  function handleAnswerFinalized(answer: AnswerItem) {
+    void startAnswerReview(answer);
+  }
+
   async function handleFinish(answers: AnswerItem[]) {
     setError(null);
     setPhase("measuring");
     try {
-      const measurementReport = await getMeasurementReport(answers);
-      const reviewResults = await Promise.allSettled(
-        answers.map((answer) => reviewAnswer(answer, profile)),
-      );
+      const reviewPromises = answers.map((answer) => startAnswerReview(answer));
+      const [measurementReport, reviewResults] = await Promise.all([
+        getMeasurementReport(answers),
+        Promise.all(reviewPromises),
+      ]);
       const contentByQuestion = new Map<string, AnswerReview>();
       reviewResults.forEach((result, index) => {
-        if (result.status === "fulfilled") {
-          contentByQuestion.set(answers[index].question_id, result.value);
-        } else {
-          contentByQuestion.set(answers[index].question_id, UNAVAILABLE_CONTENT);
-        }
+        contentByQuestion.set(answers[index].question_id, result);
       });
       const result: MeasurementReport = {
         ...measurementReport,
@@ -115,6 +137,7 @@ export default function InterviewApp() {
     stopDevices();
     setReport(null);
     setQuestions([]);
+    setInterviewerImageSrc(null);
     setError(null);
     setPhase("setup");
   }
@@ -154,9 +177,11 @@ export default function InterviewApp() {
 
       {phase === "device-setup" && (
         <DeviceSetupView
+          interviewerImageSrc={interviewerImageSrc}
           onReady={handleDevicesReady}
           onCancel={() => {
             setQuestions([]);
+            setInterviewerImageSrc(null);
             setPhase("setup");
           }}
         />
@@ -167,6 +192,8 @@ export default function InterviewApp() {
           questions={questions}
           stream={deviceSetup.stream}
           calibration={deviceSetup.calibration}
+          interviewerImageSrc={interviewerImageSrc}
+          onAnswerFinalized={handleAnswerFinalized}
           onFinish={handleFinish}
         />
       )}
@@ -174,11 +201,28 @@ export default function InterviewApp() {
       {phase === "measuring" && <Busy label="측정값을 정리하는 중입니다…" />}
 
       {phase === "analysis" && report && (
-        <AnalysisView report={report} onReset={handleReset} />
+        <AnalysisView
+          report={report}
+          interviewerImageSrc={interviewerImageSrc}
+          onReset={handleReset}
+        />
       )}
       <ThemeToggle />
     </main>
   );
+}
+
+type ReviewRequest = {
+  revision: string;
+  promise: Promise<AnswerReview>;
+};
+
+function getAnswerRevision(answer: AnswerItem): string {
+  return JSON.stringify([
+    answer.question,
+    answer.original_question,
+    answer.transcript,
+  ]);
 }
 
 function Busy({ label }: { label: string }) {

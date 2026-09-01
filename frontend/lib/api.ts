@@ -39,6 +39,16 @@ export async function getHealth(): Promise<HealthResponse> {
   return (await res.json()) as HealthResponse;
 }
 
+export async function getInterviewerImages(): Promise<string[]> {
+  const res = await fetch("/interviewer-images", { cache: "no-store" });
+  if (!res.ok) throw new Error(`면접관 이미지 목록 실패: HTTP ${res.status}`);
+
+  const body = (await res.json()) as { images?: unknown };
+  return Array.isArray(body.images)
+    ? body.images.filter((image): image is string => typeof image === "string")
+    : [];
+}
+
 export function generateQuestions(
   profile: Profile,
   seed?: number,

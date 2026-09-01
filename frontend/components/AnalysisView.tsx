@@ -76,13 +76,23 @@ function SpeechPanel({
   );
 }
 
-function Heatmap({ heatmap }: { heatmap: GazeHeatmap | null | undefined }) {
+function Heatmap({
+  heatmap,
+  imageSrc,
+}: {
+  heatmap: GazeHeatmap | null | undefined;
+  imageSrc?: string | null;
+}) {
   if (!heatmap || !heatmap.counts.length) {
     return <p className="text-sm text-gray-500">유효한 시선 프레임이 없습니다.</p>;
   }
   const peak = Math.max(...heatmap.counts, 1);
   return (
-    <InterviewerStage showLabel={false} className="w-full max-w-xl">
+    <InterviewerStage
+      showLabel={false}
+      className="w-full max-w-xl"
+      imageSrc={imageSrc}
+    >
       <div
         className="pointer-events-none absolute inset-0 grid"
         style={{ gridTemplateColumns: "repeat(" + heatmap.columns + ", minmax(0, 1fr))" }}
@@ -103,12 +113,18 @@ function Heatmap({ heatmap }: { heatmap: GazeHeatmap | null | undefined }) {
   );
 }
 
-function GazePanel({ summary }: { summary: EyeTrackingSummary | null | undefined }) {
+function GazePanel({
+  summary,
+  imageSrc,
+}: {
+  summary: EyeTrackingSummary | null | undefined;
+  imageSrc?: string | null;
+}) {
   if (!summary) {
     return <p className="text-sm text-gray-500">시선 측정값이 없습니다.</p>;
   }
   return (
-    <Heatmap heatmap={summary.gaze_heatmap} />
+    <Heatmap heatmap={summary.gaze_heatmap} imageSrc={imageSrc} />
   );
 }
 
@@ -181,9 +197,11 @@ function ContentPanel({ result }: { result: QuestionResult }) {
 
 export default function AnalysisView({
   report,
+  interviewerImageSrc,
   onReset,
 }: {
   report: MeasurementReport;
+  interviewerImageSrc?: string | null;
   onReset: () => void;
 }) {
   return (
@@ -237,7 +255,10 @@ export default function AnalysisView({
 
           <div className="mt-4 rounded-md border border-gray-200 p-3 dark:border-gray-800">
             <h3 className="mb-3 font-medium">시선</h3>
-            <GazePanel summary={result.eye_tracking} />
+            <GazePanel
+              summary={result.eye_tracking}
+              imageSrc={interviewerImageSrc}
+            />
           </div>
         </section>
       ))}

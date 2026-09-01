@@ -30,11 +30,15 @@ export default function InterviewView({
   questions,
   stream,
   calibration,
+  interviewerImageSrc,
+  onAnswerFinalized,
   onFinish,
 }: {
   questions: Question[];
   stream: MediaStream;
   calibration: GazeCalibration | null;
+  interviewerImageSrc?: string | null;
+  onAnswerFinalized: (answer: AnswerItem) => void;
   onFinish: (answers: AnswerItem[]) => void;
 }) {
   const [index, setIndex] = useState(0);
@@ -207,27 +211,33 @@ export default function InterviewView({
     }
   }
 
+  function buildAnswer(item: Question): AnswerItem {
+    const transcript = (transcripts[item.question_id] ?? "").trim();
+    const metrics = speechMetrics[item.question_id];
+    const stt = sttStates[item.question_id] ?? {
+      status: "not_attempted" as SttStatus,
+      error: null,
+    };
+    return {
+      question_id: item.question_id,
+      question: item.text,
+      original_question: item.original_text ?? item.text,
+      category: item.category,
+      transcript,
+      stt_status: stt.status,
+      stt_error: stt.error,
+      eye_tracking: eyeTracking[item.question_id] ?? null,
+      speech_metrics: metrics ? addTranscriptRate(metrics, transcript) : null,
+    };
+  }
+
   function submit() {
-    const items: AnswerItem[] = questions.map((item) => {
-      const transcript = (transcripts[item.question_id] ?? "").trim();
-      const metrics = speechMetrics[item.question_id];
-      const stt = sttStates[item.question_id] ?? {
-        status: "not_attempted" as SttStatus,
-        error: null,
-      };
-      return {
-        question_id: item.question_id,
-        question: item.text,
-        original_question: item.original_text ?? item.text,
-        category: item.category,
-        transcript,
-        stt_status: stt.status,
-        stt_error: stt.error,
-        eye_tracking: eyeTracking[item.question_id] ?? null,
-        speech_metrics: metrics ? addTranscriptRate(metrics, transcript) : null,
-      };
-    });
-    onFinish(items);
+    onFinish(questions.map(buildAnswer));
+  }
+
+  function goToNextQuestion() {
+    onAnswerFinalized(buildAnswer(question));
+    setIndex((value) => Math.min(questions.length - 1, value + 1));
   }
 
   return (
@@ -253,7 +263,10 @@ export default function InterviewView({
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
         <div className="flex min-w-0 justify-center">
-          <InterviewerStage className="w-full max-w-full lg:w-[48rem]">
+          <InterviewerStage
+            className="w-full max-w-full lg:w-[48rem]"
+            imageSrc={interviewerImageSrc}
+          >
             {debugGaze && (
               <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} verbose={debugGaze} />
             )}
@@ -380,7 +393,7 @@ export default function InterviewView({
         ) : (
           <button
             type="button"
-            onClick={() => setIndex((value) => Math.min(questions.length - 1, value + 1))}
+            onClick={goToNextQuestion}
             disabled={isRecording || isTranscribing}
             className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
           >
