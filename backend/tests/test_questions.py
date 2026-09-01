@@ -63,7 +63,14 @@ def test_excludes_experienced_questions_from_new_applicant_pool() -> None:
         )
 
 
-def test_questions_endpoint_returns_raw_questions_and_metadata() -> None:
+def test_questions_endpoint_returns_raw_questions_and_metadata(
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setattr(
+        questions_router,
+        "personalize_question",
+        lambda _profile, _essay, question: question.text,
+    )
     profile: dict[str, Any] = {
         "name": "홍길동",
         "job": "백엔드 개발자",

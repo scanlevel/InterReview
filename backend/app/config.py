@@ -7,9 +7,17 @@ documents every supported key.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+LLMProvider = Literal["anthropic", "gemini"]
+
+_DEFAULT_ANTHROPIC_EVAL_MODEL = "claude-sonnet-5"
+_DEFAULT_ANTHROPIC_PERSONALIZE_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_GEMINI_EVAL_MODEL = "gemma-4-31b-it"
+_DEFAULT_GEMINI_PERSONALIZE_MODEL = "gemma-4-31b-it"
 
 
 class Settings(BaseSettings):
@@ -44,10 +52,34 @@ class Settings(BaseSettings):
     # generous. Tune via CLOVA_SPEECH_TIMEOUT.
     clova_speech_timeout: float = Field(default=180.0, alias="CLOVA_SPEECH_TIMEOUT")
 
-    # --- LLM (evaluation / personalization) — filled in during the LLM port ---
+    # --- LLM (evaluation / personalization) ---
+    llm_provider: LLMProvider = Field(default="anthropic", alias="LLM_PROVIDER")
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
-    eval_model: str = Field(default="claude-sonnet-5", alias="EVAL_MODEL")
-    personalize_model: str = Field(default="claude-haiku-4-5-20251001", alias="PERSONALIZE_MODEL")
+    gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
+    eval_model: str | None = Field(default=None, alias="EVAL_MODEL")
+    personalize_model: str | None = Field(default=None, alias="PERSONALIZE_MODEL")
+
+    @field_validator("eval_model", "personalize_model", mode="before")
+    @classmethod
+    def _empty_model_is_unset(cls, value: object) -> object:
+        """Treat an empty .env model value as the provider default."""
+        if value is None or not str(value).strip():
+            return None
+        return str(value).strip()
+
+    @model_validator(mode="after")
+    def _apply_provider_model_defaults(self) -> "Settings":
+        if self.llm_provider == "gemini":
+            self.eval_model = self.eval_model or _DEFAULT_GEMINI_EVAL_MODEL
+            self.personalize_model = (
+                self.personalize_model or _DEFAULT_GEMINI_PERSONALIZE_MODEL
+            )
+        else:
+            self.eval_model = self.eval_model or _DEFAULT_ANTHROPIC_EVAL_MODEL
+            self.personalize_model = (
+                self.personalize_model or _DEFAULT_ANTHROPIC_PERSONALIZE_MODEL
+            )
+        return self
 
 
 @lru_cache
