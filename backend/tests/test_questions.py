@@ -23,19 +23,31 @@ client = TestClient(app)
 
 def test_generates_one_question_per_group() -> None:
     questions = generate_questions(seed=42)
+    expected_groups = (
+        "resume",
+        "motivation_commitment",
+        "job_technology",
+        "problem_solving",
+        "collaboration_organization",
+        "values_personality",
+    )
 
     assert len(questions) == len(GROUPS) == 6
+    assert tuple(group_id for group_id, _ in GROUPS) == expected_groups
     assert [question.id for question in questions] == [
         f"q{index}" for index in range(1, 7)
     ]
     assert len({question.id for question in questions}) == 6
     assert len({question.question_id for question in questions}) == 6
     assert len({question.text for question in questions}) == 6
-    assert [question.rule_group for question in questions] == [
-        group_id for group_id, _ in GROUPS
-    ]
+    assert [question.rule_group for question in questions] == list(expected_groups)
     assert [question.category for question in questions] == [
-        group_name for _, group_name in GROUPS
+        "자기소개·이력",
+        "지원동기·직무몰입",
+        "직무·기술",
+        "문제 해결",
+        "협업·조직생활",
+        "가치관·성향",
     ]
     assert all(question.original_text == question.text for question in questions)
     assert all(question.source_file is None for question in questions)

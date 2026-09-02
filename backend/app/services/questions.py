@@ -23,11 +23,11 @@ NEW_QUESTION_BANK_ROOT = QUESTION_BANK_ROOT / "new"
 
 GROUPS = (
     ("resume", "자기소개·이력"),
-    ("values_personality", "가치관·성향"),
+    ("motivation_commitment", "지원동기·직무몰입"),
     ("job_technology", "직무·기술"),
     ("problem_solving", "문제 해결"),
     ("collaboration_organization", "협업·조직생활"),
-    ("motivation_commitment", "지원동기·직무몰입"),
+    ("values_personality", "가치관·성향"),
 )
 _GROUP_IDS = {group_id for group_id, _ in GROUPS}
 ROLE_SCOPED_GROUPS = frozenset({"job_technology", "problem_solving"})
