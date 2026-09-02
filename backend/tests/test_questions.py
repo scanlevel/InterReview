@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -12,6 +13,7 @@ from app.schemas import Question
 from app.services.questions import (
     GROUPS,
     _load_group_questions,
+    _role_filtered_candidates,
     generate_questions,
     has_experienced_context,
 )
@@ -41,6 +43,7 @@ def test_generates_one_question_per_group() -> None:
 
 
 def test_seed_is_reproducible() -> None:
+    """Same code, input, and seed are deterministic after candidate capping."""
     first = generate_questions(seed=123)
     second = generate_questions(seed=123)
 
@@ -153,7 +156,13 @@ def test_role_filter_runs_before_personalization(
         original_text="원문 질문?",
     )
 
-    def fake_generate_questions(*, seed: int | None, job_role: Any) -> list[Question]:
+    def fake_generate_questions(
+        *,
+        seed: int | None,
+        job_role: Any,
+        profile: dict[str, Any] | None = None,
+        essay: str | None = None,
+    ) -> list[Question]:
         events.append(("select", job_role))
         return [source_question]
 
@@ -174,3 +183,122 @@ def test_role_filter_runs_before_personalization(
         ("select", "프론트엔드 개발자"),
         ("personalize", "job_technology"),
     ]
+
+
+def _scoped_candidate(
+    text: str,
+    backend_priority: str,
+) -> dict[str, Any]:
+    return {
+        "question": text,
+        "answer_intent": {"category": "technology", "expression": "topic"},
+        "role_scopes": ["backend", "devops"],
+        "role_priority": {"backend": backend_priority, "devops": "primary"},
+    }
+
+
+def test_role_priority_metadata_is_complete() -> None:
+    for group_id in ("job_technology", "problem_solving"):
+        for row in _load_group_questions(group_id):
+            scopes = row.get("role_scopes") or []
+            if len(scopes) > 1:
+                priority = row.get("role_priority")
+                assert isinstance(priority, dict)
+                assert set(priority) == set(scopes)
+                assert set(priority.values()) <= {"primary", "secondary"}
+                assert "primary" in priority.values()
+
+    database_row = next(
+        row
+        for row in _load_group_questions("problem_solving")
+        if set(row.get("role_scopes") or ()) == {"backend", "database", "data_ai"}
+    )
+    assert database_row["role_priority"]["backend"] == "primary"
+    assert database_row["role_priority"]["database"] == "primary"
+
+
+def test_matched_secondary_is_capped_by_three_and_primary_count() -> None:
+    primary = [
+        _scoped_candidate(f"REST API primary {index}?", "primary")
+        for index in range(10)
+    ]
+    secondary = [
+        _scoped_candidate(f"Docker secondary {index}?", "secondary")
+        for index in range(5)
+    ]
+
+    filtered = _role_filtered_candidates(
+        "job_technology",
+        primary + secondary,
+        frozenset({"backend"}),
+        random.Random(4),
+        {"technologies": "Docker"},
+    )
+
+    assert len(filtered) == 13
+    assert filtered[:10] == primary
+    assert all(item in secondary for item in filtered[10:])
+
+
+def test_matched_secondary_cap_is_never_larger_than_one_primary() -> None:
+    candidates = [
+        _scoped_candidate("REST API primary?", "primary"),
+        *(_scoped_candidate(f"Docker secondary {index}?", "secondary") for index in range(5)),
+    ]
+
+    filtered = _role_filtered_candidates(
+        "job_technology",
+        candidates,
+        frozenset({"backend"}),
+        random.Random(5),
+        {"technologies": "Docker"},
+    )
+
+    assert len(filtered) == 2
+
+
+def test_unmatched_secondary_is_excluded_but_profile_match_is_allowed() -> None:
+    candidates = list(_load_group_questions("job_technology"))
+    docker = next(row for row in candidates if row["question"].startswith("Docker"))
+
+    without_docker = _role_filtered_candidates(
+        "job_technology", candidates, frozenset({"backend"}), random.Random(1), {}
+    )
+    with_docker = _role_filtered_candidates(
+        "job_technology",
+        candidates,
+        frozenset({"backend"}),
+        random.Random(1),
+        {"technologies": "Docker"},
+    )
+
+    assert docker not in without_docker
+    assert docker in with_docker
+
+
+def test_devops_treats_docker_as_primary() -> None:
+    candidates = list(_load_group_questions("job_technology"))
+    docker = next(row for row in candidates if row["question"].startswith("Docker"))
+
+    filtered = _role_filtered_candidates(
+        "job_technology", candidates, frozenset({"devops"}), random.Random(1)
+    )
+
+    assert docker in filtered
+
+
+def test_no_primary_uses_related_secondary() -> None:
+    candidates = [
+        _scoped_candidate("Docker secondary 1?", "secondary"),
+        _scoped_candidate("Docker secondary 2?", "secondary"),
+    ]
+
+    filtered = _role_filtered_candidates(
+        "job_technology",
+        candidates,
+        frozenset({"backend"}),
+        random.Random(1),
+        {"technologies": "Docker"},
+    )
+
+    assert filtered == candidates

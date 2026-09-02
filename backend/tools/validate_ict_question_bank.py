@@ -37,6 +37,7 @@ SERVICE_GROUPS = (
 EXPECTED_ITEM_KEYS = {"question", "answer_intent"}
 EXPECTED_INTENT_KEYS = {"category", "expression"}
 ROLE_SCOPED_GROUPS = frozenset({"job_technology", "problem_solving"})
+ROLE_PRIORITY_VALUES = frozenset({"primary", "secondary"})
 ROLE_SCOPES = frozenset(
     {
         "common",
@@ -105,12 +106,15 @@ def collect_entries(bank_root: Path) -> tuple[list[QuestionEntry], list[str]]:
             if not isinstance(item, dict):
                 errors.append(f"문항이 객체가 아닙니다: {file_name}:{index}")
                 continue
-            expected_item_keys = (
-                EXPECTED_ITEM_KEYS | {"role_scopes"}
-                if group_id in ROLE_SCOPED_GROUPS
-                else EXPECTED_ITEM_KEYS
-            )
-            if set(item) not in (EXPECTED_ITEM_KEYS, expected_item_keys):
+            if group_id in ROLE_SCOPED_GROUPS:
+                expected_item_keys = EXPECTED_ITEM_KEYS | {"role_scopes"}
+                role_scopes_for_keys = item.get("role_scopes")
+                if isinstance(role_scopes_for_keys, list) and len(role_scopes_for_keys) > 1:
+                    expected_item_keys |= {"role_priority"}
+                allowed_item_keys = (EXPECTED_ITEM_KEYS, expected_item_keys)
+            else:
+                allowed_item_keys = (EXPECTED_ITEM_KEYS,)
+            if set(item) not in allowed_item_keys:
                 errors.append(f"문항 필드가 최소 스키마와 다릅니다: {file_name}:{index}")
             question = item.get("question")
             answer_intent = item.get("answer_intent")
@@ -140,6 +144,22 @@ def collect_entries(bank_root: Path) -> tuple[list[QuestionEntry], list[str]]:
                 )
             ):
                 errors.append(f"role_scopes 형식 오류: {file_name}:{index}")
+                continue
+            role_priority = item.get("role_priority")
+            if isinstance(role_scopes, list) and len(role_scopes) > 1:
+                if (
+                    not isinstance(role_priority, dict)
+                    or set(role_priority) != set(role_scopes)
+                    or not all(
+                        isinstance(value, str) and value in ROLE_PRIORITY_VALUES
+                        for value in role_priority.values()
+                    )
+                    or "primary" not in role_priority.values()
+                ):
+                    errors.append(f"role_priority 형식 오류: {file_name}:{index}")
+                    continue
+            elif role_priority is not None:
+                errors.append(f"role_priority 형식 오류: {file_name}:{index}")
                 continue
             entries.append(
                 QuestionEntry(

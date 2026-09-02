@@ -26,6 +26,8 @@ def create_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsResp
         questions = generate_questions(
             seed=request.seed,
             job_role=job_role,
+            profile=profile,
+            essay=essay,
         )
     except QuestionBankError as error:
         raise HTTPException(status_code=500, detail=str(error)) from error

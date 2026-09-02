@@ -71,6 +71,10 @@ def test_returns_personalized_text(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ORIGINAL_TEXT in captured["user"]
     assert "FastAPI" in captured["user"]
     assert "주문 처리 프로젝트" in captured["user"]
+    assert "target role: 백엔드" in captured["user"]
+    assert "subcategory: 자기소개·이력::프로젝트" in captured["user"]
+    assert "answer_intent.category: 자기소개·이력" in captured["user"]
+    assert "answer_intent.expression: 프로젝트" in captured["user"]
 
 
 # --- failure fallbacks (never raise, return the original text) --------------
@@ -221,3 +225,115 @@ def test_personalize_questions_not_configured_returns_input_without_calls(
 
     monkeypatch.setattr(personalize_service, "personalize_question", unexpected_call)
     assert personalize_service.personalize_questions({}, None, questions) is questions
+
+
+def _technical_question(
+    rule_group: str = "job_technology",
+    text: str = "Docker를 사용해 본 경험이 있다면 어떤 점을 고려했나요?",
+    subcategory: str = "technology::i_hwsw_prfi",
+) -> Question:
+    return Question(
+        id="q-tech",
+        question_id="technical-question",
+        category="직무·기술" if rule_group == "job_technology" else "문제 해결",
+        rule_group=rule_group,
+        subcategory=subcategory,
+        text=text,
+    )
+
+
+def test_job_technology_without_profile_topic_skips_llm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _stub_llm(monkeypatch, "개인화되면 안 되는 질문?")
+
+    result = personalize_service.personalize_question(
+        {"technologies": "Docker"}, None, _technical_question(
+            text="팀에서 기술을 선택한 기준은 무엇인가요?",
+            subcategory="attitude::general",
+        )
+    )
+
+    assert result == "팀에서 기술을 선택한 기준은 무엇인가요?"
+    assert captured["calls"] == 0
+
+
+def test_job_technology_with_profile_topic_calls_llm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _stub_llm(monkeypatch, "Docker 활용 경험은 무엇인가요?")
+
+    result = personalize_service.personalize_question(
+        {"technologies": "Docker"}, None, _technical_question()
+    )
+
+    assert result == "Docker 활용 경험은 무엇인가요?"
+    assert captured["calls"] == 1
+
+
+def test_technical_problem_solving_without_profile_match_keeps_original(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _stub_llm(monkeypatch, "개인화되면 안 되는 질문?")
+    question = _technical_question(
+        "problem_solving",
+        "Docker 배포 중 장애를 어떻게 분석했나요?",
+        "technology::docker",
+    )
+
+    result = personalize_service.personalize_question(
+        {"technologies": "database"}, None, question
+    )
+
+    assert result == question.text
+    assert captured["calls"] == 0
+
+
+def test_generic_problem_solving_keeps_existing_personalization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _stub_llm(monkeypatch, "어떤 문제를 해결했는지 설명해 주세요?")
+    question = _technical_question(
+        "problem_solving",
+        "프로젝트에서 발생한 문제를 해결한 경험을 설명해 주세요?",
+        "problem_solving::general",
+    )
+
+    result = personalize_service.personalize_question(
+        {"technologies": "Docker"}, None, question
+    )
+
+    assert result == "어떤 문제를 해결했는지 설명해 주세요?"
+    assert captured["calls"] == 1
+
+
+def test_new_registered_profile_token_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _stub_llm(
+        monkeypatch, "Docker와 Kubernetes를 사용한 경험은 무엇인가요?"
+    )
+    question = _technical_question()
+
+    result = personalize_service.personalize_question(
+        {"technologies": "Docker"}, None, question
+    )
+
+    assert result == question.text
+    assert captured["calls"] == 1
+
+
+def test_malformed_and_missing_subcategory_do_not_break_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    malformed = _question().model_copy(update={"subcategory": "malformed"})
+    captured = _stub_llm(monkeypatch, "개인화된 질문?")
+    assert personalize_service.personalize_question({}, None, malformed) == "개인화된 질문?"
+    assert "- subcategory: malformed" in captured["user"]
+    assert "answer_intent.category:" not in captured["user"]
+
+    missing = _question().model_copy(update={"subcategory": ""})
+    captured = _stub_llm(monkeypatch, "다시 개인화된 질문?")
+    assert personalize_service.personalize_question({}, None, missing) == "다시 개인화된 질문?"
+    assert "- subcategory:" not in captured["user"]
+    assert "answer_intent.category:" not in captured["user"]

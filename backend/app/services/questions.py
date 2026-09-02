@@ -6,11 +6,13 @@ import hashlib
 import json
 import os
 import random
+from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from app.schemas import Question
+from app.services.question_relevance import is_profile_related
 
 # backend/app/services/questions.py -> parents[2] == backend/
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -42,6 +44,7 @@ ROLE_SCOPES = frozenset(
         "mobile",
     }
 )
+ROLE_PRIORITY_VALUES = frozenset({"primary", "secondary"})
 # ponytail: conservative free-text mapping; use explicit canonical scopes if coverage grows.
 _ROLE_SCOPE_ALIASES = {
     "common": ("common", "공통", "일반"),
@@ -62,7 +65,7 @@ _ROLE_SCOPE_ALIASES = {
         "데이터 분석",
         "데이터 엔지니어",
     ),
-    "database": ("database", "data base", "dba", "sql", "데이터베이스"),
+    "database": ("database", "data base", "db", "dba", "sql", "데이터베이스"),
     "security": ("security", "cyber", "보안", "정보보안", "정보 보호"),
     "infra_cloud": (
         "infra_cloud",
@@ -170,6 +173,7 @@ def _load_group_questions(group_id: str) -> tuple[dict[str, Any], ...]:
     for index, item in enumerate(payload, start=1):
         intent = item.get("answer_intent") if isinstance(item, dict) else None
         role_scopes = item.get("role_scopes") if isinstance(item, dict) else None
+        role_priority = item.get("role_priority") if isinstance(item, dict) else None
         role_scopes_valid = role_scopes is None or (
             group_id in ROLE_SCOPED_GROUPS
             and isinstance(role_scopes, list)
@@ -179,6 +183,19 @@ def _load_group_questions(group_id: str) -> tuple[dict[str, Any], ...]:
                 for scope in role_scopes
             )
         )
+        role_priority_valid = role_priority is None
+        if role_scopes_valid and isinstance(role_scopes, list) and len(role_scopes) > 1:
+            role_priority_valid = (
+                isinstance(role_priority, dict)
+                and set(role_priority) == set(role_scopes)
+                and all(
+                    isinstance(value, str) and value in ROLE_PRIORITY_VALUES
+                    for value in role_priority.values()
+                )
+                and "primary" in role_priority.values()
+            )
+        elif role_priority is not None:
+            role_priority_valid = False
         if (
             not isinstance(item, dict)
             or not isinstance(item.get("question"), str)
@@ -187,6 +204,7 @@ def _load_group_questions(group_id: str) -> tuple[dict[str, Any], ...]:
             or not isinstance(intent.get("category"), str)
             or not isinstance(intent.get("expression"), str)
             or not role_scopes_valid
+            or not role_priority_valid
         ):
             raise QuestionBankError(f"질문은행 문항 형식이 올바르지 않습니다: {path}:{index}")
     return tuple(payload)
@@ -196,6 +214,9 @@ def _role_filtered_candidates(
     group_id: str,
     candidates: list[dict[str, Any]],
     requested_scopes: frozenset[str],
+    rng: random.Random | None = None,
+    profile: Mapping[str, Any] | None = None,
+    essay: str | None = None,
 ) -> list[dict[str, Any]]:
     if group_id not in ROLE_SCOPED_GROUPS:
         return candidates
@@ -207,13 +228,49 @@ def _role_filtered_candidates(
             if set(item.get("role_scopes") or ()) & requested_scopes
         ]
         if matching:
-            return matching
+            primary: list[dict[str, Any]] = []
+            secondary: list[dict[str, Any]] = []
+            for item in matching:
+                scopes = set(item.get("role_scopes") or ())
+                if len(scopes) <= 1:
+                    primary.append(item)
+                    continue
+                priorities = item.get("role_priority") or {}
+                # Runtime loading rejects malformed metadata; keep direct helper
+                # callers compatible with pre-priority candidate dictionaries.
+                if not priorities:
+                    primary.append(item)
+                    continue
+                matched_priorities = [
+                    priorities.get(scope)
+                    for scope in requested_scopes
+                    if scope in scopes
+                ]
+                if "primary" in matched_priorities:
+                    primary.append(item)
+                elif "secondary" in matched_priorities and is_profile_related(
+                    _candidate_relevance_text(item), profile, essay
+                ):
+                    secondary.append(item)
+
+            if primary:
+                secondary_limit = min(3, len(primary))
+                if len(secondary) > secondary_limit:
+                    secondary = (rng or random.Random()).sample(
+                        secondary, secondary_limit
+                    )
+                return primary + secondary
+            if secondary:
+                return secondary
 
     common = [
         item for item in candidates if "common" in (item.get("role_scopes") or ())
     ]
     if common:
         return common
+
+    if requested_scopes:
+        return []
 
     multi_scope = [
         item
@@ -225,12 +282,27 @@ def _role_filtered_candidates(
     return candidates
 
 
+def _candidate_relevance_text(item: dict[str, Any]) -> str:
+    intent = item.get("answer_intent") or {}
+    return " ".join(
+        str(value)
+        for value in (
+            item.get("question", ""),
+            intent.get("category", ""),
+            intent.get("expression", ""),
+        )
+        if value
+    )
+
+
 def _pick_group_question(
     group_id: str,
     used_ids: set[str],
     used_texts: set[str],
     rng: random.Random,
     requested_scopes: frozenset[str] = frozenset(),
+    profile: Mapping[str, Any] | None = None,
+    essay: str | None = None,
 ) -> dict[str, Any]:
     candidates = [
         item
@@ -242,13 +314,21 @@ def _pick_group_question(
         group_id,
         candidates,
         requested_scopes,
+        rng,
+        profile,
+        essay,
     )
     if not candidates:
         raise QuestionBankError(f"질문 그룹에 사용 가능한 문항이 없습니다: {group_id}")
     return rng.choice(candidates)
 
 
-def generate_questions(seed: int | None = None, job_role: Any = None) -> list[Question]:
+def generate_questions(
+    seed: int | None = None,
+    job_role: Any = None,
+    profile: Mapping[str, Any] | None = None,
+    essay: str | None = None,
+) -> list[Question]:
     """Generate one random new-applicant question from each service group."""
     rng = random.Random(seed) if seed is not None else random.SystemRandom()
     used_ids: set[str] = set()
@@ -262,6 +342,8 @@ def generate_questions(seed: int | None = None, job_role: Any = None) -> list[Qu
             used_texts,
             rng,
             requested_scopes,
+            profile,
+            essay,
         )
         answer_intent = source["answer_intent"]
         text = source["question"]
