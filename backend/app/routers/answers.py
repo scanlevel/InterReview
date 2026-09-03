@@ -1,4 +1,4 @@
-"""``/answers/review`` route for content-only answer review."""
+"""``/answers/review`` route for B-owned answer coaching."""
 
 from __future__ import annotations
 
@@ -12,10 +12,17 @@ router = APIRouter(tags=["answers"])
 
 @router.post("/answers/review", response_model=AnswerReview)
 def review(request: AnswerReviewRequest) -> AnswerReview:
-    """Review one answer and always return HTTP 200.
-
-    The service converts every failure into ``unavailable``, so this route does
-    not need exception translation.  ``profile`` remains in the API contract
-    but is not passed because the current review prompt does not use it.
-    """
-    return review_answer(request.question, request.transcript, request.essay)
+    """Review one answer and keep LLM failures local to that question."""
+    return review_answer(
+        request.original_question
+        or request.personalized_question
+        or request.question
+        or "",
+        request.personalized_question
+        or request.original_question
+        or request.question
+        or "",
+        request.transcript,
+        request.essay,
+        request.profile,
+    )

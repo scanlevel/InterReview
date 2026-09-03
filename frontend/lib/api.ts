@@ -39,6 +39,16 @@ export async function getHealth(): Promise<HealthResponse> {
   return (await res.json()) as HealthResponse;
 }
 
+export async function getInterviewerImages(): Promise<string[]> {
+  const res = await fetch("/interviewer-images", { cache: "no-store" });
+  if (!res.ok) throw new Error(`면접관 이미지 목록 실패: HTTP ${res.status}`);
+
+  const body = (await res.json()) as { images?: unknown };
+  return Array.isArray(body.images)
+    ? body.images.filter((image): image is string => typeof image === "string")
+    : [];
+}
+
 export function generateQuestions(
   profile: Profile,
   seed?: number,
@@ -52,13 +62,14 @@ export function getMeasurementReport(
   return postJson<MeasurementReport>("/measurements", { answers });
 }
 
-/** Call the Track A per-question review contract; A owns the implementation. */
+/** Call the B-owned per-question transcript coaching contract. */
 export function reviewAnswer(
   answer: AnswerItem,
   profile: Profile,
 ): Promise<AnswerReview> {
   return postJson<AnswerReview>("/answers/review", {
-    question: answer.question,
+    original_question: answer.original_question ?? answer.question,
+    personalized_question: answer.question,
     transcript: answer.transcript,
     essay: profile.resume_text ?? null,
     profile,

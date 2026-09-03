@@ -76,18 +76,10 @@ export interface AnswerItem {
   speech_metrics?: SpeechMetrics | null;
 }
 
-export type AnswerStatus =
-  | "good"
-  | "partial"
-  | "off_topic"
-  | "insufficient"
-  | "unavailable";
-
 export interface AnswerReview {
-  answer_status: AnswerStatus;
-  reason: string;
-  missing_points: string[];
-  follow_up_question: string | null;
+  summary: string;
+  strengths: string[];
+  improvements: string[];
 }
 
 export interface MeasurementSummary {
@@ -129,7 +121,7 @@ export interface TranscriptResponse {
   segment_count?: number | null;
 }
 
-// --- Track A: 자소서 분석 -----------------------------------------------------
+// --- 자소서 분석 -------------------------------------------------------------
 
 export interface EssayWeakness {
   description: string;

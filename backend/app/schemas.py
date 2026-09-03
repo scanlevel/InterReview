@@ -1,7 +1,7 @@
 """Pydantic contracts for the Track B interview flow.
 
-Vision and audio fields are measurements, not scores.  Answer-content review
-is supplied by Track A when that contract is connected.
+Vision and audio fields are measurements, not scores. Answer review is a
+short, transcript-grounded coaching response without a numeric evaluation.
 """
 
 from __future__ import annotations
@@ -121,18 +121,12 @@ class TranscriptResponse(BaseModel):
     segment_count: int | None = None
 
 
-AnswerStatus = Literal[
-    "good", "partial", "off_topic", "insufficient", "unavailable"
-]
-
-
 class AnswerReview(BaseModel):
-    """Content-only review of one interview answer, without a numeric score."""
+    """Transcript-grounded coaching for one interview answer."""
 
-    answer_status: AnswerStatus
-    reason: str
-    missing_points: list[str]
-    follow_up_question: str | None
+    summary: str = Field(min_length=1, max_length=2_000)
+    strengths: list[str] = Field(default_factory=list, max_length=10)
+    improvements: list[str] = Field(default_factory=list, max_length=10)
 
 
 class MeasurementSummary(BaseModel):
@@ -215,14 +209,22 @@ class EssayAnalyzeRequest(BaseModel):
     profile: dict[str, Any] = Field(default_factory=dict)
 
 
-# --- Track B 중 A 담당: 답변 내용 판별 ----------------------------------------
+# --- Track B: 답변 내용 coaching ---------------------------------------------
 
 class AnswerReviewRequest(BaseModel):
     """Payload for ``POST /answers/review``."""
 
+    original_question: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1_000)
+    ] | None = None
+    personalized_question: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1_000)
+    ] | None = None
+    # Request-only compatibility for older clients. It is normalized below and
+    # never returned in AnswerReview.
     question: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1_000)
-    ]
+    ] | None = None
     transcript: Annotated[
         str, StringConstraints(strip_whitespace=True, max_length=10_000)
     ]
@@ -231,3 +233,18 @@ class AnswerReviewRequest(BaseModel):
         | None
     ) = None
     profile: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def normalize_questions(self) -> "AnswerReviewRequest":
+        personalized = (
+            self.personalized_question or self.question or self.original_question
+        )
+        if not personalized:
+            raise ValueError(
+                "original_question 또는 personalized_question이 필요합니다."
+            )
+        if self.original_question is None:
+            self.original_question = personalized
+        if self.personalized_question is None:
+            self.personalized_question = personalized
+        return self

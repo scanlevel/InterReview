@@ -1,4 +1,4 @@
-"""Question personalization service (``plan.md`` §4.2, ``docs/plan-A.md`` §7).
+"""B-owned question personalization service using the shared LLM client.
 
 The selected question alone is sent to the LLM.  Every failure falls back to
 the original text so personalization can never interrupt an interview session.
@@ -14,6 +14,11 @@ from app.config import get_settings
 from app.prompts.personalize import PERSONALIZE_SYSTEM_PROMPT, build_user_prompt
 from app.schemas import Question
 from app.services import llm
+from app.services.question_relevance import (
+    extract_registered_tokens,
+    is_profile_related,
+    profile_registered_tokens,
+)
 from app.services.questions import has_experienced_context
 
 logger = logging.getLogger(__name__)
@@ -33,6 +38,52 @@ def _strip_outer_quotes(text: str) -> str:
     return text
 
 
+def _relevance_text(question: Question, original: str) -> str:
+    return " ".join(
+        part.strip()
+        for part in (original, question.subcategory or "")
+        if isinstance(part, str) and part.strip()
+    )
+
+
+def _has_technical_topic(question: Question, original: str) -> bool:
+    return bool(extract_registered_tokens(_relevance_text(question, original)))
+
+
+def _uses_relevance_gate(question: Question, original: str) -> bool:
+    if question.rule_group == "job_technology":
+        return True
+    return question.rule_group == "problem_solving" and _has_technical_topic(
+        question, original
+    )
+
+
+def _parse_answer_intent(subcategory: str | None) -> dict[str, str] | None:
+    if not isinstance(subcategory, str) or not subcategory.strip():
+        return None
+    category, separator, expression = subcategory.partition("::")
+    if (
+        separator
+        and subcategory.count("::") == 1
+        and category.strip()
+        and expression.strip()
+    ):
+        return {"category": category.strip(), "expression": expression.strip()}
+    return None
+
+
+def _has_new_registered_token(
+    original: str,
+    personalized: str,
+    profile: dict[str, Any] | None,
+    essay: str | None,
+) -> bool:
+    allowed = extract_registered_tokens(original) | profile_registered_tokens(
+        profile, essay
+    )
+    return not extract_registered_tokens(personalized) <= allowed
+
+
 def personalize_question(
     profile: dict[str, Any],
     essay: str | None,
@@ -43,18 +94,42 @@ def personalize_question(
     No additional retry loop is needed here: the shared Anthropic client uses
     ``max_retries=2`` for transient transport failures (``plan-A`` §7.3).
     """
-    original = question.text
+    original = question.original_text or question.text
 
     try:
+        relevance_gate = _uses_relevance_gate(question, original)
+        relevance_text = _relevance_text(question, original)
+        if relevance_gate and not is_profile_related(relevance_text, profile, essay):
+            return original
         if not llm.is_configured():
             logger.warning("질문 개인화 fallback: LLM이 설정되지 않았습니다.")
             return original
 
         settings = get_settings()
+        subcategory = question.subcategory
+        answer_intent = _parse_answer_intent(subcategory)
+        target_role = None
+        if profile:
+            target_role = profile.get("job_role") or profile.get("job")
+            if isinstance(target_role, (list, tuple, set, frozenset)):
+                target_role = ", ".join(
+                    str(value) for value in target_role if str(value).strip()
+                )
         result = llm.call_text(
             model=settings.personalize_model,
             system=PERSONALIZE_SYSTEM_PROMPT,
-            user=build_user_prompt(original, profile, essay),
+            user=build_user_prompt(
+                original,
+                profile,
+                essay,
+                target_role=target_role if isinstance(target_role, str) else None,
+                subcategory=(
+                    subcategory.strip()
+                    if isinstance(subcategory, str) and subcategory.strip()
+                    else None
+                ),
+                answer_intent=answer_intent,
+            ),
             effort="low",
         )
         personalized = _strip_outer_quotes(" ".join(result.split()))
@@ -64,6 +139,12 @@ def personalize_question(
             or len(personalized) > _MAX_LENGTH
             or has_experienced_context(personalized)
             or not personalized.endswith(_QUESTION_MARKS)
+            or sum(personalized.count(mark) for mark in _QUESTION_MARKS) != 1
+            or any(mark in personalized[:-1] for mark in ("!", "！", "。"))
+            or (
+                relevance_gate
+                and _has_new_registered_token(original, personalized, profile, essay)
+            )
         ):
             logger.warning("질문 개인화 fallback: LLM 응답 검증에 실패했습니다.")
             return original

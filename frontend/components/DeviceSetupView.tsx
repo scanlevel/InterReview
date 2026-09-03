@@ -79,9 +79,11 @@ type CalibrationGuide = "moving" | "static" | null;
 type SttState = "idle" | "recording" | "checking" | "review" | "success" | "failed" | "skipped";
 
 export default function DeviceSetupView({
+  interviewerImageSrc,
   onReady,
   onCancel,
 }: {
+  interviewerImageSrc?: string | null;
   onReady: (result: DeviceSetupResult) => void;
   onCancel: () => void;
 }) {
@@ -551,6 +553,17 @@ export default function DeviceSetupView({
     }
   }
 
+  function skipSttTest() {
+    const recorder = recorderRef.current;
+    if (sttState === "recording" && recorder?.isRecording()) {
+      void recorder.stop().catch(() => undefined);
+    }
+    recorderRef.current = null;
+    setSttTranscript("");
+    setSttMessage(null);
+    setSttState("skipped");
+  }
+
   function skipCalibration() {
     calibrationRunRef.current += 1;
     calibrationCancelRef.current?.();
@@ -649,6 +662,7 @@ export default function DeviceSetupView({
             <InterviewerStage
               className="w-full"
               showLabel={calibrationState !== "running"}
+              imageSrc={interviewerImageSrc}
             >
               {calibrationState !== "running" && (
                 <GazeDebugOverlay
@@ -779,13 +793,18 @@ export default function DeviceSetupView({
           >
             {sttState === "recording" ? "녹음 중지하고 확인" : "음성 테스트 시작"}
           </button>
-          {(sttState === "failed" || sttState === "review") && (
+          {sttState !== "success" && sttState !== "skipped" && (
             <button
               type="button"
-              onClick={() => setSttState("skipped")}
+              onClick={skipSttTest}
+              disabled={
+                deviceState !== "ready" ||
+                sttState === "checking" ||
+                calibrationState === "running"
+              }
               className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700"
             >
-              STT 건너뛰기
+              {sttState === "recording" ? "녹음 건너뛰기" : "STT 건너뛰기"}
             </button>
           )}
         </div>

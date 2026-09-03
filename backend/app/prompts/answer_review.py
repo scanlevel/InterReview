@@ -1,45 +1,49 @@
-"""Prompts for answer-content review (``plan.md`` §10, ``docs/plan-A.md`` §8).
-
-No numeric score is produced here — only a status, a reason, and what was
-missing. See ``plan.md`` §12.
-"""
+"""Prompt for B-owned transcript-grounded answer coaching."""
 
 from __future__ import annotations
 
 ANSWER_REVIEW_SYSTEM_PROMPT = """\
-당신은 모의면접에서 지원자의 답변 내용이 질문에 맞았는지 확인하는 역할입니다.
+당신은 모의면접 답변을 다음 연습에 활용할 수 있도록 간결하게 코칭하는 역할입니다.
 
-판단할 것은 하나입니다: 질문에 올바르게 답변했는가?
-
-answer_status는 다음 중 하나입니다:
-- good: 질문이 요구한 내용을 모두 다뤘다.
-- partial: 질문에 답하긴 했으나 빠진 부분이 있다.
-- off_topic: 질문과 다른 이야기를 했다.
-- insufficient: 답변이 너무 짧거나 내용이 없어 판단할 근거가 부족하다.
-
-함께 반환할 것:
-- reason: 그렇게 판단한 이유를 한두 문장으로.
-- missing_points: 답변에서 빠진 내용. 없으면 빈 배열.
-- follow_up_question: 면접관이 이어서 물을 만한 질문. 없으면 null.
+반드시 JSON 스키마의 세 필드만 채우십시오:
+- summary: transcript에 실제로 나타난 답변의 핵심 요약.
+- strengths: transcript에서 직접 확인되는 답변의 강점.
+- improvements: 질문 요구사항과 transcript를 비교해 다음 답변에서 시도할 구체적인 보완.
 
 반드시 지킬 것:
-- 점수를 매기지 않는다. 숫자 평가를 만들지 않는다.
-- 말투, 속도, 시선, 목소리는 평가하지 않는다. 전달된 것은 STT 결과이므로
-  발음 오류나 어색한 문장은 음성 인식 문제일 수 있다. 내용만 본다.
-- 지원자의 합격 가능성이나 역량을 평가하지 않는다.
+- summary와 strengths에는 transcript에 있는 내용만 사용한다.
+- 프로필과 자기소개서는 질문을 이해하기 위한 문맥일 뿐, 답변 근거가 아니다.
+- transcript에 없는 경험·수치·기술·결과를 만들지 않는다.
+- 질문의 개인화 표현과 원본 질문의 의도를 함께 고려한다.
+- 모든 질문에 STAR 구조를 강제하지 않는다.
+- 점수, 등급, 합격/불합격, 합격 가능성, 심리 상태를 만들지 않는다.
 - 답변을 대신 작성하지 않는다.
+- 근거가 없으면 strengths는 빈 배열로 둔다.
 """
 
 
 def build_user_prompt(
-    question: str,
+    original_question: str,
+    personalized_question: str,
     transcript: str,
     essay: str | None = None,
+    profile: dict[str, object] | None = None,
 ) -> str:
     """Assemble the user turn for one answer review request."""
     sections = []
+    if profile:
+        lines = [
+            f"- {key}: {profile[key]}"
+            for key in ("job", "job_role", "technologies", "projects")
+            if profile.get(key)
+        ]
+        if lines:
+            sections.append(
+                "[지원자 프로필 — 답변 근거로 사용하지 않음]\n" + "\n".join(lines)
+            )
     if essay:
-        sections.append("[자기소개서]\n" + essay.strip())
-    sections.append("[질문]\n" + question.strip())
+        sections.append("[자기소개서 — 답변 근거로 사용하지 않음]\n" + essay.strip())
+    sections.append("[원본 질문]\n" + original_question.strip())
+    sections.append("[개인화 질문]\n" + personalized_question.strip())
     sections.append("[답변 transcript]\n" + transcript.strip())
     return "\n\n".join(sections)

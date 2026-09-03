@@ -72,10 +72,47 @@ class _FakeClient:
         self.messages = _FakeMessages(results)
 
 
+class _FakeGeminiModels:
+    def __init__(self, results: list[Any]) -> None:
+        self._results = list(results)
+        self.calls: list[dict[str, Any]] = []
+
+    def generate_content(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        result = self._results.pop(0) if self._results else None
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+
+class _FakeGeminiClient:
+    def __init__(self, results: list[Any]) -> None:
+        self.models = _FakeGeminiModels(results)
+
+
+class _FakeGeminiResponse:
+    def __init__(self, *, text: str = "", parsed: Any = None) -> None:
+        self.text = text
+        self.parsed = parsed
+
+
 def _install(monkeypatch: pytest.MonkeyPatch, *results: Any) -> _FakeClient:
     """Replace the cached client with a fake returning ``results`` in order."""
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
     client = _FakeClient(list(results))
     monkeypatch.setattr(llm, "get_client", lambda: client)
+    return client
+
+
+def _install_gemini(monkeypatch: pytest.MonkeyPatch, *results: Any) -> _FakeGeminiClient:
+    client = _FakeGeminiClient(list(results))
+    settings = type(
+        "S",
+        (),
+        {"llm_provider": "gemini", "gemini_api_key": "g-test"},
+    )()
+    monkeypatch.setattr(llm, "get_settings", lambda: settings)
+    monkeypatch.setattr(llm, "get_gemini_client", lambda: client)
     return client
 
 
@@ -97,9 +134,11 @@ def _isolated_caches() -> Any:
     """
     get_settings.cache_clear()
     llm.get_client.cache_clear()
+    llm.get_gemini_client.cache_clear()
     yield
     get_settings.cache_clear()
     llm.get_client.cache_clear()
+    llm.get_gemini_client.cache_clear()
 
 
 def test_get_client_without_key_raises(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -116,6 +155,25 @@ def test_is_configured_reflects_key(monkeypatch: pytest.MonkeyPatch) -> None:
         llm, "get_settings", lambda: type("S", (), {"anthropic_api_key": "sk-test"})()
     )
     assert llm.is_configured() is True
+
+
+def test_is_configured_reflects_gemini_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        llm,
+        "get_settings",
+        lambda: type("S", (), {"llm_provider": "gemini", "gemini_api_key": "g-test"})(),
+    )
+    assert llm.is_configured() is True
+
+
+def test_gemini_client_without_key_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        llm,
+        "get_settings",
+        lambda: type("S", (), {"llm_provider": "gemini", "gemini_api_key": None})(),
+    )
+    with pytest.raises(llm.LLMNotConfiguredError):
+        llm.get_gemini_client()
 
 
 # --- structured calls -------------------------------------------------------
@@ -212,3 +270,76 @@ def test_call_text_wraps_api_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     _install(monkeypatch, _bad_request())
     with pytest.raises(llm.LLMCallError):
         llm.call_text(model="m", system="s", user="u")
+
+
+# --- Gemini calls ----------------------------------------------------------
+
+
+def test_gemini_call_text_uses_provider_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _install_gemini(
+        monkeypatch, _FakeGeminiResponse(text="  개인화 질문?  ")
+    )
+    assert llm.call_text(model="gemini-model", system="system", user="user") == (
+        "개인화 질문?"
+    )
+    sent = client.models.calls[0]
+    assert sent["model"] == "gemini-model"
+    assert sent["contents"] == "user"
+    assert sent["config"] == {
+        "system_instruction": "system",
+        "max_output_tokens": llm.DEFAULT_TEXT_MAX_TOKENS,
+        "thinking_config": {"thinking_level": "minimal"},
+        "automatic_function_calling": {"disable": True},
+    }
+
+
+def test_gemini_call_structured_returns_validated_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _install_gemini(
+        monkeypatch,
+        _FakeGeminiResponse(text='{"value":"ok"}'),
+    )
+    result = llm.call_structured(
+        model="gemini-model", system="s", user="u", output_format=_Sample
+    )
+    assert result == _Sample(value="ok")
+    config = client.models.calls[0]["config"]
+    assert config["thinking_config"] == {"thinking_level": "minimal"}
+    assert config["automatic_function_calling"] == {"disable": True}
+    assert "response_mime_type" not in config
+    assert "response_schema" not in config
+    assert '"value"' in client.models.calls[0]["contents"]
+    assert '"type":"string"' in client.models.calls[0]["contents"]
+
+
+def test_gemini_structured_accepts_json_code_fence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_gemini(
+        monkeypatch,
+        _FakeGeminiResponse(text='```json\n{"value":"ok"}\n```'),
+    )
+    result = llm.call_structured(
+        model="gemini-model", system="s", user="u", output_format=_Sample
+    )
+    assert result == _Sample(value="ok")
+
+
+def test_gemini_structured_retries_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _install_gemini(
+        monkeypatch,
+        _FakeGeminiResponse(text="not json"),
+        _FakeGeminiResponse(parsed=_Sample(value="ok")),
+    )
+    result = llm.call_structured(
+        model="gemini-model", system="s", user="u", output_format=_Sample
+    )
+    assert result.value == "ok"
+    assert len(client.models.calls) == 2
+
+
+def test_gemini_api_error_is_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_gemini(monkeypatch, RuntimeError("boom"))
+    with pytest.raises(llm.LLMCallError, match="Gemini 호출"):
+        llm.call_text(model="gemini-model", system="s", user="u")
