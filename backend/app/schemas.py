@@ -105,6 +105,23 @@ class GenerateQuestionsResponse(BaseModel):
     questions: list[Question]
 
 
+class GroundedQuestion(BaseModel):
+    """Internal A/B contract for one input-grounded interview question."""
+
+    domain: Literal["resume", "job_technology"]
+    question: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+    ]
+    # This is an exact source span, not an LLM-generated summary.
+    evidence: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+class GroundedQuestionSet(BaseModel):
+    """Structured response envelope for the single grounded-question call."""
+
+    questions: list[GroundedQuestion] = Field(default_factory=list)
+
+
 class MeasurementRequest(BaseModel):
     """Payload for the B-owned measurement report endpoint."""
 

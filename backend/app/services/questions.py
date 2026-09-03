@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from app.schemas import Question
-from app.services.question_relevance import is_profile_related
+from app.services.question_relevance import is_profile_related, normalize_text
 
 # backend/app/services/questions.py -> parents[2] == backend/
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -31,6 +31,7 @@ GROUPS = (
 )
 _GROUP_IDS = {group_id for group_id, _ in GROUPS}
 ROLE_SCOPED_GROUPS = frozenset({"job_technology", "problem_solving"})
+GENERATED_GROUPS = frozenset({"resume", "job_technology"})
 ROLE_SCOPES = frozenset(
     {
         "common",
@@ -307,7 +308,8 @@ def _pick_group_question(
     candidates = [
         item
         for item in _load_group_questions(group_id)
-        if item["question"] not in used_texts
+        if normalize_text(item["question"]) not in used_texts
+        and item["question"] not in used_texts
         and _question_id(group_id, item) not in used_ids
     ]
     candidates = _role_filtered_candidates(
@@ -349,7 +351,7 @@ def generate_questions(
         text = source["question"]
         question_id = _question_id(group_id, source)
         used_ids.add(question_id)
-        used_texts.add(text)
+        used_texts.add(normalize_text(text))
         selected.append(
             Question(
                 id=f"q{index}",
@@ -366,3 +368,104 @@ def generate_questions(
             )
         )
     return selected
+
+
+def generated_question_id(domain: str, question: str) -> str:
+    """Return a process-independent identifier for a generated question."""
+    payload = f"{domain}:{normalize_text(question)}"
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+    return f"generated-{digest}"
+
+
+def build_generated_question(
+    *,
+    index: int,
+    group_id: str,
+    group_name: str,
+    question: str,
+) -> Question:
+    """Adapt an A-generated question to the unchanged public Question schema."""
+    return Question(
+        id=f"q{index}",
+        question_id=generated_question_id(group_id, question),
+        category=group_name,
+        rule_group=group_id,
+        subcategory=f"generated::{group_id}",
+        text=question,
+        original_text=question,
+        source_file=None,
+        occurrence_count=1,
+    )
+
+
+def resolve_question_duplicates(
+    questions: list[Question],
+    *,
+    bank_fallbacks: Mapping[str, Question],
+    generated_domains: set[str],
+) -> tuple[list[Question], frozenset[str]]:
+    """Resolve normalized duplicates with bank-first deterministic precedence.
+
+    Bank questions win over generated questions. Among generated questions, the
+    earlier current GROUPS order wins. Replacements are iterated so a generated
+    winner that collides with another domain's bank fallback is also safely
+    reverted. Existing bank-bank collisions caused by personalization restore
+    the later item to its original text.
+    """
+    current = list(questions)
+    active_generated = set(generated_domains)
+
+    for _ in range(len(current) + 1):
+        by_text: dict[str, list[int]] = {}
+        for index, question in enumerate(current):
+            normalized = normalize_text(question.text)
+            if normalized:
+                by_text.setdefault(normalized, []).append(index)
+
+        changed = False
+        for indexes in by_text.values():
+            if len(indexes) < 2:
+                continue
+            bank_indexes = [
+                index
+                for index in indexes
+                if current[index].rule_group not in active_generated
+            ]
+            generated_indexes = [
+                index
+                for index in indexes
+                if current[index].rule_group in active_generated
+            ]
+
+            if bank_indexes:
+                # Keep the first bank item. If personalization made another
+                # bank item collide, restore its own original text.
+                for index in bank_indexes[1:]:
+                    question = current[index]
+                    original = question.original_text or question.text
+                    if normalize_text(question.text) != normalize_text(original):
+                        current[index] = question.model_copy(update={"text": original})
+                        changed = True
+                for index in generated_indexes:
+                    domain = current[index].rule_group
+                    fallback = bank_fallbacks.get(domain)
+                    if fallback is not None:
+                        current[index] = fallback
+                        active_generated.discard(domain)
+                        changed = True
+                continue
+
+            # No bank item in this duplicate group: keep the earlier generated
+            # slot and fall back the remaining generated domains.
+            for index in generated_indexes[1:]:
+                domain = current[index].rule_group
+                fallback = bank_fallbacks.get(domain)
+                if fallback is not None:
+                    current[index] = fallback
+                    active_generated.discard(domain)
+                    changed = True
+
+        if not changed:
+            break
+
+    return current, frozenset(active_generated)

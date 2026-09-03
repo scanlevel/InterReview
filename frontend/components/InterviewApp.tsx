@@ -23,6 +23,7 @@ import DeviceSetupView, {
 import ThemeToggle from "@/components/ThemeToggle";
 import EssayView from "@/components/EssayView";
 import { pickInterviewerImage } from "@/lib/interviewerImages";
+import { getAnswerRevision, isAnswerReviewable } from "@/lib/answerReview";
 
 type Phase =
   | "setup"
@@ -34,7 +35,7 @@ type Phase =
   | "analysis";
 
 const UNAVAILABLE_CONTENT: AnswerReview = {
-  summary: "답변 피드백을 사용할 수 없습니다.",
+  summary: "답변을 판단할 수 없습니다.",
   strengths: [],
   improvements: [],
 };
@@ -90,10 +91,12 @@ export default function InterviewApp() {
     const existing = reviewRequestsRef.current.get(answer.question_id);
     if (existing?.revision === revision) return existing.promise;
 
-    const promise = reviewAnswer(answer, profile).catch((reviewError) => {
-      console.warn("Answer review failed for " + answer.question_id, reviewError);
-      return UNAVAILABLE_CONTENT;
-    });
+    const promise = isAnswerReviewable(answer)
+      ? reviewAnswer(answer, profile).catch((reviewError) => {
+          console.warn("Answer review failed for " + answer.question_id, reviewError);
+          return UNAVAILABLE_CONTENT;
+        })
+      : Promise.resolve(UNAVAILABLE_CONTENT);
     reviewRequestsRef.current.set(answer.question_id, { revision, promise });
     return promise;
   }
@@ -106,7 +109,7 @@ export default function InterviewApp() {
     setError(null);
     setPhase("measuring");
     try {
-      const reviewPromises = answers.map((answer) => startAnswerReview(answer));
+      const reviewPromises = answers.map((answer) => getExistingAnswerReview(answer));
       const [measurementReport, reviewResults] = await Promise.all([
         getMeasurementReport(answers),
         Promise.all(reviewPromises),
@@ -140,6 +143,14 @@ export default function InterviewApp() {
     setInterviewerImageSrc(null);
     setError(null);
     setPhase("setup");
+  }
+
+  function getExistingAnswerReview(answer: AnswerItem): Promise<AnswerReview> {
+    const revision = getAnswerRevision(answer);
+    const existing = reviewRequestsRef.current.get(answer.question_id);
+    return existing?.revision === revision
+      ? existing.promise
+      : Promise.resolve(UNAVAILABLE_CONTENT);
   }
 
   return (
@@ -216,14 +227,6 @@ type ReviewRequest = {
   revision: string;
   promise: Promise<AnswerReview>;
 };
-
-function getAnswerRevision(answer: AnswerItem): string {
-  return JSON.stringify([
-    answer.question,
-    answer.original_question,
-    answer.transcript,
-  ]);
-}
 
 function Busy({ label }: { label: string }) {
   return (

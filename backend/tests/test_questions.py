@@ -9,11 +9,14 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.routers import questions as questions_router
-from app.schemas import Question
+from app.schemas import GroundedQuestionSet, Question
+from app.services.grounded_questions import GroundedQuestion
+from app.services import grounded_questions as grounded_question_service
 from app.services.questions import (
     GROUPS,
     _load_group_questions,
     _role_filtered_candidates,
+    generated_question_id,
     generate_questions,
     has_experienced_context,
 )
@@ -195,6 +198,291 @@ def test_role_filter_runs_before_personalization(
         ("select", "프론트엔드 개발자"),
         ("personalize", "job_technology"),
     ]
+
+
+def _stub_bank_questions() -> list[Question]:
+    names = dict(GROUPS)
+    return [
+        Question(
+            id=f"q{index}",
+            question_id=f"bank-{group_id}",
+            category=names[group_id],
+            rule_group=group_id,
+            subcategory="general::topic",
+            text=f"은행 {group_id} 질문?",
+            original_text=f"은행 {group_id} 질문?",
+        )
+        for index, (group_id, _) in enumerate(GROUPS, start=1)
+    ]
+
+
+def test_questions_endpoint_replaces_only_two_domains_with_grounded_questions(
+    monkeypatch: Any,
+) -> None:
+    bank = _stub_bank_questions()
+    calls: list[tuple[str, Any]] = []
+
+    def fake_generate_questions(**_kwargs: Any) -> list[Question]:
+        return bank
+
+    def fake_grounded(
+        profile: dict[str, Any], essay: str | None, excluded: list[str]
+    ) -> dict[str, GroundedQuestion]:
+        calls.append(("grounded", excluded))
+        assert profile["technologies"] == "FastAPI"
+        assert essay == "3년 동안 FastAPI로 주문 API를 개발했습니다."
+        return {
+            "resume": GroundedQuestion(
+                domain="resume",
+                question="주문 API를 개발하며 맡은 역할은 무엇인가요?",
+                evidence="주문 API를 개발했습니다",
+            ),
+            "job_technology": GroundedQuestion(
+                domain="job_technology",
+                question="FastAPI를 선택한 이유는 무엇인가요?",
+                evidence="FastAPI",
+            ),
+        }
+
+    def fake_personalize(
+        _profile: dict[str, Any], _essay: str | None, question: Question
+    ) -> str:
+        calls.append(("personalize", question.rule_group))
+        return question.text
+
+    monkeypatch.setattr(questions_router, "generate_questions", fake_generate_questions)
+    monkeypatch.setattr(questions_router, "generate_grounded_questions", fake_grounded)
+    monkeypatch.setattr(questions_router, "personalize_question", fake_personalize)
+
+    response = client.post(
+        "/questions",
+        json={
+            "profile": {
+                "resume_text": "3년 동안 FastAPI로 주문 API를 개발했습니다.",
+                "technologies": "FastAPI",
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    questions = response.json()["questions"]
+    assert [item["rule_group"] for item in questions] == [
+        group_id for group_id, _ in GROUPS
+    ]
+    assert questions[0]["text"] == "주문 API를 개발하며 맡은 역할은 무엇인가요?"
+    assert questions[2]["text"] == "FastAPI를 선택한 이유는 무엇인가요?"
+    assert questions[0]["question_id"].startswith("generated-")
+    assert questions[2]["question_id"].startswith("generated-")
+    assert all(item["question_id"].startswith("bank-") for item in questions[1:2])
+    assert all(item["question_id"].startswith("bank-") for item in questions[3:])
+    assert calls[0] == (
+        "grounded",
+        [f"은행 {group_id} 질문?" for group_id in (
+            "motivation_commitment",
+            "problem_solving",
+            "collaboration_organization",
+            "values_personality",
+        )],
+    )
+    assert [event[1] for event in calls[1:]] == [
+        "motivation_commitment",
+        "problem_solving",
+        "collaboration_organization",
+        "values_personality",
+    ]
+
+
+def test_invalid_evidence_falls_back_per_domain(monkeypatch: Any) -> None:
+    bank = _stub_bank_questions()
+    monkeypatch.setattr(
+        questions_router, "generate_questions", lambda **_kwargs: bank
+    )
+    monkeypatch.setattr(
+        questions_router,
+        "generate_grounded_questions",
+        lambda *_args, **_kwargs: {
+            "resume": GroundedQuestion(
+                domain="resume",
+                question="없는 경험을 설명해 주세요?",
+                evidence="입력에 없는 경험",
+            ),
+            "job_technology": GroundedQuestion(
+                domain="job_technology",
+                question="FastAPI 선택 기준은 무엇인가요?",
+                evidence="FastAPI",
+            ),
+        },
+    )
+    monkeypatch.setattr(
+        questions_router, "personalize_question", lambda _p, _e, question: question.text
+    )
+
+    response = client.post(
+        "/questions",
+        json={"profile": {"resume_text": "FastAPI를 사용했습니다."}},
+    )
+
+    assert response.status_code == 200
+    questions = response.json()["questions"]
+    assert questions[0]["question_id"] == "bank-resume"
+    assert questions[2]["text"] == "FastAPI 선택 기준은 무엇인가요?"
+    assert all("evidence" not in item for item in questions)
+
+
+def test_generated_duplicates_use_bank_first_and_stable_ids(monkeypatch: Any) -> None:
+    bank = _stub_bank_questions()
+    monkeypatch.setattr(
+        questions_router, "generate_questions", lambda **_kwargs: bank
+    )
+    monkeypatch.setattr(
+        questions_router,
+        "generate_grounded_questions",
+        lambda *_args, **_kwargs: {
+            "resume": GroundedQuestion(
+                domain="resume",
+                question="은행 motivation_commitment 질문?",
+                evidence="근거",
+            ),
+            "job_technology": GroundedQuestion(
+                domain="job_technology",
+                question="같은 생성 질문?",
+                evidence="근거",
+            ),
+        },
+    )
+    monkeypatch.setattr(
+        questions_router, "personalize_question", lambda _p, _e, question: question.text
+    )
+
+    response = client.post(
+        "/questions",
+        json={"profile": {"resume_text": "근거"}},
+    )
+
+    assert response.status_code == 200
+    questions = response.json()["questions"]
+    assert questions[0]["question_id"] == "bank-resume"
+    assert questions[2]["question_id"] == generated_question_id(
+        "job_technology", "같은 생성 질문?"
+    )
+    assert len({item["text"] for item in questions}) == 6
+    assert len({item["question_id"] for item in questions}) == 6
+
+
+def test_personalization_duplicate_reverts_to_original_bank_text(
+    monkeypatch: Any,
+) -> None:
+    bank = _stub_bank_questions()
+    monkeypatch.setattr(
+        questions_router, "generate_questions", lambda **_kwargs: bank
+    )
+    monkeypatch.setattr(
+        questions_router,
+        "personalize_question",
+        lambda _p, _e, _question: "같은 개인화 질문?",
+    )
+
+    response = client.post(
+        "/questions",
+        json={"profile": {"resume_text": "지원자 경험"}},
+    )
+
+    assert response.status_code == 200
+    questions = response.json()["questions"]
+    assert questions[0]["text"] == "같은 개인화 질문?"
+    assert questions[1]["text"] == "은행 motivation_commitment 질문?"
+    assert questions[2]["text"] == "은행 job_technology 질문?"
+    assert len({item["text"] for item in questions}) == 6
+
+
+def test_grounded_question_service_requires_exact_evidence(monkeypatch: Any) -> None:
+    captured: dict[str, Any] = {"calls": 0}
+
+    def fake_call_structured(**kwargs: Any) -> GroundedQuestionSet:
+        captured["calls"] += 1
+        captured["user"] = kwargs["user"]
+        return GroundedQuestionSet(
+            questions=[
+                GroundedQuestion(
+                    domain="resume",
+                    question="주문 API에서 맡은 역할은 무엇인가요?",
+                    evidence="주문 API를 개발했습니다",
+                ),
+                GroundedQuestion(
+                    domain="job_technology",
+                    question="FastAPI를 선택한 이유는 무엇인가요?",
+                    evidence="입력에 없는 기술",
+                ),
+            ]
+        )
+
+    monkeypatch.setattr(grounded_question_service.llm, "is_configured", lambda: True)
+    monkeypatch.setattr(grounded_question_service.llm, "call_structured", fake_call_structured)
+
+    result = grounded_question_service.generate_grounded_questions(
+        {"technologies": "FastAPI"},
+        "주문 API를 개발했습니다.",
+        ["지원동기는 무엇인가요?"],
+    )
+
+    assert captured["calls"] == 1
+    assert "지원동기는 무엇인가요?" in captured["user"]
+    assert result["resume"] is not None
+    assert result["job_technology"] is None
+
+
+def test_personalized_bank_collision_falls_back_to_personalized_bank_question(
+    monkeypatch: Any,
+) -> None:
+    bank = _stub_bank_questions()
+    monkeypatch.setattr(
+        questions_router, "generate_questions", lambda **_kwargs: bank
+    )
+    monkeypatch.setattr(
+        questions_router,
+        "generate_grounded_questions",
+        lambda *_args, **_kwargs: {
+            "resume": GroundedQuestion(
+                domain="resume",
+                question="생성 질문?",
+                evidence="지원자 경험",
+            )
+        },
+    )
+
+    def fake_personalize(
+        _profile: dict[str, Any], _essay: str | None, question: Question
+    ) -> str:
+        if question.rule_group == "motivation_commitment":
+            return "생성 질문?"
+        if question.rule_group == "resume":
+            return "개인화된 resume 질문?"
+        return question.text
+
+    monkeypatch.setattr(questions_router, "personalize_question", fake_personalize)
+
+    response = client.post(
+        "/questions",
+        json={"profile": {"resume_text": "지원자 경험"}},
+    )
+
+    assert response.status_code == 200
+    questions = response.json()["questions"]
+    assert questions[0]["text"] == "개인화된 resume 질문?"
+    assert questions[1]["text"] == "생성 질문?"
+    assert len({item["text"] for item in questions}) == 6
+
+
+def test_grounded_question_service_returns_domain_fallbacks_when_unconfigured(
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setattr(grounded_question_service.llm, "is_configured", lambda: False)
+
+    result = grounded_question_service.generate_grounded_questions(
+        {"technologies": "FastAPI"}, None, []
+    )
+
+    assert result == {"resume": None, "job_technology": None}
 
 
 def _scoped_candidate(
