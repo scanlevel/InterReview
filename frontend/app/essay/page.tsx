@@ -5,43 +5,50 @@ import { useRouter } from "next/navigation";
 import { analyzeEssay } from "@/lib/api";
 import { ESSAY_MAX_LENGTH } from "@/lib/types";
 import {
-  loadEssayDraft,
+  activeItems,
+  composeEssay,
+  DEFAULT_DRAFT,
+  loadDraft,
   saveAnalysis,
-  saveEssayDraft,
+  saveDraft,
   subscribeToStore,
+  type EssayDraft,
 } from "@/lib/essayStore";
+import EssayDraftEditor from "@/components/EssayDraftEditor";
 import PageShell from "@/components/PageShell";
 
 /** Track A — 자소서 입력. 분석하면 /essay/result로 이동한다. */
 export default function EssayPage() {
   const router = useRouter();
   // sessionStorage draft as the base; local edits layered on top. The server
-  // snapshot is "" so SSR markup stays consistent until hydration completes.
+  // snapshot is the stable default so SSR markup stays consistent until
+  // hydration completes.
   const storedDraft = useSyncExternalStore(
     subscribeToStore,
-    loadEssayDraft,
-    () => "",
+    loadDraft,
+    () => DEFAULT_DRAFT,
   );
-  const [edited, setEdited] = useState<string | null>(null);
-  const essay = edited ?? storedDraft;
+  const [edited, setEdited] = useState<EssayDraft | null>(null);
+  const draft = edited ?? storedDraft;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const trimmed = essay.trim();
+  const essayText = composeEssay(draft);
   // Mirrors the backend's own bounds so an unusable essay never round-trips.
-  const canSubmit = trimmed.length > 0 && trimmed.length <= ESSAY_MAX_LENGTH;
+  const canSubmit = essayText.length > 0 && essayText.length <= ESSAY_MAX_LENGTH;
 
-  function handleChange(next: string) {
+  function handleChange(next: EssayDraft) {
     setEdited(next);
-    saveEssayDraft(next);
+    saveDraft(next);
   }
 
   async function handleAnalyze() {
     setError(null);
     setBusy(true);
     try {
-      const analysis = await analyzeEssay(trimmed);
-      saveEssayDraft(essay);
+      const items = draft.mode === "qa" ? activeItems(draft) : undefined;
+      const analysis = await analyzeEssay(essayText, {}, items);
+      saveDraft(draft);
       saveAnalysis(analysis);
       router.push("/essay/result");
     } catch (e) {
@@ -55,25 +62,11 @@ export default function EssayPage() {
       <div className="flex flex-col gap-6">
         <p className="text-sm text-gray-600 dark:text-gray-300">
           자기소개서에서 면접관이 파고들 약점과 예상 질문을 찾아 드립니다.
+          기업이 문항을 제시하는 자소서라면 문항별 입력으로 질문까지 함께
+          넣어 주세요 — 답변이 질문 의도를 비껴가는지도 분석합니다.
         </p>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">자기소개서</span>
-          <textarea
-            value={essay}
-            onChange={(e) => handleChange(e.target.value)}
-            rows={16}
-            placeholder="자기소개서 전문을 붙여넣어 주세요."
-            className="rounded-md border border-gray-300 px-3 py-2 leading-relaxed dark:border-gray-700 dark:bg-gray-900"
-          />
-          <span
-            className={`self-end text-xs ${
-              trimmed.length > ESSAY_MAX_LENGTH ? "text-red-600" : "text-gray-500"
-            }`}
-          >
-            {trimmed.length.toLocaleString()} / {ESSAY_MAX_LENGTH.toLocaleString()}자
-          </span>
-        </label>
+        <EssayDraftEditor draft={draft} onChange={handleChange} />
 
         <div className="flex items-center gap-4">
           <button

@@ -156,6 +156,46 @@ def test_route_passes_source_quotes_through(monkeypatch: pytest.MonkeyPatch) -> 
     assert default.weaknesses[0].source_quotes == []
 
 
+def test_route_sends_qa_items_as_structured_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """문항 형식이면 질문+답변 구조가 프롬프트에 그대로 드러난다."""
+    captured = _stub_llm(monkeypatch, _analysis(3))
+    response = client.post(
+        "/essay/analyze",
+        json={
+            "essay": "[문항 1] 지원 동기를 말해 주세요.\n답변 본문입니다.",
+            "items": [
+                {"question": "지원 동기를 말해 주세요.", "answer": "답변 본문입니다."}
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert "[문항 1 — 기업 질문]" in captured["user"]
+    assert "지원 동기를 말해 주세요." in captured["user"]
+    assert "[문항 1 — 답변]" in captured["user"]
+    assert "답변 본문입니다." in captured["user"]
+    # The joined fallback text is not doubled into the prompt.
+    assert "[자기소개서]" not in captured["user"]
+
+
+def test_qa_item_without_question_renders_answer_only() -> None:
+    from app.prompts.essay import build_user_prompt
+
+    prompt = build_user_prompt("답변만 있습니다.", items=[("", "답변만 있습니다.")])
+    assert "[문항 1 — 답변]\n답변만 있습니다." in prompt
+    assert "기업 질문" not in prompt
+
+
+def test_route_rejects_qa_item_with_empty_answer() -> None:
+    response = client.post(
+        "/essay/analyze",
+        json={"essay": "본문", "items": [{"question": "질문", "answer": "   "}]},
+    )
+    assert response.status_code == 422
+
+
 def test_route_reports_502_when_the_call_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     """No degraded output: Track A has nothing to fall back to."""
     _stub_llm(monkeypatch, llm.LLMCallError("boom"))

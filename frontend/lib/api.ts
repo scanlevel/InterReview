@@ -5,6 +5,7 @@ import type {
   AnswerItem,
   AnswerReview,
   EssayAnalysis,
+  EssayQAItem,
   GenerateQuestionsResponse,
   MeasurementReport,
   Profile,
@@ -81,16 +82,22 @@ async function errorDetail(res: Response, fallback: string): Promise<string> {
 
 /** Track A: analyze one 자기소개서 for its interview weak points.
  *
+ * `items`가 있으면 문항(기업 질문+답변) 구조도 함께 보내 질문-답변 정합성까지
+ * 분석 대상이 된다. `essay`는 항상 합쳐진 전체 텍스트다.
+ *
  * There is no degraded result to fall back to, so a failure surfaces as a
  * thrown Error carrying a message meant for the user. */
 export async function analyzeEssay(
   essay: string,
   profile: Profile = {},
+  items?: EssayQAItem[],
 ): Promise<EssayAnalysis> {
   const res = await fetch(`${API_BASE}/essay/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ essay, profile }),
+    body: JSON.stringify(
+      items && items.length > 0 ? { essay, profile, items } : { essay, profile },
+    ),
     cache: "no-store",
   });
   if (!res.ok) {

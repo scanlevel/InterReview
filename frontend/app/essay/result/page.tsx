@@ -6,19 +6,26 @@ import { useRouter } from "next/navigation";
 import { analyzeEssay } from "@/lib/api";
 import { ESSAY_MAX_LENGTH, type EssayAnalysis } from "@/lib/types";
 import {
+  activeItems,
+  composeEssay,
   loadAnalysis,
-  loadEssayDraft,
+  loadDraft,
   saveAnalysis,
-  saveEssayDraft,
+  saveDraft,
   saveInterviewEssay,
   subscribeToStore,
+  type EssayDraft,
 } from "@/lib/essayStore";
 import EssayAnalysisResult from "@/components/EssayAnalysisResult";
-import EssayHighlightView from "@/components/EssayHighlightView";
+import EssayDraftEditor from "@/components/EssayDraftEditor";
+import EssayHighlightView, {
+  HighlightLegend,
+} from "@/components/EssayHighlightView";
 import PageShell from "@/components/PageShell";
 
 /** Track A — 분석 결과. 자소서를 바로 수정해 다시 첨삭받거나,
- * 수정한 자소서를 모의 인터뷰로 넘긴다. */
+ * 수정한 자소서를 모의 인터뷰로 넘긴다. 문항형 자소서는 하이라이트도
+ * 문항별 섹션으로 나뉜다. */
 export default function EssayResultPage() {
   const router = useRouter();
   // Storage snapshots as the base; edits and re-analysis layered on top.
@@ -26,7 +33,7 @@ export default function EssayResultPage() {
   // empty shell instead of flashing the wrong branch before hydration.
   const storedDraft = useSyncExternalStore(
     subscribeToStore,
-    loadEssayDraft,
+    loadDraft,
     () => undefined,
   );
   const storedAnalysis = useSyncExternalStore(
@@ -34,9 +41,9 @@ export default function EssayResultPage() {
     loadAnalysis,
     () => undefined,
   );
-  const [edited, setEdited] = useState<string | null>(null);
+  const [edited, setEdited] = useState<EssayDraft | null>(null);
   const [freshAnalysis, setFreshAnalysis] = useState<EssayAnalysis | null>(null);
-  const essay = edited ?? storedDraft ?? "";
+  const draft = edited ?? storedDraft;
   const analysis = freshAnalysis ?? storedAnalysis;
   const [mode, setMode] = useState<"highlight" | "edit">("highlight");
   // Edited since the analysis currently on screen was produced?
@@ -53,21 +60,23 @@ export default function EssayResultPage() {
     setScrollNonce((nonce) => nonce + 1);
   }
 
-  const trimmed = essay.trim();
+  const essayText = draft ? composeEssay(draft) : "";
   const canSubmit =
-    trimmed.length > 0 && trimmed.length <= ESSAY_MAX_LENGTH && !busy;
+    essayText.length > 0 && essayText.length <= ESSAY_MAX_LENGTH && !busy;
 
-  function handleChange(next: string) {
+  function handleChange(next: EssayDraft) {
     setEdited(next);
     setDirty(true);
-    saveEssayDraft(next);
+    saveDraft(next);
   }
 
   async function handleReanalyze() {
+    if (!draft) return;
     setError(null);
     setBusy(true);
     try {
-      const next = await analyzeEssay(trimmed);
+      const items = draft.mode === "qa" ? activeItems(draft) : undefined;
+      const next = await analyzeEssay(essayText, {}, items);
       saveAnalysis(next);
       setFreshAnalysis(next);
       setDirty(false);
@@ -79,12 +88,12 @@ export default function EssayResultPage() {
   }
 
   function handleHandoff() {
-    saveInterviewEssay(trimmed);
+    saveInterviewEssay(essayText);
     router.push("/interview");
   }
 
   // undefined = still hydrating; null = client confirmed there is no result.
-  if (analysis === undefined) {
+  if (analysis === undefined || draft === undefined) {
     return <PageShell wide>{null}</PageShell>;
   }
 
@@ -151,34 +160,44 @@ export default function EssayResultPage() {
             </p>
           )}
 
-          {mode === "highlight" && analysis && (
+          {mode === "highlight" && draft.mode === "free" && (
             <EssayHighlightView
-              essay={essay}
+              essay={draft.free}
               analysis={analysis}
               focusQuotes={focusQuotes}
               scrollNonce={scrollNonce}
             />
           )}
 
+          {mode === "highlight" && draft.mode === "qa" && (
+            <div className="flex flex-col gap-2">
+              <HighlightLegend />
+              <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+                {draft.items.map((item, index) =>
+                  item.answer.trim() ? (
+                    <section key={index} className="flex flex-col gap-1">
+                      <p className="text-xs font-medium text-gray-500">
+                        문항 {index + 1}
+                        {item.question.trim() ? `. ${item.question.trim()}` : ""}
+                      </p>
+                      <EssayHighlightView
+                        essay={item.answer}
+                        analysis={analysis}
+                        focusQuotes={focusQuotes}
+                        scrollNonce={scrollNonce}
+                        showLegend={false}
+                        scrollable={false}
+                        showUnmatchedHint={false}
+                      />
+                    </section>
+                  ) : null,
+                )}
+              </div>
+            </div>
+          )}
+
           {mode === "edit" && (
-            <label className="flex flex-col gap-1 text-sm">
-              <textarea
-                value={essay}
-                onChange={(e) => handleChange(e.target.value)}
-                rows={22}
-                className="rounded-md border border-gray-300 px-3 py-2 leading-relaxed dark:border-gray-700 dark:bg-gray-900"
-              />
-              <span
-                className={`self-end text-xs ${
-                  trimmed.length > ESSAY_MAX_LENGTH
-                    ? "text-red-600"
-                    : "text-gray-500"
-                }`}
-              >
-                {trimmed.length.toLocaleString()} /{" "}
-                {ESSAY_MAX_LENGTH.toLocaleString()}자
-              </span>
-            </label>
+            <EssayDraftEditor draft={draft} onChange={handleChange} />
           )}
 
           <div className="flex flex-wrap items-center gap-3">

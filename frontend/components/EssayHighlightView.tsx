@@ -33,6 +33,20 @@ const LEGEND: { label: string; className: string }[] = [
   { label: "근거 없는 주장", className: HIGHLIGHT_STYLES[CLAIM] },
 ];
 
+/** 색상 범례 — 문항별 보기처럼 뷰가 여러 개일 때 한 번만 그리도록 분리. */
+export function HighlightLegend() {
+  return (
+    <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+      {LEGEND.map((entry) => (
+        <span key={entry.label} className="flex items-center gap-1">
+          <span className={`h-3 w-3 rounded-sm ${entry.className}`} />
+          {entry.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -107,11 +121,20 @@ export default function EssayHighlightView({
   analysis,
   focusQuotes = null,
   scrollNonce = 0,
+  showLegend = true,
+  scrollable = true,
+  showUnmatchedHint = true,
 }: {
   essay: string;
   analysis: EssayAnalysis;
   focusQuotes?: string[] | null;
   scrollNonce?: number;
+  /** 문항별 보기에서는 바깥에서 HighlightLegend를 한 번만 그린다. */
+  showLegend?: boolean;
+  /** 문항별 보기에서는 바깥 컨테이너가 스크롤을 담당한다. */
+  scrollable?: boolean;
+  /** 인용이 다른 문항에 있을 수 있으면 뷰 단위 매칭 실패 안내는 끈다. */
+  showUnmatchedHint?: boolean;
 }) {
   const segments = useMemo(
     () => buildSegments(essay, analysis, focusQuotes),
@@ -138,16 +161,13 @@ export default function EssayHighlightView({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-3 text-xs text-gray-500">
-        {LEGEND.map((entry) => (
-          <span key={entry.label} className="flex items-center gap-1">
-            <span className={`h-3 w-3 rounded-sm ${entry.className}`} />
-            {entry.label}
-          </span>
-        ))}
-      </div>
+      {showLegend && <HighlightLegend />}
 
-      <div className="max-h-[70vh] overflow-y-auto whitespace-pre-wrap rounded-md border border-gray-300 px-3 py-2 text-sm leading-relaxed dark:border-gray-700 dark:bg-gray-900">
+      <div
+        className={`whitespace-pre-wrap rounded-md border border-gray-300 px-3 py-2 text-sm leading-relaxed dark:border-gray-700 dark:bg-gray-900 ${
+          scrollable ? "max-h-[70vh] overflow-y-auto" : ""
+        }`}
+      >
         {segments.map((segment) =>
           segment.value === 0 && !segment.focused ? (
             <span key={segment.start}>{segment.text}</span>
@@ -171,7 +191,7 @@ export default function EssayHighlightView({
         )}
       </div>
 
-      {!hasHighlights && hasQuotes && (
+      {showUnmatchedHint && !hasHighlights && hasQuotes && (
         <p className="text-xs text-gray-500">
           분석 결과와 일치하는 원문 문장을 찾지 못했습니다. 자소서를 수정했다면
           다시 분석해 주세요.

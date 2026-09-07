@@ -159,3 +159,9 @@ export interface EssayAnalysis {
 
 /** Mirrors the backend's max_length on EssayAnalyzeRequest.essay. */
 export const ESSAY_MAX_LENGTH = 10_000;
+
+/** 문항형 자소서의 한 문항 — 기업 질문(비울 수 있음) + 지원자 답변. */
+export interface EssayQAItem {
+  question: string;
+  answer: string;
+}

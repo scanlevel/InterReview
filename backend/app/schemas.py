@@ -220,6 +220,17 @@ class EssayAnalysis(BaseModel):
     )
 
 
+class EssayQAItem(BaseModel):
+    """One 문항 of a question-format essay: 기업 질문 + 지원자 답변."""
+
+    question: Annotated[
+        str, StringConstraints(strip_whitespace=True, max_length=1_000)
+    ] = ""
+    answer: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
+    ]
+
+
 class EssayAnalyzeRequest(BaseModel):
     """Payload for ``POST /essay/analyze``."""
 
@@ -227,6 +238,10 @@ class EssayAnalyzeRequest(BaseModel):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
     ]
     profile: dict[str, Any] = Field(default_factory=dict)
+    # When the essay is 문항 형식, its structure is passed here as well so the
+    # prompt can point out answers that dodge their question.  ``essay`` stays
+    # the canonical, length-validated text (and the only input for old clients).
+    items: list[EssayQAItem] = Field(default_factory=list)
 
 
 # --- Track B 중 A 담당: 답변 내용 판별 ----------------------------------------
