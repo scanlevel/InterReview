@@ -38,6 +38,10 @@ export default function InterviewView({
   onFinish: (answers: AnswerItem[]) => void;
 }) {
   const [index, setIndex] = useState(0);
+  // answering: 질문·녹음 화면 / intermission: 답변 완료 후 대기 화면.
+  // 대기 중에도 answering UI는 display:none으로 살려 둔다 — 언마운트하면
+  // 카메라 video와 시선 트래커 참조가 끊어진다.
+  const [stage, setStage] = useState<"answering" | "intermission">("answering");
   const [sttStates, setSttStates] = useState<
     Record<string, { status: SttStatus; error: string | null }>
   >({});
@@ -230,6 +234,11 @@ export default function InterviewView({
     onFinish(items);
   }
 
+  function goNext() {
+    setIndex((value) => Math.min(questions.length - 1, value + 1));
+    setStage("answering");
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between text-sm text-gray-500">
@@ -241,6 +250,51 @@ export default function InterviewView({
         </span>
       </div>
 
+      {stage === "intermission" && (
+        <div className="flex flex-col items-center gap-6 rounded-lg border border-gray-200 p-10 text-center dark:border-gray-800">
+          <div>
+            <p className="text-lg font-medium">
+              질문 {index + 1} 답변이 끝났습니다.
+            </p>
+            <p className="mt-2 text-sm text-gray-500">
+              {isLast
+                ? "마지막 질문입니다. 제출하기 전에 이 질문에 다시 답변할 수 있습니다."
+                : "다음 질문으로 넘어가기 전에 이 질문에 다시 답변할 수 있습니다."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setStage("answering")}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium hover:border-gray-500 dark:border-gray-700 dark:hover:border-gray-500"
+            >
+              다시 답변하기
+            </button>
+            {isLast ? (
+              <button
+                type="button"
+                onClick={submit}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+              >
+                제출하고 결과 보기
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={goNext}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+              >
+                다음 질문으로
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div
+        className="flex flex-col gap-5"
+        style={{ display: stage === "intermission" ? "none" : undefined }}
+      >
       <p className="text-lg leading-relaxed">{question.text}</p>
       {question.original_text && question.original_text !== question.text && (
         <details className="text-xs text-gray-500">
@@ -368,25 +422,15 @@ export default function InterviewView({
           이전
         </button>
 
-        {isLast ? (
-          <button
-            type="button"
-            onClick={submit}
-            disabled={isRecording || isTranscribing}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
-          >
-            제출하고 결과 보기
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setIndex((value) => Math.min(questions.length - 1, value + 1))}
-            disabled={isRecording || isTranscribing}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
-          >
-            다음 질문
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setStage("intermission")}
+          disabled={isRecording || isTranscribing}
+          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+        >
+          답변 완료
+        </button>
+      </div>
       </div>
     </div>
   );
