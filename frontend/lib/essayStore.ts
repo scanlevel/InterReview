@@ -1,9 +1,10 @@
 // Session-scoped persistence for the Track A essay flow (Track A — A 담당).
 //
 // Three slots, all per-browser-tab (sessionStorage):
-//  - draft:    the essay text being edited on /essay and /essay/result
+//  - draft:    the essay being edited — shared by /essay, /essay/result and
+//              the interview setup screen (one 자소서 across both tabs)
+//  - applicant: 이름·지원 직무 — likewise shared by both tabs
 //  - analysis: the last analysis result, so /essay/result survives a reload
-//  - handoff:  the essay the user chose to carry into the interview tab
 //
 // sessionStorage can throw (private mode, storage disabled), so every access
 // is guarded — the flow must still work, it just won't survive reloads.
@@ -28,8 +29,8 @@ export function subscribeToStore(): () => void {
 }
 
 const DRAFT_KEY = "interreview.essay.draft";
+const APPLICANT_KEY = "interreview.essay.applicant";
 const ANALYSIS_KEY = "interreview.essay.analysis";
-const HANDOFF_KEY = "interreview.interview.essay";
 
 function read(key: string): string | null {
   try {
@@ -98,6 +99,39 @@ export function saveDraft(draft: EssayDraft): void {
   write(DRAFT_KEY, JSON.stringify(draft));
 }
 
+/** 지원자 기본 정보 — 자소서 분석의 [지원자 정보]와 질문 개인화에 쓰인다. */
+export interface ApplicantInfo {
+  name: string;
+  job: string;
+}
+
+export const DEFAULT_APPLICANT: ApplicantInfo = { name: "", job: "" };
+
+let applicantCache: { raw: string; value: ApplicantInfo } | null = null;
+
+export function loadApplicant(): ApplicantInfo {
+  const raw = read(APPLICANT_KEY);
+  if (!raw) return DEFAULT_APPLICANT;
+  if (applicantCache?.raw === raw) return applicantCache.value;
+  let value: ApplicantInfo;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    const info = parsed as Partial<ApplicantInfo>;
+    if (typeof info?.name !== "string" || typeof info?.job !== "string") {
+      throw new Error("not applicant info");
+    }
+    value = { name: info.name, job: info.job };
+  } catch {
+    value = DEFAULT_APPLICANT;
+  }
+  applicantCache = { raw, value };
+  return value;
+}
+
+export function saveApplicant(info: ApplicantInfo): void {
+  write(APPLICANT_KEY, JSON.stringify(info));
+}
+
 /** 문항 목록에서 실제 분석에 쓰일 것만 — 답변이 빈 문항은 제외. */
 export function activeItems(draft: EssayDraft): EssayQAItem[] {
   return draft.items
@@ -136,14 +170,4 @@ export function loadAnalysis(): EssayAnalysis | null {
 
 export function saveAnalysis(analysis: EssayAnalysis | null): void {
   write(ANALYSIS_KEY, analysis === null ? null : JSON.stringify(analysis));
-}
-
-/** The essay handed off to the interview tab, or null if none/blank. */
-export function loadInterviewEssay(): string | null {
-  const value = read(HANDOFF_KEY);
-  return value && value.trim() ? value : null;
-}
-
-export function saveInterviewEssay(essay: string | null): void {
-  write(HANDOFF_KEY, essay);
 }

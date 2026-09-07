@@ -9,10 +9,10 @@ import {
   activeItems,
   composeEssay,
   loadAnalysis,
+  loadApplicant,
   loadDraft,
   saveAnalysis,
   saveDraft,
-  saveInterviewEssay,
   subscribeToStore,
   type EssayDraft,
 } from "@/lib/essayStore";
@@ -76,7 +76,16 @@ export default function EssayResultPage() {
     setBusy(true);
     try {
       const items = draft.mode === "qa" ? activeItems(draft) : undefined;
-      const next = await analyzeEssay(essayText, {}, items);
+      // 입력 페이지에서 저장해 둔 이름·직무를 재분석에도 동일하게 싣는다.
+      const applicant = loadApplicant();
+      const next = await analyzeEssay(
+        essayText,
+        {
+          name: applicant.name.trim() || undefined,
+          job: applicant.job.trim() || undefined,
+        },
+        items,
+      );
       saveAnalysis(next);
       setFreshAnalysis(next);
       setDirty(false);
@@ -87,8 +96,8 @@ export default function EssayResultPage() {
     }
   }
 
+  // 두 탭이 같은 draft를 공유하므로 이동만 하면 그대로 연동된다.
   function handleHandoff() {
-    saveInterviewEssay(essayText);
     router.push("/interview");
   }
 

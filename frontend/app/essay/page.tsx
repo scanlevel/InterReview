@@ -7,11 +7,15 @@ import { ESSAY_MAX_LENGTH } from "@/lib/types";
 import {
   activeItems,
   composeEssay,
+  DEFAULT_APPLICANT,
   DEFAULT_DRAFT,
+  loadApplicant,
   loadDraft,
   saveAnalysis,
+  saveApplicant,
   saveDraft,
   subscribeToStore,
+  type ApplicantInfo,
   type EssayDraft,
 } from "@/lib/essayStore";
 import EssayDraftEditor from "@/components/EssayDraftEditor";
@@ -30,6 +34,16 @@ export default function EssayPage() {
   );
   const [edited, setEdited] = useState<EssayDraft | null>(null);
   const draft = edited ?? storedDraft;
+  // 이름·지원 직무 — 면접 설정 화면과 공유한다.
+  const storedApplicant = useSyncExternalStore(
+    subscribeToStore,
+    loadApplicant,
+    () => DEFAULT_APPLICANT,
+  );
+  const [editedApplicant, setEditedApplicant] = useState<ApplicantInfo | null>(
+    null,
+  );
+  const applicant = editedApplicant ?? storedApplicant;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,12 +56,24 @@ export default function EssayPage() {
     saveDraft(next);
   }
 
+  function handleApplicantChange(next: ApplicantInfo) {
+    setEditedApplicant(next);
+    saveApplicant(next);
+  }
+
   async function handleAnalyze() {
     setError(null);
     setBusy(true);
     try {
       const items = draft.mode === "qa" ? activeItems(draft) : undefined;
-      const analysis = await analyzeEssay(essayText, {}, items);
+      const analysis = await analyzeEssay(
+        essayText,
+        {
+          name: applicant.name.trim() || undefined,
+          job: applicant.job.trim() || undefined,
+        },
+        items,
+      );
       saveDraft(draft);
       saveAnalysis(analysis);
       router.push("/essay/result");
@@ -65,6 +91,31 @@ export default function EssayPage() {
           기업이 문항을 제시하는 자소서라면 문항별 입력으로 질문까지 함께
           넣어 주세요 — 답변이 질문 의도를 비껴가는지도 분석합니다.
         </p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">이름 (선택)</span>
+            <input
+              value={applicant.name}
+              onChange={(e) =>
+                handleApplicantChange({ ...applicant, name: e.target.value })
+              }
+              placeholder="홍길동"
+              className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">지원 직무 (선택)</span>
+            <input
+              value={applicant.job}
+              onChange={(e) =>
+                handleApplicantChange({ ...applicant, job: e.target.value })
+              }
+              placeholder="백엔드 개발자"
+              className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+            />
+          </label>
+        </div>
 
         <EssayDraftEditor draft={draft} onChange={handleChange} />
 

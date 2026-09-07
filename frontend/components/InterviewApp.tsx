@@ -22,9 +22,15 @@ import DeviceSetupView, {
 import ThemeToggle from "@/components/ThemeToggle";
 import Link from "next/link";
 import {
-  loadInterviewEssay,
-  saveInterviewEssay,
+  DEFAULT_APPLICANT,
+  DEFAULT_DRAFT,
+  loadApplicant,
+  loadDraft,
+  saveApplicant,
+  saveDraft,
   subscribeToStore,
+  type ApplicantInfo,
+  type EssayDraft,
 } from "@/lib/essayStore";
 
 type Phase =
@@ -49,16 +55,36 @@ export default function InterviewApp() {
   const [report, setReport] = useState<MeasurementReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deviceSetup, setDeviceSetup] = useState<DeviceSetupResult | null>(null);
-  // 자소서 첨삭(/essay/result)에서 넘어온 자소서 — Track A 연동 (A 담당).
-  // 서버 스냅샷은 null: SSR에는 연동 배너가 없다가 hydration 후 나타난다.
-  const storedEssay = useSyncExternalStore(
+  // 자소서 첨삭 탭과 같은 draft를 공유한다 (Track A 연동, A 담당) — 설정
+  // 화면의 자소서 입력이 곧 첨삭 탭의 자소서이고, 어느 쪽에서 고쳐도 같다.
+  const storedDraft = useSyncExternalStore(
     subscribeToStore,
-    loadInterviewEssay,
-    () => null,
+    loadDraft,
+    () => DEFAULT_DRAFT,
   );
-  const [linkDismissed, setLinkDismissed] = useState(false);
-  const linkedEssay = linkDismissed ? null : storedEssay;
+  const [editedDraft, setEditedDraft] = useState<EssayDraft | null>(null);
+  const draft = editedDraft ?? storedDraft;
+  // 이름·지원 직무도 첨삭 탭과 공유한다.
+  const storedApplicant = useSyncExternalStore(
+    subscribeToStore,
+    loadApplicant,
+    () => DEFAULT_APPLICANT,
+  );
+  const [editedApplicant, setEditedApplicant] = useState<ApplicantInfo | null>(
+    null,
+  );
+  const applicant = editedApplicant ?? storedApplicant;
   const deviceStreamRef = useRef<MediaStream | null>(null);
+
+  function handleDraftChange(next: EssayDraft) {
+    setEditedDraft(next);
+    saveDraft(next);
+  }
+
+  function handleApplicantChange(next: ApplicantInfo) {
+    setEditedApplicant(next);
+    saveApplicant(next);
+  }
 
   useEffect(
     () => () => deviceStreamRef.current?.getTracks().forEach((track) => track.stop()),
@@ -72,17 +98,11 @@ export default function InterviewApp() {
   }
 
   async function handleStart(nextProfile: Profile) {
-    // 설정 화면에서 자소서를 따로 입력하지 않았다면 첨삭 탭에서 넘어온
-    // 자소서로 질문을 개인화한다. 직접 입력한 값이 항상 우선.
-    const merged: Profile =
-      !nextProfile.resume_text?.trim() && linkedEssay
-        ? { ...nextProfile, resume_text: linkedEssay }
-        : nextProfile;
     setError(null);
-    setProfile(merged);
+    setProfile(nextProfile);
     setPhase("generating");
     try {
-      const res = await generateQuestions(merged);
+      const res = await generateQuestions(nextProfile);
       setQuestions(res.questions);
       setPhase("device-setup");
     } catch (e) {
@@ -155,27 +175,13 @@ export default function InterviewApp() {
       )}
 
       {phase === "setup" && (
-        <div className="flex flex-col gap-6">
-          {linkedEssay && (
-            <div className="flex items-start justify-between gap-4 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
-              <p>
-                자소서 첨삭에서 넘어온 자소서가 연동되어 있습니다. 아래에서
-                자소서를 따로 입력하지 않으면 이 자소서로 질문을 개인화합니다.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  saveInterviewEssay(null);
-                  setLinkDismissed(true);
-                }}
-                className="shrink-0 text-sm underline underline-offset-4"
-              >
-                연동 해제
-              </button>
-            </div>
-          )}
-          <SetupView onStart={handleStart} />
-        </div>
+        <SetupView
+          draft={draft}
+          onDraftChange={handleDraftChange}
+          applicant={applicant}
+          onApplicantChange={handleApplicantChange}
+          onStart={handleStart}
+        />
       )}
 
       {phase === "generating" && <Busy label="질문을 생성하는 중입니다…" />}
