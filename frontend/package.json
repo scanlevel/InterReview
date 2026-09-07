@@ -10,10 +10,11 @@
     "lint": "eslint",
     "test:gaze": "node --test lib/gaze.test.mts",
     "test:audio": "node --test lib/recorder.test.mts",
-    "test:interview": "node --test lib/interviewFlow.test.mts lib/answerReview.test.mts"
+    "test:interview": "node --test lib/interviewFlow.test.mts lib/answerReview.test.mts lib/api.test.mts lib/questionSpeechCache.test.mts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.0.1",
+    "@ricky0123/vad-web": "0.0.30",
     "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4"

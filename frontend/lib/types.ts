@@ -42,6 +42,26 @@ export interface AudioTimeline {
   speech: boolean[];
   /** Whether each display bin overlaps a long-pause run. */
   long_pause: boolean[];
+  /** Optional VAD/alignment classification for the same display bins. */
+  classification: SpeechClassificationKind[] | null;
+}
+
+export type SpeechClassificationKind =
+  | "transcribed_speech"
+  | "untranscribed_speech"
+  | "vad_silence"
+  | "pending";
+
+export interface SpeechClassification {
+  total_analysis_duration_sec: number;
+  transcribed_speech_duration_sec: number;
+  transcribed_speech_segment_count: number;
+  untranscribed_speech_duration_sec: number;
+  untranscribed_speech_segment_count: number;
+  vad_silence_duration_sec: number;
+  vad_silence_segment_count: number;
+  pending_duration_sec: number;
+  pending_segment_count: number;
 }
 
 export interface SpeechMetrics {
@@ -54,6 +74,7 @@ export interface SpeechMetrics {
   max_pause_sec: number;
   long_pause_threshold_sec: number;
   audio_timeline?: AudioTimeline | null;
+  speech_classification?: SpeechClassification | null;
 }
 export type SttStatus =
   | "not_attempted"
@@ -101,7 +122,6 @@ export interface QuestionResult {
   stt_status: SttStatus;
   stt_error?: string | null;
   original_question?: string | null;
-  transcript: string;
   speech_metrics?: SpeechMetrics | null;
   eye_tracking?: EyeTrackingSummary | null;
   content?: AnswerReview | null;
@@ -119,6 +139,13 @@ export interface TranscriptResponse {
   error?: string | null;
   confidence?: number | null;
   segment_count?: number | null;
+  words?: WordTimestamp[] | null;
+}
+
+export interface WordTimestamp {
+  start_ms: number;
+  end_ms: number;
+  text: string;
 }
 
 // --- 자소서 분석 -------------------------------------------------------------

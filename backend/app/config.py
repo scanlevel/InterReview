@@ -52,6 +52,21 @@ class Settings(BaseSettings):
     # generous. Tune via CLOVA_SPEECH_TIMEOUT.
     clova_speech_timeout: float = Field(default=180.0, alias="CLOVA_SPEECH_TIMEOUT")
 
+    # --- Local CPU TTS ---
+    local_tts_model: Literal["supertonic-3", "supertonic-2"] = Field(
+        default="supertonic-3", alias="LOCAL_TTS_MODEL"
+    )
+    local_tts_model_dir: str = Field(
+        default="models/tts/supertonic3",
+        alias="LOCAL_TTS_MODEL_DIR",
+    )
+    local_tts_num_threads: int = Field(
+        default=2, alias="LOCAL_TTS_NUM_THREADS", ge=1, le=16
+    )
+    local_tts_default_voice: str = Field(default="M1", alias="LOCAL_TTS_DEFAULT_VOICE")
+    local_tts_steps: int = Field(default=8, alias="LOCAL_TTS_STEPS", ge=5, le=12)
+    local_tts_speed: float = Field(default=1.05, alias="LOCAL_TTS_SPEED", ge=0.7, le=2.0)
+
     # --- LLM (evaluation / personalization) ---
     llm_provider: LLMProvider = Field(default="anthropic", alias="LLM_PROVIDER")
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")

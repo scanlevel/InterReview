@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -12,6 +13,7 @@ from app.schemas import (
     MeasurementRequest,
     AudioTimeline,
     SpeechMetrics,
+    SpeechClassification,
 )
 from app.services.measurements import build_measurement_report
 
@@ -50,7 +52,7 @@ def test_report_keeps_measurements_and_session_averages() -> None:
 
     result = report.results[0]
     assert result.stt_status == "ok"
-    assert result.transcript.startswith("당시 프로젝트")
+    assert "transcript" not in result.model_dump()
     assert result.original_question == "갈등을 해결한 경험이 있나요"
     assert result.content is None
     assert result.speech_metrics is not None
@@ -77,6 +79,14 @@ def test_empty_answer_has_no_measurement_values() -> None:
     assert report.results[0].content is None
     assert report.measurement_summary.average_total_duration_sec is None
     assert report.measurement_summary.average_answer_length_eojeol is None
+
+
+def test_classification_durations_must_cover_the_analysis_window() -> None:
+    with pytest.raises(ValueError):
+        SpeechClassification(
+            total_analysis_duration_sec=1,
+            transcribed_speech_duration_sec=0.25,
+        )
 
 
 def test_measurements_endpoint() -> None:
@@ -112,6 +122,7 @@ def test_measurements_endpoint() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["results"][0]["stt_status"] == "not_configured"
+    assert "transcript" not in body["results"][0]
     assert body["results"][0]["content"] is None
     assert body["results"][0]["speech_metrics"]["total_duration_sec"] == 4
     assert body["results"][0]["speech_metrics"]["audio_timeline"]["long_pause"] == [True, False]

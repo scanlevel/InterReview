@@ -66,7 +66,21 @@ def test_successful_transcription(monkeypatch: pytest.MonkeyPatch) -> None:
         captured["headers"] = kwargs["headers"]
         captured["params"] = json.loads(kwargs["data"]["params"])
         captured["files"] = kwargs["files"]
-        return _FakeResponse({"text": "안녕하세요 저는 지원자입니다", "confidence": 0.9, "segments": [1, 2]})
+        return _FakeResponse(
+            {
+                "text": "안녕하세요 저는 지원자입니다",
+                "confidence": 0.9,
+                "segments": [
+                    {
+                        "words": [
+                            [0, 320, "안녕하세요"],
+                            [340, 520, "저는"],
+                        ]
+                    },
+                    {"words": [[540, 900, "지원자입니다"]]},
+                ],
+            }
+        )
 
     monkeypatch.setattr(httpx, "post", _fake_post)
     result = stt.transcribe_audio(b"audio", filename="a.wav", content_type="audio/wav")
@@ -79,6 +93,12 @@ def test_successful_transcription(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["headers"]["X-CLOVASPEECH-API-KEY"] == "secret"
     assert captured["params"]["diarization"] == {"enable": False}
     assert captured["params"]["completion"] == "sync"
+    assert captured["params"]["wordAlignment"] is True
+    assert [word.model_dump() for word in result["words"]] == [
+        {"start_ms": 0, "end_ms": 320, "text": "안녕하세요"},
+        {"start_ms": 340, "end_ms": 520, "text": "저는"},
+        {"start_ms": 540, "end_ms": 900, "text": "지원자입니다"},
+    ]
 
 
 def test_no_speech_when_text_blank(monkeypatch: pytest.MonkeyPatch) -> None:

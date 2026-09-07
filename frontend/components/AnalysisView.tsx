@@ -6,6 +6,7 @@ import type {
   MeasurementReport,
   MeasurementSummary,
   QuestionResult,
+  SpeechClassification,
   SpeechMetrics,
   SttStatus,
 } from "@/lib/types";
@@ -38,6 +39,43 @@ function MetricRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ClassificationPanel({
+  classification,
+}: {
+  classification: SpeechClassification | null | undefined;
+}) {
+  if (!classification) {
+    return (
+      <p className="mt-3 text-sm text-gray-500">
+        전사·정렬 기반 발화 분류를 제공할 수 없습니다.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3">
+      <p className="mb-1 text-xs text-gray-500">
+        발화 구간 분류 · 총 {fixed(classification.total_analysis_duration_sec)}초
+      </p>
+      <MetricRow
+        label="전사 기반 발화"
+        value={`${fixed(classification.transcribed_speech_duration_sec)}초 · ${classification.transcribed_speech_segment_count}구간`}
+      />
+      <MetricRow
+        label="미전사 발화"
+        value={`${fixed(classification.untranscribed_speech_duration_sec)}초 · ${classification.untranscribed_speech_segment_count}구간`}
+      />
+      <MetricRow
+        label="VAD 기준 무음"
+        value={`${fixed(classification.vad_silence_duration_sec)}초 · ${classification.vad_silence_segment_count}구간`}
+      />
+      <MetricRow
+        label="판정 보류"
+        value={`${fixed(classification.pending_duration_sec)}초 · ${classification.pending_segment_count}구간`}
+      />
+    </div>
+  );
+}
+
 function SpeechPanel({
   metrics,
   sttStatus,
@@ -64,6 +102,7 @@ function SpeechPanel({
         <p className="mb-2 text-xs text-gray-500">오디오 활동</p>
         <AudioActivityTimeline timeline={metrics.audio_timeline} />
       </div>
+      <ClassificationPanel classification={metrics.speech_classification} />
       <div className="mt-3">
         <MetricRow
           label="발화 속도"
@@ -233,13 +272,6 @@ export default function AnalysisView({
           {result.original_question && result.original_question !== result.question && (
             <p className="mt-1 text-xs text-gray-500">질문은행 원문: {result.original_question}</p>
           )}
-
-          <div className="mt-4 rounded-md bg-gray-50 p-3 dark:bg-gray-900">
-            <p className="text-xs text-gray-500">답변 transcript</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm">
-              {result.transcript || "(인식된 답변 없음)"}
-            </p>
-          </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <ContentPanel result={result} />

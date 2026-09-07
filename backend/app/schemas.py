@@ -14,6 +14,12 @@ from pydantic import BaseModel, Field, StringConstraints, model_validator
 SttStatus = Literal[
     "not_attempted", "ok", "no_speech", "empty", "not_configured", "error"
 ]
+SpeechClassificationKind = Literal[
+    "transcribed_speech",
+    "untranscribed_speech",
+    "vad_silence",
+    "pending",
+]
 
 
 class EyeTrackingSummary(BaseModel):
@@ -37,14 +43,47 @@ class AudioTimeline(BaseModel):
     energy: list[float] = Field(default_factory=list, max_length=120)
     speech: list[bool] = Field(default_factory=list, max_length=120)
     long_pause: list[bool] = Field(default_factory=list, max_length=120)
+    classification: list[SpeechClassificationKind] | None = Field(
+        default=None, max_length=120
+    )
 
     @model_validator(mode="after")
     def validate_bins(self) -> "AudioTimeline":
         lengths = {len(self.energy), len(self.speech), len(self.long_pause)}
         if len(lengths) != 1:
             raise ValueError("audio timeline arrays must have equal lengths")
+        if self.classification is not None and len(self.classification) != len(self.energy):
+            raise ValueError("audio timeline classification must match the bin count")
         if any(not math.isfinite(value) or not 0 <= value <= 1 for value in self.energy):
             raise ValueError("audio timeline energy must be finite and between 0 and 1")
+        return self
+
+
+class SpeechClassification(BaseModel):
+    """VAD/alignment partition without exposing transcript text."""
+
+    total_analysis_duration_sec: float = Field(default=0, ge=0)
+    transcribed_speech_duration_sec: float = Field(default=0, ge=0)
+    transcribed_speech_segment_count: int = Field(default=0, ge=0)
+    untranscribed_speech_duration_sec: float = Field(default=0, ge=0)
+    untranscribed_speech_segment_count: int = Field(default=0, ge=0)
+    vad_silence_duration_sec: float = Field(default=0, ge=0)
+    vad_silence_segment_count: int = Field(default=0, ge=0)
+    pending_duration_sec: float = Field(default=0, ge=0)
+    pending_segment_count: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_partition(self) -> "SpeechClassification":
+        duration_sum = sum(
+            (
+                self.transcribed_speech_duration_sec,
+                self.untranscribed_speech_duration_sec,
+                self.vad_silence_duration_sec,
+                self.pending_duration_sec,
+            )
+        )
+        if not math.isclose(self.total_analysis_duration_sec, duration_sum, abs_tol=0.011):
+            raise ValueError("speech classification durations must sum to the total")
         return self
 
 
@@ -60,6 +99,7 @@ class SpeechMetrics(BaseModel):
     max_pause_sec: float = Field(default=0, ge=0)
     long_pause_threshold_sec: float = Field(default=2.0, gt=0)
     audio_timeline: AudioTimeline | None = None
+    speech_classification: SpeechClassification | None = None
 
 
 class AnswerItem(BaseModel):
@@ -105,6 +145,17 @@ class GenerateQuestionsResponse(BaseModel):
     questions: list[Question]
 
 
+class TtsRequest(BaseModel):
+    """Payload for local question or guide synthesis."""
+
+    text: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2_000)
+    ]
+    voice_id: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=8)
+    ] | None = None
+
+
 class GroundedQuestion(BaseModel):
     """Internal A/B contract for one input-grounded interview question."""
 
@@ -128,6 +179,14 @@ class MeasurementRequest(BaseModel):
     answers: list[AnswerItem] = Field(default_factory=list)
 
 
+class WordTimestamp(BaseModel):
+    """Internal CLOVA word alignment data; never rendered as transcript text."""
+
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+    text: str = Field(min_length=1)
+
+
 class TranscriptResponse(BaseModel):
     """Result of ``POST /stt`` — transcription of one answer's audio."""
 
@@ -136,6 +195,7 @@ class TranscriptResponse(BaseModel):
     error: str | None = None
     confidence: float | None = None
     segment_count: int | None = None
+    words: list[WordTimestamp] | None = None
 
 
 class AnswerReview(BaseModel):
@@ -169,7 +229,6 @@ class QuestionResult(BaseModel):
     question: str | None
     category: str | None
     original_question: str | None = None
-    transcript: str
     speech_metrics: SpeechMetrics | None = None
     eye_tracking: EyeTrackingSummary | None = None
     content: AnswerReview | None = None

@@ -23,7 +23,12 @@ import {
   type GazeQuality,
   type GazePoint,
 } from "@/lib/gaze";
-import { transcribe } from "@/lib/api";
+import {
+  DEFAULT_TTS_VOICE_ID,
+  TTS_VOICE_IDS,
+  transcribe,
+  type TtsVoiceId,
+} from "@/lib/api";
 import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorder";
 const CAN_DEBUG_GAZE = process.env.NODE_ENV !== "production";
 
@@ -70,6 +75,7 @@ function formatCalibrationPx(value: number | null): string {
 export interface DeviceSetupResult {
   stream: MediaStream;
   calibration: GazeCalibration | null;
+  voiceId: TtsVoiceId;
 }
 
 type CalibrationState = "idle" | "running" | "success" | "failed" | "skipped";
@@ -90,6 +96,7 @@ export default function DeviceSetupView({
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [cameraId, setCameraId] = useState("");
   const [microphoneId, setMicrophoneId] = useState("");
+  const [voiceId, setVoiceId] = useState<TtsVoiceId>(DEFAULT_TTS_VOICE_ID);
   const [deviceState, setDeviceState] = useState<"loading" | "ready" | "failed">("loading");
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [gazeState, setGazeState] = useState<"loading" | "ready" | "failed">("loading");
@@ -108,7 +115,6 @@ export default function DeviceSetupView({
   const [calibrationProgress, setCalibrationProgress] = useState(0);
   const [calibrationMessage, setCalibrationMessage] = useState<string | null>(null);
   const [sttState, setSttState] = useState<SttState>("idle");
-  const [sttTranscript, setSttTranscript] = useState("");
   const [sttMessage, setSttMessage] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -184,7 +190,6 @@ export default function DeviceSetupView({
       calibrationAnimationRef.current = null;
     }
     setSttState("idle");
-    setSttTranscript("");
     setSttMessage(null);
     recorderRef.current = null;
 
@@ -215,7 +220,13 @@ export default function DeviceSetupView({
               height: { ideal: 720 },
               frameRate: { ideal: 30, max: 30 },
             },
-        audio: nextMicrophoneId ? { deviceId: { exact: nextMicrophoneId } } : true,
+        audio: {
+          ...(nextMicrophoneId ? { deviceId: { exact: nextMicrophoneId } } : {}),
+          channelCount: { ideal: 1 },
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: false },
+        },
       });
       if (disposedRef.current) {
         stream.getTracks().forEach((track) => track.stop());
@@ -516,7 +527,6 @@ export default function DeviceSetupView({
       try {
         const recorder = createRecorder(stream);
         recorderRef.current = recorder;
-        setSttTranscript("");
         setSttMessage(null);
         setSttState("recording");
         recorder.start();
@@ -534,7 +544,6 @@ export default function DeviceSetupView({
       const wav = await blobToWav16k(raw);
       const result = await transcribe(wav, "device-check.wav");
       if (result.status === "ok" && result.transcript.trim()) {
-        setSttTranscript(result.transcript.trim());
         setSttState("review");
       } else {
         setSttState("failed");
@@ -559,7 +568,6 @@ export default function DeviceSetupView({
       void recorder.stop().catch(() => undefined);
     }
     recorderRef.current = null;
-    setSttTranscript("");
     setSttMessage(null);
     setSttState("skipped");
   }
@@ -599,7 +607,7 @@ export default function DeviceSetupView({
     transferredRef.current = true;
     gazeTrackerRef.current?.close();
     gazeTrackerRef.current = null;
-    onReady({ stream, calibration });
+    onReady({ stream, calibration, voiceId });
   }
 
   const cameras = devices.filter((device) => device.kind === "videoinput");
@@ -655,6 +663,25 @@ export default function DeviceSetupView({
           </select>
         </label>
       </div>
+
+      <label className="flex max-w-sm flex-col gap-1 text-sm">
+        <span className="font-medium">면접관 음성</span>
+        <select
+          value={voiceId}
+          disabled={busy || deviceState !== "ready"}
+          onChange={(event) => setVoiceId(event.target.value as TtsVoiceId)}
+          className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+        >
+          {TTS_VOICE_IDS.map((id) => (
+            <option key={id} value={id}>
+              Supertonic {id}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-gray-500">
+          이미지에서 성별·연령을 추정하지 않으며, 선택한 화자를 면접 전체에 사용합니다.
+        </span>
+      </label>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
         <div className="flex min-w-0 flex-col gap-2 lg:items-center">
@@ -812,8 +839,7 @@ export default function DeviceSetupView({
         {sttState === "checking" && <p className="mt-3 text-sm text-gray-500">음성을 확인하고 있습니다…</p>}
         {sttState === "review" && (
           <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950/30">
-            <p className="text-gray-500">인식 결과</p>
-            <p className="mt-1">{sttTranscript}</p>
+            <p>음성 인식 확인이 완료되었습니다. 인식 결과는 표시하지 않습니다.</p>
             <div className="mt-3 flex gap-2">
               <button
                 type="button"

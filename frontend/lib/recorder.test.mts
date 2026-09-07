@@ -1,6 +1,35 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateSpeechMetrics, canTranscribeRecording } from "./recorder.ts";
+import {
+  calculateSpeechMetrics,
+  canTranscribeRecording,
+  classifySpeechFrames,
+  createSpeechEndGate,
+  SILERO_MIN_SPEECH_MS,
+  SILERO_NEGATIVE_SPEECH_THRESHOLD,
+  SILERO_POSITIVE_SPEECH_THRESHOLD,
+  SILERO_SILENCE_REDEMPTION_MS,
+} from "./recorder.ts";
+
+test("uses the approved initial Silero VAD policy", () => {
+  assert.equal(SILERO_POSITIVE_SPEECH_THRESHOLD, 0.6);
+  assert.equal(SILERO_NEGATIVE_SPEECH_THRESHOLD, 0.35);
+  assert.equal(SILERO_MIN_SPEECH_MS, 250);
+  assert.equal(SILERO_SILENCE_REDEMPTION_MS, 4000);
+});
+
+test("auto-end waits for valid speech and notifies only once", () => {
+  let notifications = 0;
+  const gate = createSpeechEndGate(() => {
+    notifications += 1;
+  });
+  gate.markSilence();
+  assert.equal(notifications, 0);
+  gate.markValidSpeech();
+  gate.markSilence();
+  gate.markSilence();
+  assert.equal(notifications, 1);
+});
 
 test("transcribes only a recording that was explicitly started", () => {
   assert.equal(canTranscribeRecording(null, false, false), false);
@@ -42,4 +71,38 @@ test("returns empty measurements for empty audio", () => {
   assert.equal(metrics.total_duration_sec, 0);
   assert.equal(metrics.speech_rate_eojeol_per_min, null);
   assert.equal(metrics.audio_timeline, null);
+});
+
+test("partitions VAD frames by aligned words without treating unmatched speech as filler", () => {
+  const result = classifySpeechFrames(
+    {
+      frameRms: [0.1, 0, 0, 0.1],
+      speechFrames: [true, false, false, true],
+      longPauseFrames: [false, false, false, false],
+      frameDurations: [0.25, 0.25, 0.25, 0.25],
+      totalDurationSec: 1,
+    },
+    [
+      { start_ms: 0, end_ms: 150, text: "하나" },
+      { start_ms: 600, end_ms: 650, text: "둘" },
+    ],
+  );
+
+  assert.ok(result);
+  assert.deepEqual(result.frameKinds, [
+    "transcribed_speech",
+    "vad_silence",
+    "pending",
+    "untranscribed_speech",
+  ]);
+  assert.equal(result.summary.total_analysis_duration_sec, 1);
+  assert.equal(
+    result.summary.transcribed_speech_duration_sec +
+      result.summary.untranscribed_speech_duration_sec +
+      result.summary.vad_silence_duration_sec +
+      result.summary.pending_duration_sec,
+    result.summary.total_analysis_duration_sec,
+  );
+  assert.equal(result.summary.untranscribed_speech_segment_count, 1);
+  assert.equal(result.summary.pending_segment_count, 1);
 });

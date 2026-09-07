@@ -1,18 +1,34 @@
 export type InterviewStep =
   | "question_ready"
+  | "reading_question"
+  | "playing_start"
   | "recording"
   | "processing"
   | "waiting_next"
   | "complete";
 
 export type InterviewEvent =
+  | "start_automatic"
+  | "question_audio_ready"
   | "start_recording"
   | "stop_recording"
+  | "long_silence"
   | "processing_succeeded"
   | "processing_failed"
   | "skip_answer"
   | "next_question"
-  | "finish";
+  | "finish"
+  | "automatic_cancel";
+
+/** Wait for answer processing and its end guide; guide failure never loses the answer. */
+export async function waitForAnswerAndGuide<T>(
+  answer: Promise<T>,
+  guide: Promise<void>,
+): Promise<T> {
+  const [answerResult] = await Promise.allSettled([answer, guide]);
+  if (answerResult.status === "rejected") throw answerResult.reason;
+  return answerResult.value;
+}
 
 /** Return the next legal interview step; invalid events are no-ops. */
 export function transitionInterviewStep(
@@ -21,12 +37,24 @@ export function transitionInterviewStep(
   isLastQuestion: boolean,
 ): InterviewStep {
   if (step === "question_ready") {
+    if (event === "start_automatic") return "reading_question";
     if (event === "start_recording") return "recording";
     if (event === "skip_answer") return "waiting_next";
     return step;
   }
+  if (step === "reading_question") {
+    if (event === "question_audio_ready") return "playing_start";
+    if (event === "automatic_cancel") return "question_ready";
+    return step;
+  }
+  if (step === "playing_start") {
+    if (event === "start_recording") return "recording";
+    if (event === "automatic_cancel") return "question_ready";
+    return step;
+  }
   if (step === "recording") {
-    return event === "stop_recording" ? "processing" : step;
+    if (event === "stop_recording" || event === "long_silence") return "processing";
+    return step;
   }
   if (step === "processing") {
     return event === "processing_succeeded" || event === "processing_failed"
