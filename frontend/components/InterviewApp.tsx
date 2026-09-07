@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  DEFAULT_TTS_VOICE_ID,
   generateQuestions,
   getInterviewerImages,
   getMeasurementReport,
@@ -22,7 +23,10 @@ import DeviceSetupView, {
 } from "@/components/DeviceSetupView";
 import ThemeToggle from "@/components/ThemeToggle";
 import EssayView from "@/components/EssayView";
-import { pickInterviewerImage } from "@/lib/interviewerImages";
+import {
+  pickInterviewerImage,
+  type InterviewerGender,
+} from "@/lib/interviewerImages";
 import { getAnswerRevision, isAnswerReviewable } from "@/lib/answerReview";
 import {
   createQuestionSpeechCache,
@@ -44,6 +48,10 @@ const UNAVAILABLE_CONTENT: AnswerReview = {
   improvements: [],
 };
 
+function voiceGender(voiceId: DeviceSetupResult["voiceId"]): InterviewerGender {
+  return voiceId.startsWith("F") ? "female" : "male";
+}
+
 export default function InterviewApp() {
   const [phase, setPhase] = useState<Phase>("setup");
   const [profile, setProfile] = useState<Profile>({});
@@ -51,12 +59,14 @@ export default function InterviewApp() {
   const [report, setReport] = useState<MeasurementReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deviceSetup, setDeviceSetup] = useState<DeviceSetupResult | null>(null);
+  const [interviewerImages, setInterviewerImages] = useState<string[]>([]);
   const [interviewerImageSrc, setInterviewerImageSrc] = useState<string | null>(null);
   const [questionSpeechCache] = useState<QuestionSpeechCache>(
     createQuestionSpeechCache,
   );
   const deviceStreamRef = useRef<MediaStream | null>(null);
   const reviewRequestsRef = useRef<Map<string, ReviewRequest>>(new Map());
+  const ttsPrewarmRunRef = useRef(0);
 
   useEffect(
     () => () => deviceStreamRef.current?.getTracks().forEach((track) => track.stop()),
@@ -64,6 +74,7 @@ export default function InterviewApp() {
   );
 
   function stopDevices() {
+    ttsPrewarmRunRef.current += 1;
     questionSpeechCache.clear();
     deviceStreamRef.current?.getTracks().forEach((track) => track.stop());
     deviceStreamRef.current = null;
@@ -72,16 +83,25 @@ export default function InterviewApp() {
 
   async function handleStart(nextProfile: Profile) {
     setError(null);
+    ttsPrewarmRunRef.current += 1;
     questionSpeechCache.clear();
     reviewRequestsRef.current.clear();
+    setInterviewerImages([]);
     setInterviewerImageSrc(null);
     setProfile(nextProfile);
     setPhase("generating");
     try {
       const res = await generateQuestions(nextProfile);
       setQuestions(res.questions);
-      const interviewerImages = await getInterviewerImages().catch(() => []);
-      setInterviewerImageSrc(pickInterviewerImage(interviewerImages));
+      const availableInterviewerImages = await getInterviewerImages().catch(() => []);
+      setInterviewerImages(availableInterviewerImages);
+      setInterviewerImageSrc(
+        pickInterviewerImage(
+          availableInterviewerImages,
+          Math.random,
+          voiceGender(DEFAULT_TTS_VOICE_ID),
+        ),
+      );
       setPhase("device-setup");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -89,14 +109,21 @@ export default function InterviewApp() {
     }
   }
 
+  function prewarmQuestionSpeech(voiceId: DeviceSetupResult["voiceId"]) {
+    const run = ++ttsPrewarmRunRef.current;
+    void (async () => {
+      for (const question of questions) {
+        if (ttsPrewarmRunRef.current !== run) return;
+        await questionSpeechCache
+          .prepare(question.question_id, question.text, voiceId)
+          .promise.catch(() => undefined);
+      }
+    })();
+  }
+
   function handleDevicesReady(result: DeviceSetupResult) {
     questionSpeechCache.clear();
-    const firstQuestion = questions[0];
-    if (firstQuestion) {
-      void questionSpeechCache
-        .prepare(firstQuestion.question_id, firstQuestion.text, result.voiceId)
-        .promise.catch(() => undefined);
-    }
+    prewarmQuestionSpeech(result.voiceId);
     deviceStreamRef.current = result.stream;
     setDeviceSetup(result);
     setPhase("interview");
@@ -156,6 +183,7 @@ export default function InterviewApp() {
     stopDevices();
     setReport(null);
     setQuestions([]);
+    setInterviewerImages([]);
     setInterviewerImageSrc(null);
     setError(null);
     setPhase("setup");
@@ -206,9 +234,15 @@ export default function InterviewApp() {
         <DeviceSetupView
           interviewerImageSrc={interviewerImageSrc}
           onReady={handleDevicesReady}
+          onVoiceChange={(voiceId) =>
+            setInterviewerImageSrc(
+              pickInterviewerImage(interviewerImages, Math.random, voiceGender(voiceId)),
+            )
+          }
           onCancel={() => {
             questionSpeechCache.clear();
             setQuestions([]);
+            setInterviewerImages([]);
             setInterviewerImageSrc(null);
             setPhase("setup");
           }}

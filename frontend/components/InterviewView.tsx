@@ -21,7 +21,6 @@ import {
   createBrowserGazeTracker,
   type BrowserGazeTracker,
   type GazeCalibration,
-  type GazeDebugFrame,
 } from "@/lib/gaze";
 import {
   addSpeechClassification,
@@ -42,7 +41,6 @@ import type {
   SpeechMetrics,
   SttStatus,
 } from "@/lib/types";
-import GazeDebugOverlay from "@/components/GazeDebugOverlay";
 import InterviewerStage from "@/components/InterviewerStage";
 import AudioActivityTimeline from "@/components/AudioActivityTimeline";
 import {
@@ -74,11 +72,11 @@ type ProcessedAnswer = {
 
 const NEXT_QUESTION_DELAY_MS = 1500;
 
-function useMicLevel(stream: MediaStream, active: boolean): number {
+export function useMicLevel(stream: MediaStream | null, active: boolean): number {
   const [level, setLevel] = useState(0);
 
   useEffect(() => {
-    if (!active) {
+    if (!active || !stream) {
       return;
     }
 
@@ -328,18 +326,12 @@ export default function InterviewView({
   const [speechMetrics, setSpeechMetrics] = useState<
     Record<string, SpeechMetrics | null>
   >({});
-  const [debugGaze, setDebugGaze] = useState(false);
-  const canDebugGaze = process.env.NODE_ENV !== "production";
-  const [gazeDebugFrame, setGazeDebugFrame] =
-    useState<GazeDebugFrame | null>(null);
-
   const videoRef = useRef<HTMLVideoElement>(null);
   const recorderRef = useRef<AnswerRecorder | null>(null);
   const recordingQuestionIdRef = useRef<string | null>(null);
   const sttRequestInFlightRef = useRef(false);
   const finishRequestedRef = useRef(false);
   const gazeTrackerRef = useRef<BrowserGazeTracker | null>(null);
-  const debugGazeRef = useRef(false);
   const vadMonitorRef = useRef<RealtimeVadMonitor | null>(null);
   const speechCancellationRef = useRef<SpeechCancellationRef["current"]>(null);
   const autoRunRef = useRef(0);
@@ -393,9 +385,7 @@ export default function InterviewView({
           try {
             gazeTracker = await createBrowserGazeTracker(
               videoRef.current,
-              (frame) => {
-                if (debugGazeRef.current) setGazeDebugFrame(frame);
-              },
+              undefined,
               calibration ?? undefined,
             );
             if (cancelled) {
@@ -436,15 +426,11 @@ export default function InterviewView({
   }, [calibration, speechCache, stream]);
 
   useEffect(() => {
-    const current = questions[index];
-    const next = questions[index + 1];
     speechCache.retain(
-      [current, next]
-        .filter((item): item is Question => Boolean(item))
-        .map((item) => ({ questionId: item.question_id, text: item.text })),
+      questions.map((item) => ({ questionId: item.question_id, text: item.text })),
       selectedVoiceId,
     );
-  }, [index, questions, selectedVoiceId, speechCache]);
+  }, [questions, selectedVoiceId, speechCache]);
 
   useEffect(() => () => speechCache.clear(), [speechCache]);
 
@@ -493,7 +479,6 @@ export default function InterviewView({
       [questionId]: { status: "not_attempted", error: null },
     }));
     setNotice(null);
-    setGazeDebugFrame(null);
     try {
       gazeTrackerRef.current?.start();
       recorder.start();
@@ -909,7 +894,7 @@ export default function InterviewView({
           자동 면접 진행
         </label>
         <span className="text-xs text-gray-500">
-          질문 읽기 · 시작 안내 후 즉시 녹음 · 유효 발화 뒤 4초 무음이면 자동 종료
+          질문이 끝나면 답변을 시작하세요, 답변이 끝나면 다음 질문으로 넘어갑니다
         </span>
       </div>
 
@@ -929,9 +914,6 @@ export default function InterviewView({
             className="w-full max-w-full lg:w-[48rem]"
             imageSrc={interviewerImageSrc}
           >
-            {debugGaze && (
-              <GazeDebugOverlay active={isRecording} frame={gazeDebugFrame} verbose={debugGaze} />
-            )}
             <div className="absolute inset-x-4 bottom-4 rounded-md bg-slate-950/75 px-3 py-2 text-center text-sm text-slate-100">
               <p className="text-xs text-slate-300">
                 {isRecording
@@ -962,22 +944,6 @@ export default function InterviewView({
           </div>
         </div>
       </div>
-      {canDebugGaze && (
-        <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-          <input
-            type="checkbox"
-            checked={debugGaze}
-            onChange={(event) => {
-              const enabled = event.target.checked;
-              debugGazeRef.current = enabled;
-              setDebugGaze(enabled);
-              if (!enabled) setGazeDebugFrame(null);
-            }}
-          />
-          시선 디버그 오버레이
-        </label>
-      )}
-
       <p className="text-xs text-gray-500">
         {gazeStatus === "loading" && "시선 분석을 준비하고 있습니다."}
         {gazeStatus === "ready" && "녹음 중 시선 데이터를 함께 기록합니다."}
@@ -1061,10 +1027,6 @@ export default function InterviewView({
       </div>
 
       {notice && <p className="text-xs text-amber-600">{notice}</p>}
-
-      <p className="rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900">
-        음성 인식 결과는 답변 판단에만 사용하며 화면에 표시하거나 편집하지 않습니다.
-      </p>
 
       {currentMetrics && (
         <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">

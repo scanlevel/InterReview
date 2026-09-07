@@ -25,14 +25,18 @@ import {
 } from "@/lib/gaze";
 import {
   DEFAULT_TTS_VOICE_ID,
+  synthesizeSpeech,
   TTS_VOICE_IDS,
   transcribe,
   type TtsVoiceId,
 } from "@/lib/api";
 import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorder";
+import { useMicLevel } from "@/components/InterviewView";
+import { playAudioBlob, type SpeechCancellationRef } from "@/lib/ttsPlayback";
 const CAN_DEBUG_GAZE = process.env.NODE_ENV !== "production";
 
 const TEST_SENTENCE = "안녕하세요. 지금부터 모의 면접을 시작하겠습니다.";
+const VOICE_PREVIEW_TEXT = "반갑습니다";
 const CALIBRATION_START_COUNTDOWN_SEC = 3;
 const CALIBRATION_PHASE_GUIDE_MS = 1500;
 const CALIBRATION_DIRECTION_PREVIEW_MS = 600;
@@ -72,6 +76,10 @@ function formatCalibrationPx(value: number | null): string {
   return value === null || !Number.isFinite(value) ? "—" : String(Math.round(value)) + "px";
 }
 
+function voiceLabel(voiceId: TtsVoiceId): string {
+  return `${voiceId.startsWith("F") ? "여성" : "남성"} ${voiceId.slice(1)}`;
+}
+
 export interface DeviceSetupResult {
   stream: MediaStream;
   calibration: GazeCalibration | null;
@@ -88,10 +96,12 @@ export default function DeviceSetupView({
   interviewerImageSrc,
   onReady,
   onCancel,
+  onVoiceChange,
 }: {
   interviewerImageSrc?: string | null;
   onReady: (result: DeviceSetupResult) => void;
   onCancel: () => void;
+  onVoiceChange?: (voiceId: TtsVoiceId) => void;
 }) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [cameraId, setCameraId] = useState("");
@@ -116,6 +126,11 @@ export default function DeviceSetupView({
   const [calibrationMessage, setCalibrationMessage] = useState<string | null>(null);
   const [sttState, setSttState] = useState<SttState>("idle");
   const [sttMessage, setSttMessage] = useState<string | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [voicePreviewState, setVoicePreviewState] = useState<
+    "idle" | "loading" | "playing" | "failed"
+  >("idle");
+  const [voicePreviewMessage, setVoicePreviewMessage] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const calibrationStageRef = useRef<HTMLDivElement>(null);
@@ -134,6 +149,43 @@ export default function DeviceSetupView({
   const latestGazeQualityRef = useRef<GazeQuality | null>(null);
   const transferredRef = useRef(false);
   const disposedRef = useRef(false);
+  const voicePreviewRequestRef = useRef<AbortController | null>(null);
+  const voicePreviewCancellationRef = useRef<SpeechCancellationRef["current"]>(null);
+  const micLevel = useMicLevel(stream, sttState === "recording");
+
+  const cancelVoicePreview = useCallback(() => {
+    voicePreviewRequestRef.current?.abort();
+    voicePreviewRequestRef.current = null;
+    voicePreviewCancellationRef.current?.();
+    voicePreviewCancellationRef.current = null;
+    setVoicePreviewState("idle");
+    setVoicePreviewMessage(null);
+  }, []);
+
+  async function previewVoice() {
+    cancelVoicePreview();
+    const controller = new AbortController();
+    voicePreviewRequestRef.current = controller;
+    setVoicePreviewState("loading");
+    try {
+      const blob = await synthesizeSpeech(VOICE_PREVIEW_TEXT, controller.signal, voiceId);
+      if (voicePreviewRequestRef.current !== controller) return;
+      setVoicePreviewState("playing");
+      await playAudioBlob(blob, VOICE_PREVIEW_TEXT, voicePreviewCancellationRef);
+      if (voicePreviewRequestRef.current === controller) setVoicePreviewState("idle");
+    } catch (error) {
+      if (controller.signal.aborted || voicePreviewRequestRef.current !== controller) return;
+      setVoicePreviewState("failed");
+      setVoicePreviewMessage(
+        error instanceof Error ? error.message : "음성 미리듣기에 실패했습니다.",
+      );
+    } finally {
+      if (voicePreviewRequestRef.current === controller) {
+        voicePreviewRequestRef.current = null;
+        voicePreviewCancellationRef.current = null;
+      }
+    }
+  }
 
   const onGazeFrame = useCallback((frame: GazeDebugFrame) => {
     setGazeFrame(frame);
@@ -158,7 +210,9 @@ export default function DeviceSetupView({
   }, []);
 
   const configureDevices = useCallback(async (nextCameraId = "", nextMicrophoneId = "") => {
+    cancelVoicePreview();
     setDeviceState("loading");
+    setStream(null);
     setDeviceError(null);
     setGazeState("loading");
     setGazeFrame(null);
@@ -234,6 +288,7 @@ export default function DeviceSetupView({
       }
 
       streamRef.current = stream;
+      setStream(stream);
       if (videoRef.current) videoRef.current.srcObject = stream;
       const available = await navigator.mediaDevices.enumerateDevices();
       setDevices(available);
@@ -263,7 +318,7 @@ export default function DeviceSetupView({
           (error instanceof Error ? `(${error.message})` : ""),
       );
     }
-  }, [onGazeFrame]);
+  }, [cancelVoicePreview, onGazeFrame]);
 
   useEffect(() => {
     disposedRef.current = false;
@@ -278,13 +333,14 @@ export default function DeviceSetupView({
         calibrationAnimationRef.current = null;
       }
       clearTimeout(startupTimer);
+      cancelVoicePreview();
       gazeTrackerRef.current?.close();
       gazeTrackerRef.current = null;
       if (!transferredRef.current) {
         streamRef.current?.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [configureDevices]);
+  }, [cancelVoicePreview, configureDevices]);
 
   async function startCalibration() {
     const tracker = gazeTrackerRef.current;
@@ -520,6 +576,7 @@ export default function DeviceSetupView({
     }
   }
   async function toggleSttTest() {
+    cancelVoicePreview();
     const stream = streamRef.current;
     if (!stream) return;
 
@@ -669,18 +726,42 @@ export default function DeviceSetupView({
         <select
           value={voiceId}
           disabled={busy || deviceState !== "ready"}
-          onChange={(event) => setVoiceId(event.target.value as TtsVoiceId)}
+          onChange={(event) => {
+            cancelVoicePreview();
+            const nextVoiceId = event.target.value as TtsVoiceId;
+            setVoiceId(nextVoiceId);
+            onVoiceChange?.(nextVoiceId);
+          }}
           className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
         >
           {TTS_VOICE_IDS.map((id) => (
             <option key={id} value={id}>
-              Supertonic {id}
+              {voiceLabel(id)}
             </option>
           ))}
         </select>
-        <span className="text-xs text-gray-500">
-          이미지에서 성별·연령을 추정하지 않으며, 선택한 화자를 면접 전체에 사용합니다.
-        </span>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void previewVoice()}
+            disabled={
+              busy ||
+              deviceState !== "ready" ||
+              voicePreviewState === "loading" ||
+              voicePreviewState === "playing"
+            }
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-700"
+          >
+            {voicePreviewState === "loading"
+              ? "음성 준비 중…"
+              : voicePreviewState === "playing"
+                ? "재생 중…"
+                : "음성 미리 듣기"}
+          </button>
+          {voicePreviewState === "failed" && (
+            <span className="text-xs text-amber-600">{voicePreviewMessage}</span>
+          )}
+        </div>
       </label>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
@@ -835,6 +916,28 @@ export default function DeviceSetupView({
             </button>
           )}
         </div>
+
+        {sttState === "recording" && (
+          <div
+            className="mt-3 flex w-fit items-center gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"
+            aria-live="polite"
+          >
+            <span className="flex items-center gap-2 font-medium">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
+              녹음 중
+            </span>
+            <span className="flex h-6 items-end gap-1" aria-hidden="true">
+              {[0.65, 0.85, 1, 0.8, 0.6].map((scale, index) => (
+                <span
+                  key={index}
+                  className="w-1 rounded-full bg-current transition-[height] duration-75"
+                  style={{ height: `${Math.max(4, Math.round(micLevel * scale * 24))}px` }}
+                />
+              ))}
+            </span>
+            <span className="text-xs opacity-75">마이크 입력</span>
+          </div>
+        )}
 
         {sttState === "checking" && <p className="mt-3 text-sm text-gray-500">음성을 확인하고 있습니다…</p>}
         {sttState === "review" && (
