@@ -110,7 +110,11 @@ def get_gemini_client() -> Any:
     try:
         from google import genai
 
-        return genai.Client(api_key=settings.gemini_api_key)
+        return genai.Client(
+            api_key=settings.gemini_api_key,
+            # Includes the initial request: at most two transient-error retries.
+            http_options={"retry_options": {"attempts": 3}},
+        )
     except Exception as error:
         raise LLMCallError(f"Gemini client를 초기화하지 못했습니다: {error}") from error
 

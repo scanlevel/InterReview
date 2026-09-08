@@ -343,3 +343,45 @@ def test_gemini_api_error_is_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
     _install_gemini(monkeypatch, RuntimeError("boom"))
     with pytest.raises(llm.LLMCallError, match="Gemini 호출"):
         llm.call_text(model="gemini-model", system="s", user="u")
+
+
+@pytest.mark.parametrize("statuses", [(500, 503, 200), (500, 500, 500), (400,)])
+def test_gemini_sdk_retries_transient_errors_only(
+    monkeypatch: pytest.MonkeyPatch, statuses: tuple[int, ...],
+) -> None:
+    import httpx
+    from google import genai
+
+    calls = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        status = statuses[len(calls)]
+        calls.append(request)
+        body = (
+            {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
+            if status == 200 else {"error": {"code": status, "message": "synthetic"}}
+        )
+        return httpx.Response(status, json=body)
+
+    constructor = genai.Client
+
+    def fake_transport_client(**kwargs: Any) -> Any:
+        kwargs["http_options"]["client_args"] = {"transport": httpx.MockTransport(respond)}
+        client = constructor(**kwargs, vertexai=False)
+        client._api_client._retry.sleep = lambda _: None
+        return client
+
+    monkeypatch.setattr(genai, "Client", fake_transport_client)
+    monkeypatch.setattr(
+        llm, "get_settings",
+        lambda: type("S", (), {"llm_provider": "gemini", "gemini_api_key": "test"})(),
+    )
+    try:
+        if statuses[-1] == 200:
+            assert llm.call_text(model="gemma-test", system="s", user="u") == "ok"
+        else:
+            with pytest.raises(llm.LLMCallError, match="Gemini 호출"):
+                llm.call_text(model="gemma-test", system="s", user="u")
+        assert len(calls) == len(statuses)
+    finally:
+        llm.get_gemini_client().close()
