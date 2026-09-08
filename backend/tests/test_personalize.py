@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import pytest
@@ -55,18 +56,14 @@ def test_returns_personalized_text(monkeypatch: pytest.MonkeyPatch) -> None:
     captured = _stub_llm(monkeypatch, personalized)
 
     result = personalize_service.personalize_question(
-        {
-            "job": "백엔드",
-            "technologies": "FastAPI",
-            "projects": "주문 처리 프로젝트",
-        },
-        "자소서 본문",
+        {"job": "백엔드"},
+        "FastAPI로 주문 처리 프로젝트를 개발했습니다.",
         _question(),
     )
 
     assert result == personalized
     assert captured["model"] == get_settings().personalize_model
-    assert captured["effort"] == "low"
+    assert "effort" not in captured
     assert captured["system"] == PERSONALIZE_SYSTEM_PROMPT
     assert ORIGINAL_TEXT in captured["user"]
     assert "FastAPI" in captured["user"]
@@ -149,6 +146,22 @@ def test_fallback_on_multiple_sentences(monkeypatch: pytest.MonkeyPatch) -> None
     _stub_llm(monkeypatch, "첫 질문인가요? 두 번째 질문인가요?")
     result = personalize_service.personalize_question({}, None, _question())
     assert result == ORIGINAL_TEXT
+
+
+def test_logs_validation_failure_reason(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    _stub_llm(monkeypatch, "첫 질문인가요? 두 번째 질문인가요?")
+    with caplog.at_level(logging.WARNING, logger=personalize_service.logger.name):
+        result = personalize_service.personalize_question({}, None, _question())
+
+    assert result == ORIGINAL_TEXT
+    assert "LLM 응답 검증 실패" in caplog.text
+    assert "reasons=multiple_question_marks" in caplog.text
+    contents = llm._FAILURE_LOG_PATH.read_text(encoding="utf-8")
+    assert contents.count("===== LLM CALL FAILURE =====") == 1
+    assert "answer:\n첫 질문인가요? 두 번째 질문인가요?" in contents
+    assert "failure_reason: LLM 응답 검증 실패: multiple_question_marks" in contents
 
 
 def test_fallback_on_too_long(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -248,7 +261,7 @@ def test_job_technology_without_profile_topic_skips_llm(
     captured = _stub_llm(monkeypatch, "개인화되면 안 되는 질문?")
 
     result = personalize_service.personalize_question(
-        {"technologies": "Docker"}, None, _technical_question(
+        {}, "Docker를 사용했습니다.", _technical_question(
             text="팀에서 기술을 선택한 기준은 무엇인가요?",
             subcategory="attitude::general",
         )
@@ -264,7 +277,7 @@ def test_job_technology_with_profile_topic_calls_llm(
     captured = _stub_llm(monkeypatch, "Docker 활용 경험은 무엇인가요?")
 
     result = personalize_service.personalize_question(
-        {"technologies": "Docker"}, None, _technical_question()
+        {}, "Docker를 사용했습니다.", _technical_question()
     )
 
     assert result == "Docker 활용 경험은 무엇인가요?"
@@ -282,7 +295,7 @@ def test_technical_problem_solving_without_profile_match_keeps_original(
     )
 
     result = personalize_service.personalize_question(
-        {"technologies": "database"}, None, question
+        {}, "database를 사용했습니다.", question
     )
 
     assert result == question.text
@@ -300,7 +313,7 @@ def test_generic_problem_solving_keeps_existing_personalization(
     )
 
     result = personalize_service.personalize_question(
-        {"technologies": "Docker"}, None, question
+        {}, "Docker를 사용했습니다.", question
     )
 
     assert result == "어떤 문제를 해결했는지 설명해 주세요?"
@@ -316,7 +329,7 @@ def test_new_registered_profile_token_falls_back(
     question = _technical_question()
 
     result = personalize_service.personalize_question(
-        {"technologies": "Docker"}, None, question
+        {}, "Docker를 사용했습니다.", question
     )
 
     assert result == question.text

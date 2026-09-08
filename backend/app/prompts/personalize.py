@@ -55,7 +55,11 @@ def build_user_prompt(
     if metadata:
         sections.append("[질문 메타데이터]\n" + "\n".join(metadata))
     if profile:
-        lines = [f"- {key}: {value}" for key, value in profile.items() if value]
+        lines = [
+            f"- {key}: {profile[key]}"
+            for key in ("name", "job", "job_role")
+            if profile.get(key)
+        ]
         if lines:
             sections.append("[지원자 정보]\n" + "\n".join(lines))
     if essay:

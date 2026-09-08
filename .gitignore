@@ -18,5 +18,7 @@ backend/data/ict_qa_dataset/audio/
 
 # Local-only AIHub-derived ICT question bank data
 backend/question_banks/ict/new/
-docs/ict-question-bank-review-final.json
-docs/ict-question-bank-review*
+/ict-question-bank-review-final.json
+
+# LLM failure logs can contain prompts and model responses.
+/docs/log.txt

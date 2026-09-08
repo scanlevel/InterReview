@@ -3,9 +3,6 @@
 export interface Profile {
   name?: string;
   job?: string;
-  resume_text?: string;
-  technologies?: string;
-  projects?: string;
 }
 
 export interface Question {
@@ -42,6 +39,26 @@ export interface AudioTimeline {
   speech: boolean[];
   /** Whether each display bin overlaps a long-pause run. */
   long_pause: boolean[];
+  /** Optional VAD/alignment classification for the same display bins. */
+  classification: SpeechClassificationKind[] | null;
+}
+
+export type SpeechClassificationKind =
+  | "transcribed_speech"
+  | "untranscribed_speech"
+  | "vad_silence"
+  | "pending";
+
+export interface SpeechClassification {
+  total_analysis_duration_sec: number;
+  transcribed_speech_duration_sec: number;
+  transcribed_speech_segment_count: number;
+  untranscribed_speech_duration_sec: number;
+  untranscribed_speech_segment_count: number;
+  vad_silence_duration_sec: number;
+  vad_silence_segment_count: number;
+  pending_duration_sec: number;
+  pending_segment_count: number;
 }
 
 export interface SpeechMetrics {
@@ -54,6 +71,7 @@ export interface SpeechMetrics {
   max_pause_sec: number;
   long_pause_threshold_sec: number;
   audio_timeline?: AudioTimeline | null;
+  speech_classification?: SpeechClassification | null;
 }
 export type SttStatus =
   | "not_attempted"
@@ -101,7 +119,6 @@ export interface QuestionResult {
   stt_status: SttStatus;
   stt_error?: string | null;
   original_question?: string | null;
-  transcript: string;
   speech_metrics?: SpeechMetrics | null;
   eye_tracking?: EyeTrackingSummary | null;
   content?: AnswerReview | null;
@@ -119,6 +136,13 @@ export interface TranscriptResponse {
   error?: string | null;
   confidence?: number | null;
   segment_count?: number | null;
+  words?: WordTimestamp[] | null;
+}
+
+export interface WordTimestamp {
+  start_ms: number;
+  end_ms: number;
+  text: string;
 }
 
 // --- 자소서 분석 -------------------------------------------------------------
@@ -126,6 +150,8 @@ export interface TranscriptResponse {
 export interface EssayWeakness {
   description: string;
   expected_questions: string[];
+  /** 이 약점이 드러나는 원문 문장 — 하이라이트 매칭용. */
+  source_quotes: string[];
 }
 
 /** risk_level ranks how exposed the experience is in an interview, 5 = most. */
@@ -134,6 +160,8 @@ export type RiskLevel = 1 | 2 | 3 | 4 | 5;
 export interface EssayExperience {
   experience: string;
   claims: string[];
+  /** 원문에서 그대로 복사된 근거 문장 — 하이라이트 매칭용. 검증은 프론트에서. */
+  source_quotes: string[];
   risk_level: RiskLevel;
   risk_reason: string;
   weaknesses: EssayWeakness[];
@@ -147,3 +175,9 @@ export interface EssayAnalysis {
 
 /** Mirrors the backend's max_length on EssayAnalyzeRequest.essay. */
 export const ESSAY_MAX_LENGTH = 10_000;
+
+/** 문항형 자소서의 한 문항 — 기업 질문(비울 수 있음) + 지원자 답변. */
+export interface EssayQAItem {
+  question: string;
+  answer: string;
+}

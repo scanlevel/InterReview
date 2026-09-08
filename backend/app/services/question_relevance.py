@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Mapping
-from typing import Any
 
 # Keep this vocabulary intentionally small and explicit. It covers the
 # technical/domain terms currently used by the question bank and common aliases.
@@ -98,35 +96,17 @@ def extract_registered_tokens(text: str) -> set[str]:
     }
 
 
-def _profile_context(profile: Mapping[str, Any] | None, essay: str | None) -> str:
-    values: list[str] = []
-    if profile:
-        for key in ("technologies", "projects", "resume_text"):
-            value = profile.get(key)
-            if isinstance(value, str) and value.strip():
-                values.append(value)
-            elif isinstance(value, (list, tuple, set, frozenset)):
-                values.extend(str(item) for item in value if str(item).strip())
-    if isinstance(essay, str) and essay.strip():
-        values.append(essay)
-    return "\n".join(values)
+def evidence_registered_tokens(evidence_text: str | None = None) -> set[str]:
+    """Return registered tokens explicitly written in applicant answers."""
+    return extract_registered_tokens(evidence_text or "")
 
 
-def profile_registered_tokens(
-    profile: Mapping[str, Any] | None = None,
-    essay: str | None = None,
-) -> set[str]:
-    """Return registered tokens from the allowed profile fields."""
-    return extract_registered_tokens(_profile_context(profile, essay))
-
-
-def is_profile_related(
+def is_evidence_related(
     question_text: str,
-    profile: Mapping[str, Any] | None = None,
-    essay: str | None = None,
+    evidence_text: str | None = None,
 ) -> bool:
-    """Whether a question shares an explicit registered token with the profile."""
+    """Whether a question shares a registered token with applicant answers."""
     return bool(
         extract_registered_tokens(question_text)
-        & profile_registered_tokens(profile, essay)
+        & evidence_registered_tokens(evidence_text)
     )

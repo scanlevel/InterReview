@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 
+from app.config import get_settings
 from app.schemas import EssayAnalysis, EssayAnalyzeRequest
 from app.services.essay import analyze_essay
 from app.services.llm import LLMCallError, LLMNotConfiguredError
 
 router = APIRouter(tags=["essay"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/essay/analyze", response_model=EssayAnalysis)
@@ -19,7 +23,7 @@ def analyze(request: EssayAnalyzeRequest) -> EssayAnalysis:
     entire feature, so a failure is reported rather than papered over.
     """
     try:
-        return analyze_essay(request.essay, request.profile)
+        return analyze_essay(request.essay, request.profile, request.items or None)
     except LLMNotConfiguredError as error:
         # Server-side configuration gap, not a bad request.
         raise HTTPException(
@@ -27,6 +31,16 @@ def analyze(request: EssayAnalyzeRequest) -> EssayAnalysis:
             detail="자소서 분석 기능이 설정되지 않았습니다. 관리자에게 문의해 주세요.",
         ) from error
     except LLMCallError as error:
+        settings = get_settings()
+        cause = error.__cause__ or error
+        # Do not log SDK response bodies: they may contain applicant text.
+        logger.error(
+            "Essay analysis failed: provider=%s model=%s error=%s upstream_status=%s",
+            settings.llm_provider,
+            settings.eval_model,
+            type(cause).__name__,
+            getattr(cause, "status_code", None) or getattr(cause, "code", None),
+        )
         raise HTTPException(
             status_code=502,
             detail="자소서 분석에 실패했습니다. 잠시 후 다시 시도해 주세요.",

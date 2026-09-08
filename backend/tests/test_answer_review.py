@@ -22,9 +22,6 @@ TRANSCRIPT = "쇼핑몰 백엔드 프로젝트에서 주문 처리 모듈을 담
 ESSAY = "자소서 본문"
 PROFILE = {
     "job": "백엔드 개발자",
-    "technologies": "Python, FastAPI",
-    "projects": "주문 처리 프로젝트",
-    "resume_text": "프로필 안의 resume 본문",
 }
 
 
@@ -81,16 +78,7 @@ def test_review_returns_three_coaching_fields(monkeypatch: pytest.MonkeyPatch) -
     assert PERSONALIZED in captured["user"]
     assert TRANSCRIPT in captured["user"]
     assert ESSAY in captured["user"]
-    assert "FastAPI" in captured["user"]
-    assert "주문 처리 프로젝트" in captured["user"]
-
-
-def test_profile_resume_text_is_used_when_essay_omitted(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured = _stub_llm(monkeypatch, _review())
-    answer_review_service.review_answer(
-        QUESTION, PERSONALIZED, TRANSCRIPT, profile=PROFILE
-    )
-    assert "프로필 안의 resume 본문" in captured["user"]
+    assert "백엔드 개발자" in captured["user"]
 
 
 def test_empty_or_short_transcript_skips_llm(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -169,7 +157,8 @@ def test_route_returns_200(monkeypatch: pytest.MonkeyPatch) -> None:
     body = response.json()
     assert set(body) == {"summary", "strengths", "improvements"}
     assert body["strengths"]
-    assert "FastAPI" in captured["user"]
+    assert ESSAY in captured["user"]
+    assert "백엔드 개발자" in captured["user"]
 
 
 def test_route_200_even_on_llm_failure(monkeypatch: pytest.MonkeyPatch) -> None:

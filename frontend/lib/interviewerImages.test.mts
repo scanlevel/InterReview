@@ -23,6 +23,29 @@ test("returns the only image regardless of the random value", () => {
   assert.equal(pickInterviewerImage(paths, () => 1), paths[0]);
 });
 
+test("picks only interviewers from the requested gender", () => {
+  const paths = Array.from({ length: 20 }, (_, index) =>
+    `/interviewers/korean_interviewer_${String(index + 1).padStart(2, "0")}.png`,
+  );
+
+  assert.equal(
+    pickInterviewerImage(paths, () => 0, "female"),
+    paths[0],
+  );
+  assert.equal(
+    pickInterviewerImage(paths, () => 0.999999, "female"),
+    paths[18],
+  );
+  assert.equal(
+    pickInterviewerImage(paths, () => 0, "male"),
+    paths[1],
+  );
+  assert.equal(
+    pickInterviewerImage(paths, () => 0.999999, "male"),
+    paths[19],
+  );
+});
+
 test("lists every PNG/JPG/JPEG file in the interviewer directory", async () => {
   const response = await listInterviewerImages();
   assert.equal(response.status, 200);

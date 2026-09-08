@@ -14,6 +14,12 @@ from pydantic import BaseModel, Field, StringConstraints, model_validator
 SttStatus = Literal[
     "not_attempted", "ok", "no_speech", "empty", "not_configured", "error"
 ]
+SpeechClassificationKind = Literal[
+    "transcribed_speech",
+    "untranscribed_speech",
+    "vad_silence",
+    "pending",
+]
 
 
 class EyeTrackingSummary(BaseModel):
@@ -37,14 +43,47 @@ class AudioTimeline(BaseModel):
     energy: list[float] = Field(default_factory=list, max_length=120)
     speech: list[bool] = Field(default_factory=list, max_length=120)
     long_pause: list[bool] = Field(default_factory=list, max_length=120)
+    classification: list[SpeechClassificationKind] | None = Field(
+        default=None, max_length=120
+    )
 
     @model_validator(mode="after")
     def validate_bins(self) -> "AudioTimeline":
         lengths = {len(self.energy), len(self.speech), len(self.long_pause)}
         if len(lengths) != 1:
             raise ValueError("audio timeline arrays must have equal lengths")
+        if self.classification is not None and len(self.classification) != len(self.energy):
+            raise ValueError("audio timeline classification must match the bin count")
         if any(not math.isfinite(value) or not 0 <= value <= 1 for value in self.energy):
             raise ValueError("audio timeline energy must be finite and between 0 and 1")
+        return self
+
+
+class SpeechClassification(BaseModel):
+    """VAD/alignment partition without exposing transcript text."""
+
+    total_analysis_duration_sec: float = Field(default=0, ge=0)
+    transcribed_speech_duration_sec: float = Field(default=0, ge=0)
+    transcribed_speech_segment_count: int = Field(default=0, ge=0)
+    untranscribed_speech_duration_sec: float = Field(default=0, ge=0)
+    untranscribed_speech_segment_count: int = Field(default=0, ge=0)
+    vad_silence_duration_sec: float = Field(default=0, ge=0)
+    vad_silence_segment_count: int = Field(default=0, ge=0)
+    pending_duration_sec: float = Field(default=0, ge=0)
+    pending_segment_count: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_partition(self) -> "SpeechClassification":
+        duration_sum = sum(
+            (
+                self.transcribed_speech_duration_sec,
+                self.untranscribed_speech_duration_sec,
+                self.vad_silence_duration_sec,
+                self.pending_duration_sec,
+            )
+        )
+        if not math.isclose(self.total_analysis_duration_sec, duration_sum, abs_tol=0.011):
+            raise ValueError("speech classification durations must sum to the total")
         return self
 
 
@@ -60,6 +99,7 @@ class SpeechMetrics(BaseModel):
     max_pause_sec: float = Field(default=0, ge=0)
     long_pause_threshold_sec: float = Field(default=2.0, gt=0)
     audio_timeline: AudioTimeline | None = None
+    speech_classification: SpeechClassification | None = None
 
 
 class AnswerItem(BaseModel):
@@ -91,12 +131,30 @@ class Question(BaseModel):
     occurrence_count: int = 1
 
 
+class EssayQAItem(BaseModel):
+    """One question-format essay item: company context + applicant evidence."""
+
+    question: Annotated[
+        str, StringConstraints(strip_whitespace=True, max_length=1_000)
+    ] = ""
+    answer: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
+    ]
+
+
 class GenerateQuestionsRequest(BaseModel):
     """Payload for ``POST /questions``."""
 
     profile: dict[str, Any] = Field(default_factory=dict)
+    items: list[EssayQAItem] = Field(default_factory=list, max_length=20)
     # Optional fixed seed for reproducible selection (mainly for tests).
     seed: int | None = None
+
+    @model_validator(mode="after")
+    def validate_items_length(self) -> "GenerateQuestionsRequest":
+        if sum(len(item.question) + len(item.answer) for item in self.items) > 10_000:
+            raise ValueError("자기소개서 문항 전체는 10,000자를 넘을 수 없습니다.")
+        return self
 
 
 class GenerateQuestionsResponse(BaseModel):
@@ -105,10 +163,46 @@ class GenerateQuestionsResponse(BaseModel):
     questions: list[Question]
 
 
+class TtsRequest(BaseModel):
+    """Payload for local question or guide synthesis."""
+
+    text: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2_000)
+    ]
+    voice_id: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=8)
+    ] | None = None
+
+
+class GroundedQuestion(BaseModel):
+    """Internal A/B contract for one input-grounded interview question."""
+
+    domain: Literal["resume", "job_technology"]
+    question: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+    ]
+    # This is an exact source span, not an LLM-generated summary.
+    evidence: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+class GroundedQuestionSet(BaseModel):
+    """Structured response envelope for the single grounded-question call."""
+
+    questions: list[GroundedQuestion] = Field(default_factory=list)
+
+
 class MeasurementRequest(BaseModel):
     """Payload for the B-owned measurement report endpoint."""
 
     answers: list[AnswerItem] = Field(default_factory=list)
+
+
+class WordTimestamp(BaseModel):
+    """Internal CLOVA word alignment data; never rendered as transcript text."""
+
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+    text: str = Field(min_length=1)
 
 
 class TranscriptResponse(BaseModel):
@@ -119,6 +213,7 @@ class TranscriptResponse(BaseModel):
     error: str | None = None
     confidence: float | None = None
     segment_count: int | None = None
+    words: list[WordTimestamp] | None = None
 
 
 class AnswerReview(BaseModel):
@@ -152,7 +247,6 @@ class QuestionResult(BaseModel):
     question: str | None
     category: str | None
     original_question: str | None = None
-    transcript: str
     speech_metrics: SpeechMetrics | None = None
     eye_tracking: EyeTrackingSummary | None = None
     content: AnswerReview | None = None
@@ -175,6 +269,13 @@ class EssayWeakness(BaseModel):
     expected_questions: list[str] = Field(
         default_factory=list, description="이 약점에서 나올 예상 질문"
     )
+    source_quotes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "이 약점이 드러나는 자기소개서 원문 문장. "
+            "원문에서 한 글자도 바꾸지 않고 그대로 복사한다."
+        ),
+    )
 
 
 class EssayExperience(BaseModel):
@@ -183,6 +284,13 @@ class EssayExperience(BaseModel):
     experience: str = Field(description="경험 요약")
     claims: list[str] = Field(
         default_factory=list, description="이 경험이 뒷받침한다고 주장하는 것"
+    )
+    source_quotes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "이 경험의 근거가 된 자기소개서 원문 문장. "
+            "원문에서 한 글자도 바꾸지 않고 그대로 복사한다."
+        ),
     )
     risk_level: Literal[1, 2, 3, 4, 5] = Field(
         description="면접에서 공격받을 가능성. 5가 가장 위험하다."
@@ -207,6 +315,16 @@ class EssayAnalyzeRequest(BaseModel):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
     ]
     profile: dict[str, Any] = Field(default_factory=dict)
+    # When the essay is 문항 형식, its structure is passed here as well so the
+    # prompt can point out answers that dodge their question.  ``essay`` stays
+    # the canonical, length-validated text (and the only input for old clients).
+    items: list[EssayQAItem] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_items_length(self) -> "EssayAnalyzeRequest":
+        if sum(len(item.question) + len(item.answer) for item in self.items) > 10_000:
+            raise ValueError("자기소개서 문항 전체는 10,000자를 넘을 수 없습니다.")
+        return self
 
 
 # --- Track B: 답변 내용 coaching ---------------------------------------------

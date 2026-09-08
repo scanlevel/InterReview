@@ -19,6 +19,7 @@ from typing import Any
 import httpx
 
 from app.config import get_settings
+from app.schemas import WordTimestamp
 
 
 class ClovaNotConfigured(RuntimeError):
@@ -74,7 +75,7 @@ def transcribe_audio(
     params = {
         "language": language or config.language,
         "completion": "sync",
-        "wordAlignment": False,
+        "wordAlignment": True,
         "fullText": True,
         # Speaker recognition must be explicitly disabled or CLOVA rejects the
         # request with 400 "speaker detect is off".
@@ -101,10 +102,34 @@ def transcribe_audio(
         }
 
     transcript = str(payload.get("text") or "").strip()
+    words: list[WordTimestamp] = []
+    for segment in payload.get("segments") or []:
+        if not isinstance(segment, dict):
+            continue
+        for raw_word in segment.get("words") or []:
+            if isinstance(raw_word, (list, tuple)) and len(raw_word) >= 3:
+                start_ms, end_ms, word_text = raw_word[:3]
+            elif isinstance(raw_word, dict):
+                start_ms = raw_word.get("start")
+                end_ms = raw_word.get("end")
+                word_text = raw_word.get("text")
+            else:
+                continue
+            if not isinstance(word_text, str) or not word_text.strip():
+                continue
+            try:
+                word = WordTimestamp(
+                    start_ms=int(start_ms), end_ms=int(end_ms), text=word_text.strip()
+                )
+            except (TypeError, ValueError):
+                continue
+            if word.end_ms > word.start_ms:
+                words.append(word)
     return {
         "transcript": transcript,
         "status": "ok" if transcript else "no_speech",
         "error": None,
         "confidence": payload.get("confidence"),
         "segment_count": len(payload.get("segments") or []),
+        "words": words or None,
     }

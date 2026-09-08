@@ -15,7 +15,7 @@ from typing import Any
 
 from app.config import get_settings
 from app.prompts.essay import ESSAY_SYSTEM_PROMPT, build_user_prompt
-from app.schemas import EssayAnalysis
+from app.schemas import EssayAnalysis, EssayQAItem
 from app.services import llm
 
 
@@ -36,8 +36,15 @@ def _sorted_by_risk(analysis: EssayAnalysis) -> EssayAnalysis:
     )
 
 
-def analyze_essay(essay: str, profile: dict[str, Any] | None = None) -> EssayAnalysis:
+def analyze_essay(
+    essay: str,
+    profile: dict[str, Any] | None = None,
+    items: list[EssayQAItem] | None = None,
+) -> EssayAnalysis:
     """Analyze one 자기소개서 and return its interview weak points.
+
+    ``items``, when given, carries the 문항(기업 질문 + 답변) structure so the
+    prompt can also flag answers that dodge their question.
 
     Raises:
         LLMNotConfiguredError: if no API key is configured.
@@ -50,7 +57,11 @@ def analyze_essay(essay: str, profile: dict[str, Any] | None = None) -> EssayAna
     analysis = llm.call_structured(
         model=settings.eval_model,
         system=ESSAY_SYSTEM_PROMPT,
-        user=build_user_prompt(essay, profile),
+        user=build_user_prompt(
+            essay,
+            profile,
+            items=[(item.question, item.answer) for item in items] if items else None,
+        ),
         output_format=EssayAnalysis,
     )
     return _sorted_by_risk(analysis)
