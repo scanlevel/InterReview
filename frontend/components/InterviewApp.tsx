@@ -292,6 +292,7 @@ export default function InterviewApp() {
           questions={questions}
           stream={deviceSetup.stream}
           calibration={deviceSetup.calibration}
+          vadCalibration={deviceSetup.vadCalibration}
           voiceId={deviceSetup.voiceId}
           questionSpeechCache={questionSpeechCache}
           interviewerImageSrc={interviewerImageSrc}

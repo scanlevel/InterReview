@@ -27,11 +27,13 @@ import {
   addTranscriptRate,
   blobToWav16kWithMetrics,
   canTranscribeRecording,
+  claimAnswerProcessing,
   createRealtimeVadMonitor,
   createRecorder,
   mergeSpeechMetrics,
   type AnswerRecorder,
   type RealtimeVadMonitor,
+  type VadCalibration,
 } from "@/lib/recorder";
 import type {
   AnswerItem,
@@ -293,6 +295,7 @@ export default function InterviewView({
   questions,
   stream,
   calibration,
+  vadCalibration,
   interviewerImageSrc,
   voiceId,
   questionSpeechCache,
@@ -302,6 +305,7 @@ export default function InterviewView({
   questions: Question[];
   stream: MediaStream;
   calibration: GazeCalibration | null;
+  vadCalibration?: VadCalibration | null;
   interviewerImageSrc?: string | null;
   voiceId?: TtsVoiceId;
   questionSpeechCache?: QuestionSpeechCache;
@@ -445,6 +449,7 @@ export default function InterviewView({
           "실시간 무음 감지를 사용할 수 없어 수동 종료로 전환했습니다.",
         );
       },
+      vadCalibration,
     );
     vadMonitorRef.current = monitor;
     void monitor.ready.catch(() => undefined);
@@ -535,7 +540,7 @@ export default function InterviewView({
 
     for (const raw of segments) {
       try {
-        const converted = await blobToWav16kWithMetrics(raw);
+        const converted = await blobToWav16kWithMetrics(raw, "", vadCalibration);
         try {
           const result = await transcribe(converted.wav, "answer.wav");
           const transcript = result.status === "ok" ? result.transcript.trim() : "";
@@ -614,8 +619,11 @@ export default function InterviewView({
     guide?: () => Promise<void>,
   ) {
     const questionId = item.question_id;
-    if (sttRequestInFlightRef.current || processingAnswerIdsRef.current.has(questionId)) return;
-    processingAnswerIdsRef.current.add(questionId);
+    if (!claimAnswerProcessing(
+      questionId,
+      processingAnswerIdsRef.current,
+      sttRequestInFlightRef.current,
+    )) return;
     sttRequestInFlightRef.current = true;
     if (guide) endGuideFailureRef.current = false;
     if (invalidateAutomation) cancelAutomaticRun();

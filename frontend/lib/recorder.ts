@@ -24,8 +24,19 @@ export const SILERO_POSITIVE_SPEECH_THRESHOLD = 0.6;
 export const SILERO_NEGATIVE_SPEECH_THRESHOLD = 0.35;
 export const SILERO_MIN_SPEECH_MS = 250;
 export const SILERO_SILENCE_REDEMPTION_MS = 4000;
+export const SILERO_LEGACY_FRAME_MS = 1536 / 16;
+export const SILERO_MIN_SPEECH_FRAMES = Math.floor(
+  SILERO_MIN_SPEECH_MS / SILERO_LEGACY_FRAME_MS,
+);
+export const SILERO_SILENCE_REDEMPTION_FRAMES = Math.floor(
+  SILERO_SILENCE_REDEMPTION_MS / SILERO_LEGACY_FRAME_MS,
+);
 const SILERO_PRE_SPEECH_PAD_MS = 250;
 const SILERO_ASSET_PATH = "/vad/";
+export const VAD_CALIBRATION_NOISE_MS = 3000;
+export const VAD_CALIBRATION_MIN_PHASE_SEC = 1;
+export const VAD_CALIBRATION_MIN_PROBABILITY_SEPARATION = 0.1;
+export const VAD_CALIBRATION_MIN_RMS_SEPARATION = 0.005;
 // ponytail: one fixed initial tolerance; tune with labeled Korean audio before
 // making the alignment boundary stricter or more permissive.
 const ALIGNMENT_BOUNDARY_TOLERANCE_SEC = 0.05;
@@ -48,6 +59,16 @@ export function canTranscribeRecording(
   requestInFlight: boolean,
 ): questionId is string {
   return questionId !== null && isRecording && !requestInFlight;
+}
+
+export function claimAnswerProcessing(
+  questionId: string,
+  processingIds: Set<string>,
+  requestInFlight: boolean,
+): boolean {
+  if (requestInFlight || processingIds.has(questionId)) return false;
+  processingIds.add(questionId);
+  return true;
 }
 
 /** Create a recorder over the audio tracks of a media stream. */
@@ -128,6 +149,155 @@ function percentile(values: number[], fraction: number): number {
   return sorted[index];
 }
 
+function validCalibrationSample(sample: VadCalibrationSample): boolean {
+  return Number.isFinite(sample.probability) &&
+    sample.probability >= 0 &&
+    sample.probability <= 1 &&
+    Number.isFinite(sample.rms) &&
+    sample.rms >= 0 &&
+    Number.isFinite(sample.durationSec) &&
+    sample.durationSec > 0;
+}
+
+function hasValidSpeech(
+  samples: readonly VadCalibrationSample[],
+  positiveThreshold: number,
+  negativeThreshold: number,
+): boolean {
+  let speaking = false;
+  let speechFrameCount = 0;
+  let redemptionFrameCount = 0;
+  for (const sample of samples) {
+    const isSpeech = sample.probability >= positiveThreshold;
+    if (isSpeech) {
+      speechFrameCount += 1;
+      redemptionFrameCount = 0;
+    }
+    if (isSpeech && !speaking) speaking = true;
+    if (speaking && speechFrameCount === SILERO_MIN_SPEECH_FRAMES) return true;
+    if (
+      sample.probability < negativeThreshold &&
+      speaking &&
+      ++redemptionFrameCount >= SILERO_SILENCE_REDEMPTION_FRAMES
+    ) {
+      redemptionFrameCount = 0;
+      speechFrameCount = 0;
+      speaking = false;
+    }
+    if (!speaking) speechFrameCount = 0;
+  }
+  return false;
+}
+
+/** Derive session-only thresholds from a quiet sample and a spoken sample. */
+export function deriveVadCalibration(
+  samples: VadCalibrationSamples,
+): VadCalibration | null {
+  if (
+    !samples.noise.length ||
+    !samples.speech.length ||
+    samples.noise.some((sample) => !validCalibrationSample(sample)) ||
+    samples.speech.some((sample) => !validCalibrationSample(sample))
+  ) return null;
+  const noise = samples.noise;
+  const speech = samples.speech;
+  const noiseDuration = noise.reduce((sum, sample) => sum + sample.durationSec, 0);
+  const speechDuration = speech.reduce((sum, sample) => sum + sample.durationSec, 0);
+  if (
+    noiseDuration < VAD_CALIBRATION_MIN_PHASE_SEC ||
+    speechDuration < VAD_CALIBRATION_MIN_PHASE_SEC
+  ) return null;
+
+  const noiseProbability = percentile(noise.map((sample) => sample.probability), 0.95);
+  const speechProbability = percentile(speech.map((sample) => sample.probability), 0.75);
+  const separation = speechProbability - noiseProbability;
+  if (
+    !Number.isFinite(separation) ||
+    separation < VAD_CALIBRATION_MIN_PROBABILITY_SEPARATION
+  ) return null;
+
+  const negativeSpeechThreshold = noiseProbability + separation / 3;
+  const positiveSpeechThreshold = noiseProbability + (separation * 2) / 3;
+  if (
+    !Number.isFinite(negativeSpeechThreshold) ||
+    !Number.isFinite(positiveSpeechThreshold) ||
+    negativeSpeechThreshold < 0 ||
+    negativeSpeechThreshold >= positiveSpeechThreshold ||
+    positiveSpeechThreshold > 1 ||
+    hasValidSpeech(noise, positiveSpeechThreshold, negativeSpeechThreshold) ||
+    !hasValidSpeech(speech, positiveSpeechThreshold, negativeSpeechThreshold)
+  ) return null;
+
+  const noiseRms = percentile(noise.map((sample) => sample.rms), 0.95);
+  const speechRmsCandidates = speech
+    .filter((sample) => sample.probability >= positiveSpeechThreshold)
+    .map((sample) => sample.rms);
+  const speechRms = percentile(speechRmsCandidates, 0.5);
+  const rmsThreshold =
+    speechRmsCandidates.length > 0 &&
+    speechRms - noiseRms >= VAD_CALIBRATION_MIN_RMS_SEPARATION
+      ? (noiseRms + speechRms) / 2
+      : null;
+  return {
+    positiveSpeechThreshold,
+    negativeSpeechThreshold,
+    rmsThreshold: Number.isFinite(rmsThreshold) ? rmsThreshold : null,
+  };
+}
+
+function sileroThresholds(calibration?: VadCalibration | null): Pick<
+  VadCalibration,
+  "positiveSpeechThreshold" | "negativeSpeechThreshold"
+> {
+  if (
+    calibration &&
+    Number.isFinite(calibration.positiveSpeechThreshold) &&
+    Number.isFinite(calibration.negativeSpeechThreshold) &&
+    calibration.positiveSpeechThreshold >= 0 &&
+    calibration.positiveSpeechThreshold <= 1 &&
+    calibration.negativeSpeechThreshold >= 0 &&
+    calibration.negativeSpeechThreshold < calibration.positiveSpeechThreshold
+  ) {
+    return calibration;
+  }
+  return {
+    positiveSpeechThreshold: SILERO_POSITIVE_SPEECH_THRESHOLD,
+    negativeSpeechThreshold: SILERO_NEGATIVE_SPEECH_THRESHOLD,
+  };
+}
+
+export function createSileroVadOptions(calibration?: VadCalibration | null) {
+  return {
+    ...sileroThresholds(calibration),
+    redemptionMs: SILERO_SILENCE_REDEMPTION_MS,
+    preSpeechPadMs: SILERO_PRE_SPEECH_PAD_MS,
+    minSpeechMs: SILERO_MIN_SPEECH_MS,
+    submitUserSpeechOnPause: false,
+  };
+}
+
+export function getSileroVadCacheKey(calibration?: VadCalibration | null): string {
+  const thresholds = sileroThresholds(calibration);
+  return String(thresholds.positiveSpeechThreshold) + ":" +
+    String(thresholds.negativeSpeechThreshold);
+}
+
+export function createSharedVadStreamCallbacks(stream: MediaStream) {
+  return {
+    getStream: async () => stream,
+    pauseStream: async () => undefined,
+    resumeStream: async () => stream,
+  };
+}
+
+function rmsThreshold(calibration?: VadCalibration | null): number {
+  const threshold = calibration?.rmsThreshold;
+  return threshold !== null && threshold !== undefined &&
+    Number.isFinite(threshold) && threshold >= 0
+    ? threshold
+    : VAD_RMS_THRESHOLD;
+}
+
 function buildAudioTimeline(
   frameRms: number[],
   speechFrames: boolean[],
@@ -183,10 +353,31 @@ export interface SpeechVadAnalysis {
   totalDurationSec: number;
 }
 
+export interface VadCalibration {
+  positiveSpeechThreshold: number;
+  negativeSpeechThreshold: number;
+  rmsThreshold: number | null;
+}
+
+export interface VadCalibrationSample {
+  probability: number;
+  rms: number;
+  durationSec: number;
+}
+
+export interface VadCalibrationSamples {
+  noise: readonly VadCalibrationSample[];
+  speech: readonly VadCalibrationSample[];
+}
+
 // ponytail: keep the historical metrics function stable; this second linear scan
 // exposes only transient VAD frames needed for alignment and is cheaper than a
 // larger shared-state refactor until the audio path is profiled.
-function analyzeVad(samples: Float32Array, sampleRate: number): SpeechVadAnalysis {
+function analyzeVad(
+  samples: Float32Array,
+  sampleRate: number,
+  threshold = VAD_RMS_THRESHOLD,
+): SpeechVadAnalysis {
   if (!samples.length || sampleRate <= 0) {
     return {
       frameRms: [],
@@ -224,7 +415,7 @@ function analyzeVad(samples: Float32Array, sampleRate: number): SpeechVadAnalysi
     for (let index = start; index < end; index += 1) energy += samples[index] * samples[index];
     const frameDuration = (end - start) / sampleRate;
     const rms = Math.sqrt(energy / Math.max(1, end - start));
-    const isSpeech = rms >= VAD_RMS_THRESHOLD;
+    const isSpeech = rms >= threshold;
     frameRms.push(rms);
     speechFrames.push(isSpeech);
     longPauseFrames.push(false);
@@ -328,6 +519,7 @@ export function calculateSpeechMetrics(
   samples: Float32Array,
   sampleRate: number,
   transcript = "",
+  threshold = VAD_RMS_THRESHOLD,
 ): SpeechMetrics {
   if (!samples.length || sampleRate <= 0) {
     return {
@@ -377,7 +569,7 @@ export function calculateSpeechMetrics(
     }
     const frameDuration = (end - start) / sampleRate;
     const rms = Math.sqrt(energy / Math.max(1, end - start));
-    const isSpeech = rms >= VAD_RMS_THRESHOLD;
+    const isSpeech = rms >= threshold;
     frameRms.push(rms);
     speechFrames.push(isSpeech);
     longPauseFrames.push(false);
@@ -589,14 +781,15 @@ export async function blobToWav16k(blob: Blob): Promise<Blob> {
 export async function blobToWav16kWithMetrics(
   blob: Blob,
   transcript = "",
+  calibration?: VadCalibration | null,
 ): Promise<{ wav: Blob; metrics: SpeechMetrics; vad: SpeechVadAnalysis }> {
   const samples = await decodeAndResample(blob);
   let vad: SpeechVadAnalysis;
   try {
-    vad = await analyzeSileroVad(samples, TARGET_SAMPLE_RATE);
+    vad = await analyzeSileroVad(samples, TARGET_SAMPLE_RATE, calibration);
   } catch {
     // Keep the answer/session usable if local browser model assets fail to load.
-    vad = analyzeVad(samples, TARGET_SAMPLE_RATE);
+    vad = analyzeVad(samples, TARGET_SAMPLE_RATE, rmsThreshold(calibration));
   }
   return {
     wav: encodeWav(samples),
@@ -679,39 +872,40 @@ function analysisFromSpeechFrames(
   };
 }
 
-let offlineVadPromise: Promise<NonRealTimeVAD> | null = null;
+let offlineVadCache: {
+  key: string;
+  promise: Promise<NonRealTimeVAD>;
+} | null = null;
 
-async function getOfflineVad(): Promise<NonRealTimeVAD> {
-  if (!offlineVadPromise) {
-    offlineVadPromise = (async () => {
+async function getOfflineVad(calibration?: VadCalibration | null): Promise<NonRealTimeVAD> {
+  const key = getSileroVadCacheKey(calibration);
+  if (!offlineVadCache || offlineVadCache.key !== key) {
+    const promise = (async () => {
       const runtime = await import("onnxruntime-web");
       runtime.env.wasm.wasmPaths = SILERO_ASSET_PATH;
       const { NonRealTimeVAD } = await import("@ricky0123/vad-web");
       return NonRealTimeVAD.new({
         modelURL: SILERO_ASSET_PATH + "silero_vad_legacy.onnx",
-        positiveSpeechThreshold: SILERO_POSITIVE_SPEECH_THRESHOLD,
-        negativeSpeechThreshold: SILERO_NEGATIVE_SPEECH_THRESHOLD,
-        redemptionMs: SILERO_SILENCE_REDEMPTION_MS,
-        preSpeechPadMs: SILERO_PRE_SPEECH_PAD_MS,
-        minSpeechMs: SILERO_MIN_SPEECH_MS,
-        submitUserSpeechOnPause: false,
+        ...createSileroVadOptions(calibration),
       });
     })().catch((error) => {
-      offlineVadPromise = null;
+      if (offlineVadCache?.promise === promise) offlineVadCache = null;
       throw error;
     });
+    offlineVadCache = { key, promise };
   }
-  return offlineVadPromise;
+  return offlineVadCache.promise;
 }
 
 async function analyzeSileroVad(
   samples: Float32Array,
   sampleRate: number,
+  calibration?: VadCalibration | null,
 ): Promise<SpeechVadAnalysis> {
   if (!samples.length || sampleRate <= 0) {
     return analysisFromSpeechFrames(samples, sampleRate, [], 1);
   }
-  const vad = await getOfflineVad();
+  const vad = await getOfflineVad(calibration);
   const segments: Array<{ start: number; end: number }> = [];
   for await (const segment of vad.run(samples, sampleRate)) {
     segments.push({ start: segment.start, end: segment.end });
@@ -731,11 +925,79 @@ async function analyzeSileroVad(
   return analysisFromSpeechFrames(samples, sampleRate, speechFrames, frameSamples);
 }
 
+export interface VadCalibrationMonitor {
+  ready: Promise<void>;
+  startSpeechCapture: () => void;
+  stop: () => Promise<VadCalibrationSamples>;
+}
+
+/** Collect probability/RMS frames without taking ownership of the shared track. */
+export function createVadCalibrationMonitor(stream: MediaStream): VadCalibrationMonitor {
+  let stopped = false;
+  let phase: "noise" | "speech" = "noise";
+  let vad: MicVAD | null = null;
+  const samples: { noise: VadCalibrationSample[]; speech: VadCalibrationSample[] } = {
+    noise: [],
+    speech: [],
+  };
+  const ready = (async () => {
+    const { MicVAD } = await import("@ricky0123/vad-web");
+    const nextVad = await MicVAD.new({
+      model: "legacy",
+      baseAssetPath: SILERO_ASSET_PATH,
+      onnxWASMBasePath: SILERO_ASSET_PATH,
+      ...createSileroVadOptions(),
+      startOnLoad: false,
+      ...createSharedVadStreamCallbacks(stream),
+      onFrameProcessed: (probabilities, frame) => {
+        if (stopped) return;
+        samples[phase].push({
+          probability: probabilities.isSpeech,
+          rms: rmsForFrame(frame, 0, frame.length),
+          durationSec: frame.length / TARGET_SAMPLE_RATE,
+        });
+      },
+      onSpeechStart: () => undefined,
+      onSpeechRealStart: () => undefined,
+      onVADMisfire: () => undefined,
+      onSpeechEnd: () => undefined,
+    });
+    if (stopped) {
+      await nextVad.destroy();
+      return;
+    }
+    vad = nextVad;
+    await vad.start();
+  })();
+  let stopPromise: Promise<VadCalibrationSamples> | null = null;
+  return {
+    ready,
+    startSpeechCapture() {
+      if (!stopped) phase = "speech";
+    },
+    stop: () => {
+      if (!stopPromise) {
+        stopPromise = (async () => {
+          stopped = true;
+          await ready.catch(() => undefined);
+          if (vad) await vad.destroy().catch(() => undefined);
+          return {
+            noise: [...samples.noise],
+            speech: [...samples.speech],
+          };
+        })();
+      }
+      return stopPromise;
+    },
+  };
+}
+
 /** Monitor the shared mic with local Silero VAD; the stream tracks stay owned by the recorder. */
 export function createRealtimeVadMonitor(
   stream: MediaStream,
   onLongSilence: () => void,
   onError?: (error: unknown) => void,
+  calibration?: VadCalibration | null,
 ): RealtimeVadMonitor {
   let stopped = false;
   let vad: MicVAD | null = null;
@@ -747,16 +1009,9 @@ export function createRealtimeVadMonitor(
         model: "legacy",
         baseAssetPath: SILERO_ASSET_PATH,
         onnxWASMBasePath: SILERO_ASSET_PATH,
-        positiveSpeechThreshold: SILERO_POSITIVE_SPEECH_THRESHOLD,
-        negativeSpeechThreshold: SILERO_NEGATIVE_SPEECH_THRESHOLD,
-        redemptionMs: SILERO_SILENCE_REDEMPTION_MS,
-        preSpeechPadMs: SILERO_PRE_SPEECH_PAD_MS,
-        minSpeechMs: SILERO_MIN_SPEECH_MS,
-        submitUserSpeechOnPause: false,
+        ...createSileroVadOptions(calibration),
         startOnLoad: false,
-        getStream: async () => stream,
-        pauseStream: async () => undefined,
-        resumeStream: async () => stream,
+        ...createSharedVadStreamCallbacks(stream),
         onSpeechStart: () => undefined,
         onSpeechRealStart: () => speechEndGate.markValidSpeech(),
         onVADMisfire: () => undefined,

@@ -30,7 +30,16 @@ import {
   transcribe,
   type TtsVoiceId,
 } from "@/lib/api";
-import { blobToWav16k, createRecorder, type AnswerRecorder } from "@/lib/recorder";
+import {
+  blobToWav16k,
+  createRecorder,
+  createVadCalibrationMonitor,
+  deriveVadCalibration,
+  VAD_CALIBRATION_NOISE_MS,
+  type AnswerRecorder,
+  type VadCalibration,
+  type VadCalibrationMonitor,
+} from "@/lib/recorder";
 import { useMicLevel } from "@/components/InterviewView";
 import { playAudioBlob, type SpeechCancellationRef } from "@/lib/ttsPlayback";
 const CAN_DEBUG_GAZE = process.env.NODE_ENV !== "production";
@@ -84,13 +93,15 @@ export interface DeviceSetupResult {
   stream: MediaStream;
   calibration: GazeCalibration | null;
   voiceId: TtsVoiceId;
+  vadCalibration?: VadCalibration | null;
 }
 
 type CalibrationState = "idle" | "running" | "success" | "failed" | "skipped";
 type CalibrationPhase = "idle" | "countdown" | "preview" | "settle" | "moving" | "collecting" | "training" | "retry";
 type CalibrationStage = "moving" | "static" | null;
 type CalibrationGuide = "moving" | "static" | null;
-type SttState = "idle" | "recording" | "checking" | "review" | "success" | "failed" | "skipped";
+type SttState = "idle" | "calibrating" | "recording" | "checking" | "review" | "success" | "failed" | "skipped";
+type VadCalibrationState = "idle" | "running" | "success" | "failed" | "skipped";
 
 export default function DeviceSetupView({
   interviewerImageSrc,
@@ -127,6 +138,10 @@ export default function DeviceSetupView({
   const [sttState, setSttState] = useState<SttState>("idle");
   const [sttMessage, setSttMessage] = useState<string | null>(null);
   const [sttTranscript, setSttTranscript] = useState<string | null>(null);
+  const [vadCalibrationState, setVadCalibrationState] =
+    useState<VadCalibrationState>("idle");
+  const [vadCalibration, setVadCalibration] = useState<VadCalibration | null>(null);
+  const [vadCalibrationMessage, setVadCalibrationMessage] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [voicePreviewState, setVoicePreviewState] = useState<
     "idle" | "loading" | "playing" | "failed"
@@ -152,7 +167,19 @@ export default function DeviceSetupView({
   const disposedRef = useRef(false);
   const voicePreviewRequestRef = useRef<AbortController | null>(null);
   const voicePreviewCancellationRef = useRef<SpeechCancellationRef["current"]>(null);
-  const micLevel = useMicLevel(stream, sttState === "recording");
+  const vadCalibrationMonitorRef = useRef<VadCalibrationMonitor | null>(null);
+  const vadCalibrationRunRef = useRef(0);
+  const micLevel = useMicLevel(
+    stream,
+    sttState === "recording" || sttState === "calibrating",
+  );
+
+  const stopVadCalibration = useCallback(() => {
+    vadCalibrationRunRef.current += 1;
+    const monitor = vadCalibrationMonitorRef.current;
+    vadCalibrationMonitorRef.current = null;
+    void monitor?.stop().catch(() => undefined);
+  }, []);
 
   const cancelVoicePreview = useCallback(() => {
     voicePreviewRequestRef.current?.abort();
@@ -212,6 +239,7 @@ export default function DeviceSetupView({
 
   const configureDevices = useCallback(async (nextCameraId = "", nextMicrophoneId = "") => {
     cancelVoicePreview();
+    stopVadCalibration();
     setDeviceState("loading");
     setStream(null);
     setDeviceError(null);
@@ -247,6 +275,9 @@ export default function DeviceSetupView({
     setSttState("idle");
     setSttMessage(null);
     setSttTranscript(null);
+    setVadCalibrationState("idle");
+    setVadCalibration(null);
+    setVadCalibrationMessage(null);
     recorderRef.current = null;
 
     gazeTrackerRef.current?.close();
@@ -320,7 +351,7 @@ export default function DeviceSetupView({
           (error instanceof Error ? `(${error.message})` : ""),
       );
     }
-  }, [cancelVoicePreview, onGazeFrame]);
+  }, [cancelVoicePreview, onGazeFrame, stopVadCalibration]);
 
   useEffect(() => {
     disposedRef.current = false;
@@ -336,13 +367,14 @@ export default function DeviceSetupView({
       }
       clearTimeout(startupTimer);
       cancelVoicePreview();
+      stopVadCalibration();
       gazeTrackerRef.current?.close();
       gazeTrackerRef.current = null;
       if (!transferredRef.current) {
         streamRef.current?.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [cancelVoicePreview, configureDevices]);
+  }, [cancelVoicePreview, configureDevices, stopVadCalibration]);
 
   async function startCalibration() {
     const tracker = gazeTrackerRef.current;
@@ -577,29 +609,120 @@ export default function DeviceSetupView({
       tracker.setCalibrationMode(false);
     }
   }
-  async function toggleSttTest() {
-    cancelVoicePreview();
-    const stream = streamRef.current;
-    if (!stream) return;
+  function startSttRecording(nextStream: MediaStream): boolean {
+    try {
+      const recorder = createRecorder(nextStream);
+      recorderRef.current = recorder;
+      setSttMessage(null);
+      setSttTranscript(null);
+      setSttState("recording");
+      recorder.start();
+      return true;
+    } catch (error) {
+      setSttState("failed");
+      setSttMessage(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
 
-    if (sttState !== "recording") {
-      try {
-        const recorder = createRecorder(stream);
-        recorderRef.current = recorder;
-        setSttMessage(null);
-        setSttTranscript(null);
-        setSttState("recording");
-        recorder.start();
-      } catch (error) {
-        setSttState("failed");
-        setSttMessage(error instanceof Error ? error.message : String(error));
-      }
+  function applyVadCalibration(
+    run: number,
+    samples: Awaited<ReturnType<VadCalibrationMonitor["stop"]>>,
+  ) {
+    if (vadCalibrationRunRef.current !== run || disposedRef.current) return;
+    const nextCalibration = deriveVadCalibration(samples);
+    setVadCalibration(nextCalibration);
+    setVadCalibrationState(nextCalibration ? "success" : "failed");
+    setVadCalibrationMessage(
+      nextCalibration
+        ? nextCalibration.rmsThreshold === null
+          ? "Silero 음성 기준을 보정했습니다. RMS fallback은 기본값을 사용합니다."
+          : "Silero 음성 기준과 RMS fallback을 보정했습니다."
+        : "소음과 발화를 충분히 구분하지 못했습니다. 다시 테스트하거나 기본 기준으로 진행해 주세요.",
+    );
+  }
+
+  async function startVadCalibration(nextStream: MediaStream) {
+    cancelVoicePreview();
+    stopVadCalibration();
+    const run = vadCalibrationRunRef.current + 1;
+    vadCalibrationRunRef.current = run;
+    const monitor = createVadCalibrationMonitor(nextStream);
+    vadCalibrationMonitorRef.current = monitor;
+    setVadCalibration(null);
+    setVadCalibrationState("running");
+    setVadCalibrationMessage("음성 기준을 준비하는 중입니다…");
+    setSttMessage(null);
+    setSttTranscript(null);
+    setSttState("calibrating");
+
+    const vadReady = await monitor.ready.then(() => true).catch(() => false);
+    if (
+      vadCalibrationRunRef.current !== run ||
+      vadCalibrationMonitorRef.current !== monitor ||
+      disposedRef.current
+    ) return;
+    if (!vadReady) {
+      vadCalibrationMonitorRef.current = null;
+      vadCalibrationRunRef.current += 1;
+      await monitor.stop().catch(() => undefined);
+      if (
+        vadCalibrationRunRef.current !== run + 1 ||
+        vadCalibrationMonitorRef.current !== null ||
+        disposedRef.current
+      ) return;
+      setVadCalibrationState("failed");
+      setVadCalibrationMessage(
+        "음성 모델을 준비하지 못했습니다. 다시 테스트하거나 기본 기준으로 진행해 주세요.",
+      );
+      setSttState("failed");
+      setSttMessage("음성 모델을 준비하지 못했습니다. 다시 테스트해 주세요.");
       return;
     }
 
+    setVadCalibrationMessage("주변 소음을 측정 중입니다. 3초 동안 말하지 말아 주세요.");
+    await wait(VAD_CALIBRATION_NOISE_MS);
+    if (
+      vadCalibrationRunRef.current !== run ||
+      vadCalibrationMonitorRef.current !== monitor ||
+      disposedRef.current
+    ) return;
+    monitor.startSpeechCapture();
+    setVadCalibrationMessage(
+      "이제 문장을 평소 목소리로 읽고, 끝나면 녹음 중지 버튼을 눌러 주세요.",
+    );
+    if (!startSttRecording(nextStream)) {
+      vadCalibrationMonitorRef.current = null;
+      const samples = await monitor.stop();
+      applyVadCalibration(run, samples);
+    }
+  }
+
+  async function toggleSttTest() {
+    cancelVoicePreview();
+    const nextStream = streamRef.current;
+    if (!nextStream) return;
+
+    if (sttState !== "recording") {
+      if (sttState === "calibrating") return;
+      if (vadCalibrationState === "success" || vadCalibrationState === "skipped") {
+        startSttRecording(nextStream);
+        return;
+      }
+      await startVadCalibration(nextStream);
+      return;
+    }
+
+    const run = vadCalibrationRunRef.current;
+    const monitor = vadCalibrationMonitorRef.current;
+    vadCalibrationMonitorRef.current = null;
     setSttState("checking");
     try {
-      const raw = await recorderRef.current?.stop();
+      const [raw, samples] = await Promise.all([
+        recorderRef.current?.stop(),
+        monitor?.stop() ?? Promise.resolve(null),
+      ]);
+      if (samples) applyVadCalibration(run, samples);
       if (!raw) throw new Error("녹음 데이터가 없습니다.");
       const wav = await blobToWav16k(raw);
       const result = await transcribe(wav, "device-check.wav");
@@ -620,20 +743,45 @@ export default function DeviceSetupView({
       setSttState("failed");
       setSttMessage(
         "STT 확인에 실패했습니다. 건너뛰고 면접을 진행할 수 있습니다. " +
-          (error instanceof Error ? `(${error.message})` : ""),
+          (error instanceof Error ? "(" + error.message + ")" : ""),
       );
+    } finally {
+      recorderRef.current = null;
     }
   }
 
   function skipSttTest() {
+    const vadWasRunning = vadCalibrationState === "running";
+    stopVadCalibration();
     const recorder = recorderRef.current;
-    if (sttState === "recording" && recorder?.isRecording()) {
+    if ((sttState === "recording" || sttState === "calibrating") && recorder?.isRecording()) {
       void recorder.stop().catch(() => undefined);
     }
     recorderRef.current = null;
     setSttMessage(null);
     setSttTranscript(null);
     setSttState("skipped");
+    if (vadWasRunning) {
+      setVadCalibration(null);
+      setVadCalibrationState("skipped");
+      setVadCalibrationMessage("음성 기준 보정을 건너뛰었습니다. 기본 기준을 사용합니다.");
+    }
+  }
+
+  function skipVadCalibration() {
+    stopVadCalibration();
+    setVadCalibration(null);
+    setVadCalibrationState("skipped");
+    setVadCalibrationMessage("음성 기준 보정을 건너뛰었습니다. 기본 기준을 사용합니다.");
+    if (sttState === "calibrating" && streamRef.current) {
+      startSttRecording(streamRef.current);
+    }
+  }
+
+  function restartVadCalibration() {
+    const nextStream = streamRef.current;
+    if (!nextStream || busy) return;
+    void startVadCalibration(nextStream);
   }
 
   function skipCalibration() {
@@ -667,19 +815,28 @@ export default function DeviceSetupView({
   }
   function continueToInterview() {
     const stream = streamRef.current;
-    if (!stream) return;
+    if (
+      !stream ||
+      !(calibrationState === "success" || calibrationState === "skipped") ||
+      !(vadCalibrationState === "success" || vadCalibrationState === "skipped") ||
+      !(sttState === "success" || sttState === "skipped") ||
+      busy
+    ) return;
     transferredRef.current = true;
     gazeTrackerRef.current?.close();
     gazeTrackerRef.current = null;
-    onReady({ stream, calibration, voiceId });
+    onReady({ stream, calibration, voiceId, vadCalibration });
   }
 
   const cameras = devices.filter((device) => device.kind === "videoinput");
   const microphones = devices.filter((device) => device.kind === "audioinput");
   const calibrationDone = calibrationState === "success" || calibrationState === "skipped";
   const sttDone = sttState === "success" || sttState === "skipped";
+  const vadCalibrationDone =
+    vadCalibrationState === "success" || vadCalibrationState === "skipped";
   const deviceBusy =
     deviceState === "loading" ||
+    sttState === "calibrating" ||
     sttState === "recording" ||
     sttState === "checking";
   const busy = deviceBusy || calibrationState === "running";
@@ -893,7 +1050,9 @@ export default function DeviceSetupView({
 
       <section className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
         <h3 className="font-medium">2. 마이크·STT 확인</h3>
-        <p className="mt-1 text-sm text-gray-500">아래 문장을 읽어주세요.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          시작하면 3초 동안 주변 소음을 측정합니다. 이후 아래 문장을 평소 목소리로 읽어주세요.
+        </p>
         <blockquote className="mt-2 rounded bg-gray-100 p-3 text-sm dark:bg-gray-800">
           “{TEST_SENTENCE}”
         </blockquote>
@@ -906,8 +1065,34 @@ export default function DeviceSetupView({
               sttState === "recording" ? "bg-red-600" : "bg-gray-900 dark:bg-white dark:text-gray-900"
             }`}
           >
-            {sttState === "recording" ? "녹음 중지하고 확인" : "음성 테스트 시작"}
+            {sttState === "calibrating"
+              ? "주변 소음 측정 중…"
+              : sttState === "recording"
+                ? "녹음 중지하고 확인"
+                : "음성 테스트 시작"}
           </button>
+          {vadCalibrationState !== "skipped" && (
+            <button
+              type="button"
+              onClick={skipVadCalibration}
+              disabled={deviceState !== "ready" || sttState === "checking"}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700"
+            >
+              {vadCalibrationState === "running"
+                ? "VAD 보정 건너뛰기"
+                : "기본 음성 기준 사용"}
+            </button>
+          )}
+          {(vadCalibrationState === "success" || vadCalibrationState === "skipped") && (
+            <button
+              type="button"
+              onClick={restartVadCalibration}
+              disabled={deviceState !== "ready" || busy}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700"
+            >
+              음성 기준 다시 보정
+            </button>
+          )}
           {sttState !== "success" && sttState !== "skipped" && (
             <button
               type="button"
@@ -924,14 +1109,31 @@ export default function DeviceSetupView({
           )}
         </div>
 
-        {sttState === "recording" && (
+        {vadCalibrationState === "running" && (
+          <p className="mt-3 text-sm text-blue-700 dark:text-blue-300" aria-live="polite">
+            {vadCalibrationMessage}
+          </p>
+        )}
+        {vadCalibrationState === "success" && (
+          <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">
+            {vadCalibrationMessage}
+          </p>
+        )}
+        {vadCalibrationState === "failed" && (
+          <p className="mt-3 text-sm text-amber-600">{vadCalibrationMessage}</p>
+        )}
+        {vadCalibrationState === "skipped" && (
+          <p className="mt-3 text-sm text-gray-500">{vadCalibrationMessage}</p>
+        )}
+
+        {(sttState === "calibrating" || sttState === "recording") && (
           <div
             className="mt-3 flex w-fit items-center gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"
             aria-live="polite"
           >
             <span className="flex items-center gap-2 font-medium">
               <span className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
-              녹음 중
+              {sttState === "calibrating" ? "준비 중" : "녹음 중"}
             </span>
             <span className="flex h-6 items-end gap-1" aria-hidden="true">
               {[0.65, 0.85, 1, 0.8, 0.6].map((scale, index) => (
@@ -998,7 +1200,13 @@ export default function DeviceSetupView({
         <button
           type="button"
           onClick={continueToInterview}
-          disabled={deviceState !== "ready" || !calibrationDone || !sttDone || busy}
+          disabled={
+            deviceState !== "ready" ||
+            !calibrationDone ||
+            !vadCalibrationDone ||
+            !sttDone ||
+            busy
+          }
           className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-white dark:text-gray-900"
         >
           설정 완료 · 면접 시작
