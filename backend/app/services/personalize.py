@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from time import perf_counter
 from typing import Any
 
 from app.config import get_settings
@@ -112,37 +114,64 @@ def personalize_question(
                 target_role = ", ".join(
                     str(value) for value in target_role if str(value).strip()
                 )
+        user_prompt = build_user_prompt(
+            original,
+            profile,
+            essay,
+            target_role=target_role if isinstance(target_role, str) else None,
+            subcategory=(
+                subcategory.strip()
+                if isinstance(subcategory, str) and subcategory.strip()
+                else None
+            ),
+            answer_intent=answer_intent,
+        )
+        input_at = datetime.now().astimezone()
+        started_at = perf_counter()
         result = llm.call_text(
             model=settings.personalize_model,
             system=PERSONALIZE_SYSTEM_PROMPT,
-            user=build_user_prompt(
-                original,
-                profile,
-                essay,
-                target_role=target_role if isinstance(target_role, str) else None,
-                subcategory=(
-                    subcategory.strip()
-                    if isinstance(subcategory, str) and subcategory.strip()
-                    else None
-                ),
-                answer_intent=answer_intent,
-            ),
+            user=user_prompt,
         )
         personalized = _strip_outer_quotes(" ".join(result.split()))
 
-        if (
-            not personalized
-            or len(personalized) > _MAX_LENGTH
-            or has_experienced_context(personalized)
-            or not personalized.endswith(_QUESTION_MARKS)
-            or sum(personalized.count(mark) for mark in _QUESTION_MARKS) != 1
-            or any(mark in personalized[:-1] for mark in ("!", "！", "。"))
-            or (
-                relevance_gate
-                and _has_new_registered_token(original, personalized, essay)
+        validation_reasons: list[str] = []
+        if not personalized:
+            validation_reasons.append("empty")
+        if len(personalized) > _MAX_LENGTH:
+            validation_reasons.append("too_long")
+        if has_experienced_context(personalized):
+            validation_reasons.append("experienced_context")
+        question_mark_count = sum(
+            personalized.count(mark) for mark in _QUESTION_MARKS
+        )
+        if not personalized.endswith(_QUESTION_MARKS):
+            validation_reasons.append("missing_question_mark")
+        if question_mark_count > 1:
+            validation_reasons.append("multiple_question_marks")
+        if any(mark in personalized[:-1] for mark in ("!", "！", "。")):
+            validation_reasons.append("inner_sentence_punctuation")
+        if relevance_gate and _has_new_registered_token(original, personalized, essay):
+            validation_reasons.append("new_registered_token")
+
+        if validation_reasons:
+            llm.record_failure(
+                provider=settings.llm_provider,
+                model=settings.personalize_model,
+                kind="text",
+                input_at=input_at,
+                prompt=(
+                    f"[system]\n{PERSONALIZE_SYSTEM_PROMPT}\n\n"
+                    f"[user]\n{user_prompt}"
+                ),
+                wait_ms=(perf_counter() - started_at) * 1_000,
+                answer=result,
+                reason="LLM 응답 검증 실패: " + ",".join(validation_reasons),
             )
-        ):
-            logger.warning("질문 개인화 fallback: LLM 응답 검증에 실패했습니다.")
+            logger.warning(
+                "질문 개인화 fallback: LLM 응답 검증 실패 reasons=%s",
+                ",".join(validation_reasons),
+            )
             return original
 
         return personalized

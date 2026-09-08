@@ -31,8 +31,12 @@ from __future__ import annotations
 
 import json
 import logging
-from functools import lru_cache
-from typing import Any, Literal, TypeVar
+from datetime import datetime
+from functools import lru_cache, wraps
+from pathlib import Path
+from threading import Lock
+from time import perf_counter
+from typing import Any, Callable, Literal, TypeVar
 
 import anthropic
 from pydantic import BaseModel
@@ -56,6 +60,8 @@ _GEMINI_MAX_OUTPUT_TOKENS = 8_192
 # own, so this counter only covers the one failure it cannot see: a response
 # that came back cleanly but did not satisfy the requested schema.
 _SCHEMA_ATTEMPTS = 2
+_FAILURE_LOG_PATH = Path(__file__).resolve().parents[3] / "docs" / "log.txt"
+_FAILURE_LOG_LOCK = Lock()
 
 
 def _gemini_config(system: str, max_tokens: int) -> dict[str, Any]:
@@ -80,6 +86,17 @@ class LLMNotConfiguredError(LLMError):
 
 class LLMCallError(LLMError):
     """The call was attempted and did not produce a usable result."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        prompt: str | None = None,
+        answer: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.prompt = prompt
+        self.answer = answer
 
 
 @lru_cache(maxsize=1)
@@ -128,6 +145,163 @@ def _provider() -> str:
     return getattr(get_settings(), "llm_provider", "anthropic")
 
 
+def _format_prompt(system: str, user: str) -> str:
+    return f"[system]\n{system}\n\n[user]\n{user}"
+
+
+def _append_failure_log(
+    *,
+    provider: str,
+    model: str,
+    kind: str,
+    input_at: datetime,
+    prompt: str,
+    wait_ms: float,
+    answer: str | None,
+    reason: str,
+) -> None:
+    """Append one complete failed-call record without affecting the request."""
+    record = "\n".join(
+        (
+            "===== LLM CALL FAILURE =====",
+            f"input_time: {input_at.isoformat(timespec='milliseconds')}",
+            f"provider: {provider}",
+            f"model: {model}",
+            f"kind: {kind}",
+            f"wait_ms: {wait_ms:.0f}",
+            "input_prompt:",
+            prompt or "(없음)",
+            "answer:",
+            answer or "(응답 없음)",
+            f"failure_reason: {reason}",
+            "===== END LLM CALL FAILURE =====",
+            "",
+        )
+    )
+    try:
+        _FAILURE_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        # ponytail: one process-wide lock keeps concurrent personalization records intact;
+        # use a dedicated writer only if multiple backend processes write this file.
+        with _FAILURE_LOG_LOCK:
+            with _FAILURE_LOG_PATH.open(
+                "a", encoding="utf-8", newline=""
+            ) as log_file:
+                log_file.write(record)
+    except OSError as error:
+        logger.error(
+            "LLM failure log write failed path=%s error_type=%s",
+            _FAILURE_LOG_PATH,
+            type(error).__name__,
+        )
+
+
+def record_failure(
+    *,
+    model: str,
+    kind: str,
+    prompt: str,
+    answer: str | None,
+    reason: str,
+    input_at: datetime,
+    wait_ms: float,
+    provider: str | None = None,
+) -> None:
+    """Record a downstream validation failure using the shared log format."""
+    _append_failure_log(
+        provider=provider or _provider(),
+        model=model,
+        kind=kind,
+        input_at=input_at,
+        prompt=prompt,
+        wait_ms=wait_ms,
+        answer=answer,
+        reason=reason,
+    )
+
+
+def _log_call_duration(
+    *,
+    started_at: float,
+    provider: str,
+    model: str,
+    kind: str,
+    output: str,
+    error: Exception | None = None,
+) -> None:
+    """Log one logical LLM call without logging prompts or response contents."""
+    elapsed_ms = (perf_counter() - started_at) * 1_000
+    if error is None:
+        logger.info(
+            "llm_call completed provider=%s model=%s kind=%s output=%s elapsed_ms=%.0f",
+            provider,
+            model,
+            kind,
+            output,
+            elapsed_ms,
+        )
+    else:
+        logger.warning(
+            "llm_call failed provider=%s model=%s kind=%s output=%s "
+            "error_type=%s elapsed_ms=%.0f",
+            provider,
+            model,
+            kind,
+            output,
+            type(error).__name__,
+            elapsed_ms,
+        )
+
+
+def _timed_llm_call(kind: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorate a public helper so its total provider time is logged once."""
+    def decorator(function: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(function)
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
+            started_at = perf_counter()
+            input_at = datetime.now().astimezone()
+            provider = "unknown"
+            error: Exception | None = None
+            model = str(kwargs.get("model", "unknown"))
+            prompt = _format_prompt(
+                str(kwargs.get("system", "")), str(kwargs.get("user", ""))
+            )
+            output = (
+                getattr(kwargs.get("output_format"), "__name__", "structured")
+                if kind == "structured"
+                else "text"
+            )
+            try:
+                provider = _provider()
+                return function(*args, **kwargs)
+            except Exception as caught:
+                error = caught
+                raise
+            finally:
+                _log_call_duration(
+                    started_at=started_at,
+                    provider=provider,
+                    model=model,
+                    kind=kind,
+                    output=output,
+                    error=error,
+                )
+                if error is not None:
+                    _append_failure_log(
+                        provider=provider,
+                        model=model,
+                        kind=kind,
+                        input_at=input_at,
+                        prompt=str(getattr(error, "prompt", None) or prompt),
+                        wait_ms=(perf_counter() - started_at) * 1_000,
+                        answer=getattr(error, "answer", None),
+                        reason=f"{type(error).__name__}: {error}",
+                    )
+
+        return wrapped
+
+    return decorator
+
+
 def is_configured() -> bool:
     """Return whether an API key is present, without raising.
 
@@ -147,6 +321,7 @@ def _output_config(effort: Effort | None) -> dict[str, Any] | None:
     return {"effort": effort} if effort is not None else None
 
 
+@_timed_llm_call("structured")
 def call_structured(
     *,
     model: str,
@@ -188,15 +363,28 @@ def call_structured(
     if config is not None:
         kwargs["output_config"] = config
 
+    last_answer = ""
     for attempt in range(1, _SCHEMA_ATTEMPTS + 1):
         try:
             response = client.messages.parse(**kwargs)
         except anthropic.BadRequestError as error:
             # A 400 means the request we built is wrong (unsupported parameter,
             # bad schema). Retrying sends the same broken request, so stop.
-            raise LLMCallError(f"LLM 요청이 거부되었습니다: {error}") from error
+            raise LLMCallError(
+                f"LLM 요청이 거부되었습니다: {error}",
+                prompt=_format_prompt(system, user),
+            ) from error
         except anthropic.APIError as error:
-            raise LLMCallError(f"LLM 호출에 실패했습니다: {error}") from error
+            raise LLMCallError(
+                f"LLM 호출에 실패했습니다: {error}",
+                prompt=_format_prompt(system, user),
+            ) from error
+
+        last_answer = "".join(
+            block.text
+            for block in getattr(response, "content", ())
+            if getattr(block, "type", None) == "text"
+        ).strip()
 
         parsed = response.parsed_output
         if parsed is not None:
@@ -211,7 +399,9 @@ def call_structured(
         )
 
     raise LLMCallError(
-        f"LLM 응답이 {output_format.__name__} 스키마를 만족하지 않았습니다."
+        f"LLM 응답이 {output_format.__name__} 스키마를 만족하지 않았습니다.",
+        prompt=_format_prompt(system, user),
+        answer=last_answer,
     )
 
 
@@ -275,6 +465,8 @@ def _call_gemini_structured(
         f"반환 형식은 다음 JSON Schema를 따르십시오:\n{schema}"
     )
     config = _gemini_config(system, max_tokens)
+    last_answer = ""
+    failure_prompt = _format_prompt(system, structured_user)
 
     for attempt in range(1, _SCHEMA_ATTEMPTS + 1):
         try:
@@ -284,7 +476,16 @@ def _call_gemini_structured(
                 config=config,
             )
         except Exception as error:
-            raise LLMCallError(f"Gemini 호출에 실패했습니다: {error}") from error
+            raise LLMCallError(
+                f"Gemini 호출에 실패했습니다: {error}",
+                prompt=failure_prompt,
+                answer=last_answer,
+            ) from error
+
+        try:
+            last_answer = response.text or ""
+        except Exception:
+            last_answer = ""
 
         parsed = _parse_gemini_structured_response(response, output_format)
         if parsed is not None:
@@ -298,10 +499,13 @@ def _call_gemini_structured(
         )
 
     raise LLMCallError(
-        f"LLM 응답이 {output_format.__name__} 스키마를 만족하지 않았습니다."
+        f"LLM 응답이 {output_format.__name__} 스키마를 만족하지 않았습니다.",
+        prompt=failure_prompt,
+        answer=last_answer,
     )
 
 
+@_timed_llm_call("text")
 def call_text(
     *,
     model: str,
@@ -342,9 +546,15 @@ def call_text(
     try:
         response = client.messages.create(**kwargs)
     except anthropic.BadRequestError as error:
-        raise LLMCallError(f"LLM 요청이 거부되었습니다: {error}") from error
+        raise LLMCallError(
+            f"LLM 요청이 거부되었습니다: {error}",
+            prompt=_format_prompt(system, user),
+        ) from error
     except anthropic.APIError as error:
-        raise LLMCallError(f"LLM 호출에 실패했습니다: {error}") from error
+        raise LLMCallError(
+            f"LLM 호출에 실패했습니다: {error}",
+            prompt=_format_prompt(system, user),
+        ) from error
 
     # content is a list of blocks; only text blocks carry output. Thinking
     # blocks may precede them, so filter rather than indexing [0].
@@ -352,7 +562,11 @@ def call_text(
         block.text for block in response.content if getattr(block, "type", None) == "text"
     ).strip()
     if not text:
-        raise LLMCallError("LLM이 빈 응답을 반환했습니다.")
+        raise LLMCallError(
+            "LLM이 빈 응답을 반환했습니다.",
+            prompt=_format_prompt(system, user),
+            answer=text,
+        )
     return text
 
 
@@ -372,12 +586,22 @@ def _call_gemini_text(
             config=_gemini_config(system, max_tokens),
         )
     except Exception as error:
-        raise LLMCallError(f"Gemini 호출에 실패했습니다: {error}") from error
+        raise LLMCallError(
+            f"Gemini 호출에 실패했습니다: {error}",
+            prompt=_format_prompt(system, user),
+        ) from error
 
     try:
         text = response.text.strip()
     except Exception as error:
-        raise LLMCallError("Gemini가 빈 응답을 반환했습니다.") from error
+        raise LLMCallError(
+            "Gemini가 빈 응답을 반환했습니다.",
+            prompt=_format_prompt(system, user),
+        ) from error
     if not text:
-        raise LLMCallError("Gemini가 빈 응답을 반환했습니다.")
+        raise LLMCallError(
+            "Gemini가 빈 응답을 반환했습니다.",
+            prompt=_format_prompt(system, user),
+            answer=text,
+        )
     return text

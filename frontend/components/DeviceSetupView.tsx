@@ -751,7 +751,6 @@ export default function DeviceSetupView({
   }
 
   function skipSttTest() {
-    const vadWasRunning = vadCalibrationState === "running";
     stopVadCalibration();
     const recorder = recorderRef.current;
     if ((sttState === "recording" || sttState === "calibrating") && recorder?.isRecording()) {
@@ -761,20 +760,10 @@ export default function DeviceSetupView({
     setSttMessage(null);
     setSttTranscript(null);
     setSttState("skipped");
-    if (vadWasRunning) {
+    if (vadCalibrationState !== "success") {
       setVadCalibration(null);
       setVadCalibrationState("skipped");
       setVadCalibrationMessage("음성 기준 보정을 건너뛰었습니다. 기본 기준을 사용합니다.");
-    }
-  }
-
-  function skipVadCalibration() {
-    stopVadCalibration();
-    setVadCalibration(null);
-    setVadCalibrationState("skipped");
-    setVadCalibrationMessage("음성 기준 보정을 건너뛰었습니다. 기본 기준을 사용합니다.");
-    if (sttState === "calibrating" && streamRef.current) {
-      startSttRecording(streamRef.current);
     }
   }
 
@@ -1071,18 +1060,6 @@ export default function DeviceSetupView({
                 ? "녹음 중지하고 확인"
                 : "음성 테스트 시작"}
           </button>
-          {vadCalibrationState !== "skipped" && (
-            <button
-              type="button"
-              onClick={skipVadCalibration}
-              disabled={deviceState !== "ready" || sttState === "checking"}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700"
-            >
-              {vadCalibrationState === "running"
-                ? "VAD 보정 건너뛰기"
-                : "기본 음성 기준 사용"}
-            </button>
-          )}
           {(vadCalibrationState === "success" || vadCalibrationState === "skipped") && (
             <button
               type="button"
@@ -1104,7 +1081,7 @@ export default function DeviceSetupView({
               }
               className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700"
             >
-              {sttState === "recording" ? "녹음 건너뛰기" : "STT 건너뛰기"}
+              {sttState === "recording" ? "녹음 건너뛰기" : "STT 설정 건너뛰기"}
             </button>
           )}
         </div>

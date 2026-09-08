@@ -16,7 +16,6 @@ import { answerText } from "./essayStore.ts";
 export const TTS_START_PROMPT = "시작하세요.";
 export const TTS_ANSWER_ACCEPTED_PROMPT = "네, 알겠습니다. 다음 질문으로 넘어가겠습니다.";
 export const TTS_LAST_ANSWER_ACCEPTED_PROMPT = "네, 알겠습니다. 면접 답변이 모두 끝났습니다.";
-export const TTS_FINISH_PROMPT = "수고하셨습니다.";
 export const TTS_VOICE_IDS = [
   "M1",
   "M2",
@@ -57,7 +56,6 @@ const FIXED_GUIDE_TEXTS = new Set([
   TTS_START_PROMPT,
   TTS_ANSWER_ACCEPTED_PROMPT,
   TTS_LAST_ANSWER_ACCEPTED_PROMPT,
-  TTS_FINISH_PROMPT,
 ]);
 const guideAudioCache = new Map<string, Promise<Blob>>();
 const TTS_TIMEOUT_MS = 30_000;

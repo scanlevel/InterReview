@@ -9,7 +9,6 @@ import {
   transcribe,
   TTS_ANSWER_ACCEPTED_PROMPT,
   TTS_LAST_ANSWER_ACCEPTED_PROMPT,
-  TTS_FINISH_PROMPT,
   TTS_START_PROMPT,
 } from "@/lib/api";
 import {
@@ -831,12 +830,6 @@ export default function InterviewView({
     setStep((currentStep) =>
       transitionInterviewStep(currentStep, "finish", true),
     );
-    try {
-      await playSpeech(TTS_FINISH_PROMPT, speechCancellationRef, selectedVoiceId);
-    } catch (error) {
-      // A guide failure must not prevent the result screen.
-      if (!isSpeechCancellation(error)) logSpeechFailure(error);
-    }
     if (autoRunRef.current !== run) return;
     onFinish(questions.map((item) => buildAnswer(item)));
   }

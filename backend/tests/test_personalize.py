@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import pytest
@@ -145,6 +146,22 @@ def test_fallback_on_multiple_sentences(monkeypatch: pytest.MonkeyPatch) -> None
     _stub_llm(monkeypatch, "첫 질문인가요? 두 번째 질문인가요?")
     result = personalize_service.personalize_question({}, None, _question())
     assert result == ORIGINAL_TEXT
+
+
+def test_logs_validation_failure_reason(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    _stub_llm(monkeypatch, "첫 질문인가요? 두 번째 질문인가요?")
+    with caplog.at_level(logging.WARNING, logger=personalize_service.logger.name):
+        result = personalize_service.personalize_question({}, None, _question())
+
+    assert result == ORIGINAL_TEXT
+    assert "LLM 응답 검증 실패" in caplog.text
+    assert "reasons=multiple_question_marks" in caplog.text
+    contents = llm._FAILURE_LOG_PATH.read_text(encoding="utf-8")
+    assert contents.count("===== LLM CALL FAILURE =====") == 1
+    assert "answer:\n첫 질문인가요? 두 번째 질문인가요?" in contents
+    assert "failure_reason: LLM 응답 검증 실패: multiple_question_marks" in contents
 
 
 def test_fallback_on_too_long(monkeypatch: pytest.MonkeyPatch) -> None:
