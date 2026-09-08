@@ -16,6 +16,7 @@ export type InterviewEvent =
   | "processing_succeeded"
   | "processing_failed"
   | "skip_answer"
+  | "retry_answer"
   | "next_question"
   | "finish"
   | "automatic_cancel";
@@ -62,6 +63,7 @@ export function transitionInterviewStep(
       : step;
   }
   if (step === "waiting_next") {
+    if (event === "retry_answer") return "question_ready";
     if (event === "next_question") {
       return isLastQuestion ? "complete" : "question_ready";
     }

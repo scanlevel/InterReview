@@ -126,6 +126,7 @@ export default function DeviceSetupView({
   const [calibrationMessage, setCalibrationMessage] = useState<string | null>(null);
   const [sttState, setSttState] = useState<SttState>("idle");
   const [sttMessage, setSttMessage] = useState<string | null>(null);
+  const [sttTranscript, setSttTranscript] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [voicePreviewState, setVoicePreviewState] = useState<
     "idle" | "loading" | "playing" | "failed"
@@ -245,6 +246,7 @@ export default function DeviceSetupView({
     }
     setSttState("idle");
     setSttMessage(null);
+    setSttTranscript(null);
     recorderRef.current = null;
 
     gazeTrackerRef.current?.close();
@@ -585,6 +587,7 @@ export default function DeviceSetupView({
         const recorder = createRecorder(stream);
         recorderRef.current = recorder;
         setSttMessage(null);
+        setSttTranscript(null);
         setSttState("recording");
         recorder.start();
       } catch (error) {
@@ -601,8 +604,10 @@ export default function DeviceSetupView({
       const wav = await blobToWav16k(raw);
       const result = await transcribe(wav, "device-check.wav");
       if (result.status === "ok" && result.transcript.trim()) {
+        setSttTranscript(result.transcript.trim());
         setSttState("review");
       } else {
+        setSttTranscript(null);
         setSttState("failed");
         setSttMessage(
           result.status === "not_configured"
@@ -611,6 +616,7 @@ export default function DeviceSetupView({
         );
       }
     } catch (error) {
+      setSttTranscript(null);
       setSttState("failed");
       setSttMessage(
         "STT 확인에 실패했습니다. 건너뛰고 면접을 진행할 수 있습니다. " +
@@ -626,6 +632,7 @@ export default function DeviceSetupView({
     }
     recorderRef.current = null;
     setSttMessage(null);
+    setSttTranscript(null);
     setSttState("skipped");
   }
 
@@ -942,7 +949,10 @@ export default function DeviceSetupView({
         {sttState === "checking" && <p className="mt-3 text-sm text-gray-500">음성을 확인하고 있습니다…</p>}
         {sttState === "review" && (
           <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950/30">
-            <p>음성 인식 확인이 완료되었습니다. 인식 결과는 표시하지 않습니다.</p>
+            <p className="font-medium">음성 인식 결과</p>
+            <output className="mt-2 block whitespace-pre-wrap rounded bg-white/70 p-2 dark:bg-gray-900/40">
+              {sttTranscript}
+            </output>
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
@@ -953,7 +963,10 @@ export default function DeviceSetupView({
               </button>
               <button
                 type="button"
-                onClick={() => setSttState("idle")}
+                onClick={() => {
+                  setSttTranscript(null);
+                  setSttState("idle");
+                }}
                 className="rounded border border-gray-300 px-3 py-1.5 dark:border-gray-700"
               >
                 다시 테스트
@@ -961,7 +974,14 @@ export default function DeviceSetupView({
             </div>
           </div>
         )}
-        {sttState === "success" && <p className="mt-3 text-sm text-emerald-600">STT 확인 완료</p>}
+        {sttState === "success" && (
+          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm dark:border-emerald-900/60 dark:bg-emerald-950/30">
+            <p className="font-medium text-emerald-700 dark:text-emerald-300">STT 확인 완료</p>
+            <output className="mt-2 block whitespace-pre-wrap rounded bg-white/70 p-2 text-gray-900 dark:bg-gray-900/40 dark:text-gray-100">
+              {sttTranscript}
+            </output>
+          </div>
+        )}
         {sttState === "skipped" && <p className="mt-3 text-sm text-gray-500">STT 확인을 건너뛰었습니다.</p>}
         {sttState === "failed" && <p className="mt-3 text-sm text-amber-600">{sttMessage}</p>}
       </section>

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
+
+from app.schemas import EssayQAItem
 
 
 GROUNDED_QUESTIONS_SYSTEM_PROMPT = """\
@@ -12,7 +14,9 @@ GROUNDED_QUESTIONS_SYSTEM_PROMPT = """\
 resume와 job_technology 두 도메인에 대해 질문을 하나씩 만드십시오.
 
 반드시 지킬 것:
-- 질문의 근거는 자기소개서 또는 프로필에 실제로 적힌 내용이어야 합니다.
+- 질문의 기술·경험 근거는 지원자 답변에 실제로 적힌 내용이어야 합니다.
+- 기업 질문은 답변을 이해하기 위한 문맥일 뿐 지원자 경험의 근거가 아닙니다.
+- 기술·경험 근거와 evidence는 반드시 지원자 답변에서만 찾으십시오.
 - evidence는 입력에서 그대로 복사한 짧은 원문 구절이어야 합니다. 요약하거나
   새로 만들지 마십시오.
 - 입력에 없는 기술, 역할, 성과, 경험을 가정하지 마십시오.
@@ -29,7 +33,7 @@ def _format_profile(profile: Mapping[str, Any] | None) -> list[str]:
     if not profile:
         return []
     lines: list[str] = []
-    for key in ("resume_text", "technologies", "projects"):
+    for key in ("name", "job", "job_role"):
         value = profile.get(key)
         if isinstance(value, str) and value.strip():
             lines.append(f"- {key}: {value.strip()}")
@@ -42,7 +46,7 @@ def _format_profile(profile: Mapping[str, Any] | None) -> list[str]:
 
 def build_user_prompt(
     profile: Mapping[str, Any] | None,
-    essay: str | None,
+    items: Sequence[EssayQAItem],
     excluded_questions: list[str],
 ) -> str:
     """Build one structured-generation request without sending the full bank."""
@@ -50,8 +54,12 @@ def build_user_prompt(
     profile_lines = _format_profile(profile)
     if profile_lines:
         sections.append("[지원자 프로필]\n" + "\n".join(profile_lines))
-    if essay and essay.strip():
-        sections.append("[자기소개서]\n" + essay.strip())
+    for index, item in enumerate(items, start=1):
+        if item.question:
+            sections.append(
+                f"[문항 {index} — 기업 질문(문맥 전용)]\n{item.question}"
+            )
+        sections.append(f"[문항 {index} — 지원자 답변(근거)]\n{item.answer}")
     if excluded_questions:
         sections.append(
             "[이미 선택되어 제외할 질문]\n"

@@ -29,20 +29,18 @@ router = APIRouter(tags=["questions"])
 @router.post("/questions", response_model=GenerateQuestionsResponse)
 def create_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsResponse:
     """Select six questions, replace two with grounded questions, then personalize bank items."""
-    raw_profile = dict(request.profile)
+    raw_profile = {
+        key: request.profile[key]
+        for key in ("name", "job", "job_role")
+        if request.profile.get(key)
+    }
     job_role = raw_profile.get("job_role") or raw_profile.get("job")
-    resume_text = raw_profile.pop("resume_text", None)
-    essay = (
-        resume_text.strip()
-        if isinstance(resume_text, str) and resume_text.strip()
-        else None
-    )
+    answer_text = grounding_text(request.items) or None
     try:
         questions = generate_questions(
             seed=request.seed,
             job_role=job_role,
-            profile=raw_profile,
-            essay=essay,
+            essay=answer_text,
         )
     except QuestionBankError as error:
         raise HTTPException(status_code=500, detail=str(error)) from error
@@ -52,14 +50,13 @@ def create_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsResp
         for question in questions
         if question.rule_group in GENERATED_GROUPS
     }
-    grounding_profile = dict(raw_profile)
-    grounded_source = grounding_text(grounding_profile, essay)
+    grounded_source = answer_text or ""
     grounded: Mapping[str, Any] = {}
     if grounded_source:
         try:
             result = generate_grounded_questions(
-                grounding_profile,
-                essay,
+                raw_profile,
+                request.items,
                 [
                     question.text
                     for question in questions
@@ -98,11 +95,11 @@ def create_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsResp
     )
     generated_domains = set(active_generated)
 
-    if raw_profile or essay:
+    if raw_profile or answer_text:
         for index, question in enumerate(questions):
             if question.rule_group in generated_domains:
                 continue
-            personalized = personalize_question(raw_profile, essay, question)
+            personalized = personalize_question(raw_profile, answer_text, question)
             if personalized != question.text:
                 questions[index] = question.model_copy(
                     update={
@@ -128,7 +125,7 @@ def create_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsResp
         for index, question in enumerate(questions):
             if question.rule_group not in newly_fallback:
                 continue
-            personalized = personalize_question(raw_profile, essay, question)
+            personalized = personalize_question(raw_profile, answer_text, question)
             if personalized != question.text:
                 questions[index] = question.model_copy(
                     update={

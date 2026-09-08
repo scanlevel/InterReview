@@ -7,7 +7,7 @@ bank item selected for the same domain when this A-owned call is unavailable.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
 from app.config import get_settings
@@ -15,7 +15,7 @@ from app.prompts.grounded_questions import (
     GROUNDED_QUESTIONS_SYSTEM_PROMPT,
     build_user_prompt,
 )
-from app.schemas import GroundedQuestion, GroundedQuestionSet
+from app.schemas import EssayQAItem, GroundedQuestion, GroundedQuestionSet
 from app.services import llm
 from app.services.question_relevance import extract_registered_tokens, normalize_text
 
@@ -27,25 +27,11 @@ _QUESTION_MARKS = ("?", "？")
 _MAX_QUESTION_LENGTH = 200
 
 
-def _field_text(value: Any) -> list[str]:
-    if isinstance(value, str) and value.strip():
-        return [value.strip()]
-    if isinstance(value, (list, tuple, set, frozenset)):
-        return [str(item).strip() for item in value if str(item).strip()]
-    return []
-
-
 def grounding_text(
-    profile: Mapping[str, Any] | None = None,
-    essay: str | None = None,
+    items: Sequence[EssayQAItem],
 ) -> str:
-    """Return only applicant-provided fields allowed as evidence."""
-    values: list[str] = []
-    if profile:
-        for key in ("resume_text", "technologies", "projects"):
-            values.extend(_field_text(profile.get(key)))
-    values.extend(_field_text(essay))
-    return "\n".join(values)
+    """Return only applicant answers allowed as experience evidence."""
+    return "\n\n".join(item.answer for item in items)
 
 
 def has_exact_evidence(evidence: str, source_text: str) -> bool:
@@ -72,17 +58,16 @@ def is_valid_grounded_question(
         or any(mark in item.question for mark in ("\r", "\n"))
     ):
         return False
-    if item.domain == "job_technology":
-        question_tokens = extract_registered_tokens(question)
-        source_tokens = extract_registered_tokens(source_text)
-        if not question_tokens <= source_tokens:
-            return False
+    question_tokens = extract_registered_tokens(question)
+    source_tokens = extract_registered_tokens(source_text)
+    if not question_tokens <= source_tokens:
+        return False
     return has_exact_evidence(item.evidence, source_text)
 
 
 def generate_grounded_questions(
     profile: Mapping[str, Any] | None = None,
-    essay: str | None = None,
+    items: Sequence[EssayQAItem] = (),
     excluded_questions: list[str] | None = None,
 ) -> dict[str, GroundedQuestion | None]:
     """Generate at most one validated question per requested domain.
@@ -90,7 +75,7 @@ def generate_grounded_questions(
     Any failure returns a partial/empty mapping so the caller can fall back per
     domain without interrupting question generation.
     """
-    source_text = grounding_text(profile, essay)
+    source_text = grounding_text(items)
     empty_result: dict[str, GroundedQuestion | None] = {
         "resume": None,
         "job_technology": None,
@@ -106,7 +91,7 @@ def generate_grounded_questions(
         result = llm.call_structured(
             model=settings.eval_model,
             system=GROUNDED_QUESTIONS_SYSTEM_PROMPT,
-            user=build_user_prompt(profile, essay, excluded_questions or []),
+            user=build_user_prompt(profile, items, excluded_questions or []),
             output_format=GroundedQuestionSet,
             max_tokens=1_500,
             effort="low",

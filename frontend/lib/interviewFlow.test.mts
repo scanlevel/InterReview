@@ -23,6 +23,13 @@ test("STT failure still reaches the next-question wait state", () => {
   );
 });
 
+test("manual retry records the same question again from the ready state", () => {
+  assert.equal(
+    transitionInterviewStep("waiting_next", "retry_answer", false),
+    "question_ready",
+  );
+});
+
 test("invalid duplicate events do not move the state", () => {
   assert.equal(
     transitionInterviewStep("recording", "next_question", false),

@@ -34,7 +34,7 @@ def build_user_prompt(
     if profile:
         lines = [
             f"- {key}: {profile[key]}"
-            for key in ("job", "job_role", "technologies", "projects")
+            for key in ("job", "job_role")
             if profile.get(key)
         ]
         if lines:

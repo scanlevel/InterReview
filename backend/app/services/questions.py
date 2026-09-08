@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from app.schemas import Question
-from app.services.question_relevance import is_profile_related, normalize_text
+from app.services.question_relevance import is_evidence_related, normalize_text
 
 # backend/app/services/questions.py -> parents[2] == backend/
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -216,7 +216,6 @@ def _role_filtered_candidates(
     candidates: list[dict[str, Any]],
     requested_scopes: frozenset[str],
     rng: random.Random | None = None,
-    profile: Mapping[str, Any] | None = None,
     essay: str | None = None,
 ) -> list[dict[str, Any]]:
     if group_id not in ROLE_SCOPED_GROUPS:
@@ -249,8 +248,8 @@ def _role_filtered_candidates(
                 ]
                 if "primary" in matched_priorities:
                     primary.append(item)
-                elif "secondary" in matched_priorities and is_profile_related(
-                    _candidate_relevance_text(item), profile, essay
+                elif "secondary" in matched_priorities and is_evidence_related(
+                    _candidate_relevance_text(item), essay
                 ):
                     secondary.append(item)
 
@@ -302,7 +301,6 @@ def _pick_group_question(
     used_texts: set[str],
     rng: random.Random,
     requested_scopes: frozenset[str] = frozenset(),
-    profile: Mapping[str, Any] | None = None,
     essay: str | None = None,
 ) -> dict[str, Any]:
     candidates = [
@@ -317,7 +315,6 @@ def _pick_group_question(
         candidates,
         requested_scopes,
         rng,
-        profile,
         essay,
     )
     if not candidates:
@@ -328,7 +325,6 @@ def _pick_group_question(
 def generate_questions(
     seed: int | None = None,
     job_role: Any = None,
-    profile: Mapping[str, Any] | None = None,
     essay: str | None = None,
 ) -> list[Question]:
     """Generate one random new-applicant question from each service group."""
@@ -344,7 +340,6 @@ def generate_questions(
             used_texts,
             rng,
             requested_scopes,
-            profile,
             essay,
         )
         answer_intent = source["answer_intent"]

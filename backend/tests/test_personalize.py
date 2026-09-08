@@ -55,12 +55,8 @@ def test_returns_personalized_text(monkeypatch: pytest.MonkeyPatch) -> None:
     captured = _stub_llm(monkeypatch, personalized)
 
     result = personalize_service.personalize_question(
-        {
-            "job": "백엔드",
-            "technologies": "FastAPI",
-            "projects": "주문 처리 프로젝트",
-        },
-        "자소서 본문",
+        {"job": "백엔드"},
+        "FastAPI로 주문 처리 프로젝트를 개발했습니다.",
         _question(),
     )
 
@@ -248,7 +244,7 @@ def test_job_technology_without_profile_topic_skips_llm(
     captured = _stub_llm(monkeypatch, "개인화되면 안 되는 질문?")
 
     result = personalize_service.personalize_question(
-        {"technologies": "Docker"}, None, _technical_question(
+        {}, "Docker를 사용했습니다.", _technical_question(
             text="팀에서 기술을 선택한 기준은 무엇인가요?",
             subcategory="attitude::general",
         )
@@ -264,7 +260,7 @@ def test_job_technology_with_profile_topic_calls_llm(
     captured = _stub_llm(monkeypatch, "Docker 활용 경험은 무엇인가요?")
 
     result = personalize_service.personalize_question(
-        {"technologies": "Docker"}, None, _technical_question()
+        {}, "Docker를 사용했습니다.", _technical_question()
     )
 
     assert result == "Docker 활용 경험은 무엇인가요?"
@@ -282,7 +278,7 @@ def test_technical_problem_solving_without_profile_match_keeps_original(
     )
 
     result = personalize_service.personalize_question(
-        {"technologies": "database"}, None, question
+        {}, "database를 사용했습니다.", question
     )
 
     assert result == question.text
@@ -300,7 +296,7 @@ def test_generic_problem_solving_keeps_existing_personalization(
     )
 
     result = personalize_service.personalize_question(
-        {"technologies": "Docker"}, None, question
+        {}, "Docker를 사용했습니다.", question
     )
 
     assert result == "어떤 문제를 해결했는지 설명해 주세요?"
@@ -316,7 +312,7 @@ def test_new_registered_profile_token_falls_back(
     question = _technical_question()
 
     result = personalize_service.personalize_question(
-        {"technologies": "Docker"}, None, question
+        {}, "Docker를 사용했습니다.", question
     )
 
     assert result == question.text

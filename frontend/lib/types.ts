@@ -3,9 +3,6 @@
 export interface Profile {
   name?: string;
   job?: string;
-  resume_text?: string;
-  technologies?: string;
-  projects?: string;
 }
 
 export interface Question {
@@ -153,6 +150,8 @@ export interface WordTimestamp {
 export interface EssayWeakness {
   description: string;
   expected_questions: string[];
+  /** 이 약점이 드러나는 원문 문장 — 하이라이트 매칭용. */
+  source_quotes: string[];
 }
 
 /** risk_level ranks how exposed the experience is in an interview, 5 = most. */
@@ -161,6 +160,8 @@ export type RiskLevel = 1 | 2 | 3 | 4 | 5;
 export interface EssayExperience {
   experience: string;
   claims: string[];
+  /** 원문에서 그대로 복사된 근거 문장 — 하이라이트 매칭용. 검증은 프론트에서. */
+  source_quotes: string[];
   risk_level: RiskLevel;
   risk_reason: string;
   weaknesses: EssayWeakness[];
@@ -174,3 +175,9 @@ export interface EssayAnalysis {
 
 /** Mirrors the backend's max_length on EssayAnalyzeRequest.essay. */
 export const ESSAY_MAX_LENGTH = 10_000;
+
+/** 문항형 자소서의 한 문항 — 기업 질문(비울 수 있음) + 지원자 답변. */
+export interface EssayQAItem {
+  question: string;
+  answer: string;
+}

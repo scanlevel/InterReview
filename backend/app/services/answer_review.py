@@ -39,12 +39,6 @@ def review_answer(
     cleaned_transcript = transcript.strip()
     if len(cleaned_transcript) < 4:
         return AnswerReview(summary=_EMPTY_SUMMARY, strengths=[], improvements=[])
-    context_essay = essay
-    if not context_essay and profile:
-        resume_text = profile.get("resume_text")
-        if isinstance(resume_text, str):
-            context_essay = resume_text
-
     try:
         if not llm.is_configured():
             logger.warning("답변 coaching fallback: LLM이 설정되지 않았습니다.")
@@ -58,7 +52,7 @@ def review_answer(
                 original_question,
                 personalized_question,
                 cleaned_transcript,
-                essay=context_essay,
+                essay=essay,
                 profile=profile,
             ),
             output_format=AnswerReview,

@@ -1,27 +1,32 @@
 "use client";
 
-import { useState } from "react";
 import type { Profile } from "@/lib/types";
+import {
+  type ApplicantInfo,
+  type EssayDraft,
+} from "@/lib/essayStore";
+import EssayDraftEditor from "@/components/EssayDraftEditor";
 
 export default function SetupView({
+  draft,
+  onDraftChange,
+  applicant,
+  onApplicantChange,
   onStart,
 }: {
+  /** 자소서 첨삭 탭과 공유하는 자소서 draft — 여기서 고쳐도 첨삭 탭에 반영. */
+  draft: EssayDraft;
+  onDraftChange: (next: EssayDraft) => void;
+  /** 이름·지원 직무 — 마찬가지로 첨삭 탭과 공유. */
+  applicant: ApplicantInfo;
+  onApplicantChange: (next: ApplicantInfo) => void;
   onStart: (profile: Profile) => void;
 }) {
-  const [name, setName] = useState("");
-  const [job, setJob] = useState("");
-  const [resumeText, setResumeText] = useState("");
-  const [technologies, setTechnologies] = useState("");
-  const [projects, setProjects] = useState("");
-
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     onStart({
-      name: name.trim() || undefined,
-      job: job.trim() || undefined,
-      resume_text: resumeText.trim() || undefined,
-      technologies: technologies.trim() || undefined,
-      projects: projects.trim() || undefined,
+      name: applicant.name.trim() || undefined,
+      job: applicant.job.trim() || undefined,
     });
   }
 
@@ -34,8 +39,10 @@ export default function SetupView({
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">이름 (선택)</span>
         <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
+          value={applicant.name}
+          onChange={(event) =>
+            onApplicantChange({ ...applicant, name: event.target.value })
+          }
           placeholder="홍길동"
           className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
         />
@@ -44,45 +51,23 @@ export default function SetupView({
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">지원 직무 (선택)</span>
         <input
-          value={job}
-          onChange={(event) => setJob(event.target.value)}
+          value={applicant.job}
+          onChange={(event) =>
+            onApplicantChange({ ...applicant, job: event.target.value })
+          }
           placeholder="백엔드 개발자"
           className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">자기소개·이력 (선택)</span>
-        <textarea
-          value={resumeText}
-          onChange={(event) => setResumeText(event.target.value)}
-          rows={3}
-          placeholder="개인화에 사용할 자기소개서나 이력 내용을 입력하세요."
-          className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        />
-      </label>
-
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">기술 스택 (선택)</span>
-        <textarea
-          value={technologies}
-          onChange={(event) => setTechnologies(event.target.value)}
-          rows={2}
-          placeholder="Python, FastAPI, PostgreSQL"
-          className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        />
-      </label>
-
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">프로젝트 경험 (선택)</span>
-        <textarea
-          value={projects}
-          onChange={(event) => setProjects(event.target.value)}
-          rows={3}
-          placeholder="프로젝트에서 맡은 역할과 결과를 간단히 입력하세요."
-          className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        />
-      </label>
+      <div className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">자기소개서 (선택)</span>
+        <p className="mb-1 text-xs text-gray-500">
+          자소서 첨삭 탭과 같은 자소서를 공유합니다 — 여기서 수정하면 첨삭
+          탭에도 반영됩니다. 입력하면 이 내용으로 질문을 개인화합니다.
+        </p>
+        <EssayDraftEditor draft={draft} onChange={onDraftChange} />
+      </div>
 
       <button
         type="submit"

@@ -2,7 +2,7 @@
 
 from app.services.question_relevance import (
     extract_registered_tokens,
-    is_profile_related,
+    is_evidence_related,
     normalize_text,
 )
 
@@ -32,10 +32,9 @@ def test_generic_words_are_not_relevance_topics() -> None:
     ) == set()
 
 
-def test_profile_relevance_uses_only_profile_context_fields() -> None:
+def test_relevance_uses_only_applicant_answer_evidence() -> None:
     question = "Docker 배포 경험을 설명해 주세요?"
 
-    assert is_profile_related(question, {"job": "Docker"}) is False
-    assert is_profile_related(question, {"technologies": "Docker"}) is True
-    assert is_profile_related(question, {"projects": ["Docker 기반 서비스"]}) is True
-    assert is_profile_related(question, {"resume_text": "Docker 운영 경험"}) is True
+    assert is_evidence_related(question, None) is False
+    assert is_evidence_related(question, "PostgreSQL 운영 경험") is False
+    assert is_evidence_related(question, "Docker 운영 경험") is True

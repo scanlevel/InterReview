@@ -131,12 +131,30 @@ class Question(BaseModel):
     occurrence_count: int = 1
 
 
+class EssayQAItem(BaseModel):
+    """One question-format essay item: company context + applicant evidence."""
+
+    question: Annotated[
+        str, StringConstraints(strip_whitespace=True, max_length=1_000)
+    ] = ""
+    answer: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
+    ]
+
+
 class GenerateQuestionsRequest(BaseModel):
     """Payload for ``POST /questions``."""
 
     profile: dict[str, Any] = Field(default_factory=dict)
+    items: list[EssayQAItem] = Field(default_factory=list, max_length=20)
     # Optional fixed seed for reproducible selection (mainly for tests).
     seed: int | None = None
+
+    @model_validator(mode="after")
+    def validate_items_length(self) -> "GenerateQuestionsRequest":
+        if sum(len(item.question) + len(item.answer) for item in self.items) > 10_000:
+            raise ValueError("자기소개서 문항 전체는 10,000자를 넘을 수 없습니다.")
+        return self
 
 
 class GenerateQuestionsResponse(BaseModel):
@@ -251,6 +269,13 @@ class EssayWeakness(BaseModel):
     expected_questions: list[str] = Field(
         default_factory=list, description="이 약점에서 나올 예상 질문"
     )
+    source_quotes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "이 약점이 드러나는 자기소개서 원문 문장. "
+            "원문에서 한 글자도 바꾸지 않고 그대로 복사한다."
+        ),
+    )
 
 
 class EssayExperience(BaseModel):
@@ -259,6 +284,13 @@ class EssayExperience(BaseModel):
     experience: str = Field(description="경험 요약")
     claims: list[str] = Field(
         default_factory=list, description="이 경험이 뒷받침한다고 주장하는 것"
+    )
+    source_quotes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "이 경험의 근거가 된 자기소개서 원문 문장. "
+            "원문에서 한 글자도 바꾸지 않고 그대로 복사한다."
+        ),
     )
     risk_level: Literal[1, 2, 3, 4, 5] = Field(
         description="면접에서 공격받을 가능성. 5가 가장 위험하다."
@@ -283,6 +315,16 @@ class EssayAnalyzeRequest(BaseModel):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
     ]
     profile: dict[str, Any] = Field(default_factory=dict)
+    # When the essay is 문항 형식, its structure is passed here as well so the
+    # prompt can point out answers that dodge their question.  ``essay`` stays
+    # the canonical, length-validated text (and the only input for old clients).
+    items: list[EssayQAItem] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_items_length(self) -> "EssayAnalyzeRequest":
+        if sum(len(item.question) + len(item.answer) for item in self.items) > 10_000:
+            raise ValueError("자기소개서 문항 전체는 10,000자를 넘을 수 없습니다.")
+        return self
 
 
 # --- Track B: 답변 내용 coaching ---------------------------------------------

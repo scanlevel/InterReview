@@ -19,7 +19,7 @@ def analyze(request: EssayAnalyzeRequest) -> EssayAnalysis:
     entire feature, so a failure is reported rather than papered over.
     """
     try:
-        return analyze_essay(request.essay, request.profile)
+        return analyze_essay(request.essay, request.profile, request.items or None)
     except LLMNotConfiguredError as error:
         # Server-side configuration gap, not a bad request.
         raise HTTPException(

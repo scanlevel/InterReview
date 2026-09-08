@@ -872,6 +872,14 @@ export default function InterviewView({
     );
   }
 
+  function retryAnswer() {
+    if (autoMode || step !== "waiting_next") return;
+    setNotice(null);
+    setStep((currentStep) =>
+      transitionInterviewStep(currentStep, "retry_answer", isLast),
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between text-sm text-gray-500">
@@ -898,6 +906,51 @@ export default function InterviewView({
         </span>
       </div>
 
+      {!autoMode && step === "waiting_next" && (
+        <div className="flex flex-col items-center gap-6 rounded-lg border border-gray-200 p-10 text-center dark:border-gray-800">
+          <div>
+            <p className="text-lg font-medium">
+              질문 {index + 1} 답변이 끝났습니다.
+            </p>
+            <p className="mt-2 text-sm text-gray-500">
+              {isLast
+                ? "마지막 질문입니다. 제출하기 전에 이 질문에 다시 답변할 수 있습니다."
+                : "다음 질문으로 넘어가기 전에 이 질문에 다시 답변할 수 있습니다."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={retryAnswer}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium hover:border-gray-500 dark:border-gray-700 dark:hover:border-gray-500"
+            >
+              다시 답변하기
+            </button>
+            {isLast ? (
+              <button
+                type="button"
+                onClick={() => void submit()}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+              >
+                제출하고 결과 보기
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={goToNextQuestion}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+              >
+                다음 질문으로
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div
+        className="flex flex-col gap-5"
+        style={{ display: !autoMode && step === "waiting_next" ? "none" : undefined }}
+      >
       <p className="text-lg leading-relaxed">{question.text}</p>
       {question.original_text && question.original_text !== question.text && (
         <details className="text-xs text-gray-500">
@@ -1077,6 +1130,7 @@ export default function InterviewView({
           </button>
         )}
       </div>
+    </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   DEFAULT_TTS_VOICE_ID,
   generateQuestions,
@@ -11,6 +11,7 @@ import {
 import type {
   AnswerItem,
   AnswerReview,
+  EssayQAItem,
   MeasurementReport,
   Profile,
   Question,
@@ -22,7 +23,7 @@ import DeviceSetupView, {
   type DeviceSetupResult,
 } from "@/components/DeviceSetupView";
 import ThemeToggle from "@/components/ThemeToggle";
-import EssayView from "@/components/EssayView";
+import Link from "next/link";
 import {
   pickInterviewerImage,
   type InterviewerGender,
@@ -32,10 +33,21 @@ import {
   createQuestionSpeechCache,
   type QuestionSpeechCache,
 } from "@/lib/questionSpeechCache";
+import {
+  DEFAULT_APPLICANT,
+  DEFAULT_DRAFT,
+  currentItems,
+  loadApplicant,
+  loadDraft,
+  saveApplicant,
+  saveDraft,
+  subscribeToStore,
+  type ApplicantInfo,
+  type EssayDraft,
+} from "@/lib/essayStore";
 
 type Phase =
   | "setup"
-  | "essay"
   | "generating"
   | "device-setup"
   | "interview"
@@ -47,7 +59,6 @@ const UNAVAILABLE_CONTENT: AnswerReview = {
   strengths: [],
   improvements: [],
 };
-
 function voiceGender(voiceId: DeviceSetupResult["voiceId"]): InterviewerGender {
   return voiceId.startsWith("F") ? "female" : "male";
 }
@@ -55,6 +66,7 @@ function voiceGender(voiceId: DeviceSetupResult["voiceId"]): InterviewerGender {
 export default function InterviewApp() {
   const [phase, setPhase] = useState<Phase>("setup");
   const [profile, setProfile] = useState<Profile>({});
+  const [essayItems, setEssayItems] = useState<EssayQAItem[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [report, setReport] = useState<MeasurementReport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +76,38 @@ export default function InterviewApp() {
   const [questionSpeechCache] = useState<QuestionSpeechCache>(
     createQuestionSpeechCache,
   );
+  // 자소서 첨삭 탭과 같은 draft를 공유한다 (Track A 연동, A 담당) — 설정
+  // 화면의 자소서 입력이 곧 첨삭 탭의 자소서이고, 어느 쪽에서 고쳐도 같다.
+  const storedDraft = useSyncExternalStore(
+    subscribeToStore,
+    loadDraft,
+    () => DEFAULT_DRAFT,
+  );
+  const [editedDraft, setEditedDraft] = useState<EssayDraft | null>(null);
+  const draft = editedDraft ?? storedDraft;
+  // 이름·지원 직무도 첨삭 탭과 공유한다.
+  const storedApplicant = useSyncExternalStore(
+    subscribeToStore,
+    loadApplicant,
+    () => DEFAULT_APPLICANT,
+  );
+  const [editedApplicant, setEditedApplicant] = useState<ApplicantInfo | null>(
+    null,
+  );
+  const applicant = editedApplicant ?? storedApplicant;
   const deviceStreamRef = useRef<MediaStream | null>(null);
   const reviewRequestsRef = useRef<Map<string, ReviewRequest>>(new Map());
   const ttsPrewarmRunRef = useRef(0);
+
+  function handleDraftChange(next: EssayDraft) {
+    setEditedDraft(next);
+    saveDraft(next);
+  }
+
+  function handleApplicantChange(next: ApplicantInfo) {
+    setEditedApplicant(next);
+    saveApplicant(next);
+  }
 
   useEffect(
     () => () => deviceStreamRef.current?.getTracks().forEach((track) => track.stop()),
@@ -82,6 +123,7 @@ export default function InterviewApp() {
   }
 
   async function handleStart(nextProfile: Profile) {
+    const items = currentItems(draft);
     setError(null);
     ttsPrewarmRunRef.current += 1;
     questionSpeechCache.clear();
@@ -89,9 +131,10 @@ export default function InterviewApp() {
     setInterviewerImages([]);
     setInterviewerImageSrc(null);
     setProfile(nextProfile);
+    setEssayItems(items);
     setPhase("generating");
     try {
-      const res = await generateQuestions(nextProfile);
+      const res = await generateQuestions(nextProfile, items);
       setQuestions(res.questions);
       const availableInterviewerImages = await getInterviewerImages().catch(() => []);
       setInterviewerImages(availableInterviewerImages);
@@ -135,7 +178,7 @@ export default function InterviewApp() {
     if (existing?.revision === revision) return existing.promise;
 
     const promise = isAnswerReviewable(answer)
-      ? reviewAnswer(answer, profile).catch((reviewError) => {
+      ? reviewAnswer(answer, profile, essayItems).catch((reviewError) => {
           console.warn("Answer review failed for " + answer.question_id, reviewError);
           return UNAVAILABLE_CONTENT;
         })
@@ -183,6 +226,7 @@ export default function InterviewApp() {
     stopDevices();
     setReport(null);
     setQuestions([]);
+    setEssayItems([]);
     setInterviewerImages([]);
     setInterviewerImageSrc(null);
     setError(null);
@@ -200,7 +244,9 @@ export default function InterviewApp() {
   return (
     <main className={`mx-auto px-6 py-10 ${phase === "device-setup" || phase === "interview" ? "max-w-5xl" : "max-w-2xl"}`}>
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold">InterReview</h1>
+        <Link href="/" className="inline-block">
+          <h1 className="text-2xl font-semibold">InterReview</h1>
+        </Link>
         <p className="text-sm text-gray-500">AI 모의면접 · Next.js + FastAPI</p>
       </header>
 
@@ -211,22 +257,14 @@ export default function InterviewApp() {
       )}
 
       {phase === "setup" && (
-        <div className="flex flex-col gap-6">
-          <button
-            type="button"
-            onClick={() => {
-              setError(null);
-              setPhase("essay");
-            }}
-            className="self-start rounded-md border border-gray-300 px-4 py-2 text-sm dark:border-gray-700"
-          >
-            자소서 첨삭 먼저 하기
-          </button>
-          <SetupView onStart={handleStart} />
-        </div>
+        <SetupView
+          draft={draft}
+          onDraftChange={handleDraftChange}
+          applicant={applicant}
+          onApplicantChange={handleApplicantChange}
+          onStart={handleStart}
+        />
       )}
-
-      {phase === "essay" && <EssayView onBack={() => setPhase("setup")} />}
 
       {phase === "generating" && <Busy label="질문을 생성하는 중입니다…" />}
 
