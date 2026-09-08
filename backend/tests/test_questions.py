@@ -458,6 +458,7 @@ def test_grounded_question_service_requires_exact_evidence(monkeypatch: Any) -> 
 
     assert captured["calls"] == 1
     assert "지원동기는 무엇인가요?" in captured["user"]
+    assert "effort" not in captured
     assert result["resume"] is not None
     assert result["job_technology"] is None
 

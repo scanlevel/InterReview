@@ -127,7 +127,6 @@ def personalize_question(
                 ),
                 answer_intent=answer_intent,
             ),
-            effort="low",
         )
         personalized = _strip_outer_quotes(" ".join(result.split()))
 

@@ -62,7 +62,7 @@ def test_returns_personalized_text(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert result == personalized
     assert captured["model"] == get_settings().personalize_model
-    assert captured["effort"] == "low"
+    assert "effort" not in captured
     assert captured["system"] == PERSONALIZE_SYSTEM_PROMPT
     assert ORIGINAL_TEXT in captured["user"]
     assert "FastAPI" in captured["user"]

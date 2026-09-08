@@ -94,7 +94,6 @@ def generate_grounded_questions(
             user=build_user_prompt(profile, items, excluded_questions or []),
             output_format=GroundedQuestionSet,
             max_tokens=1_500,
-            effort="low",
         )
     except Exception as error:  # A failure is a domain-level fallback in B.
         logger.warning("자소서 기반 질문 fallback: %s", error)
