@@ -196,11 +196,22 @@ def test_route_rejects_qa_item_with_empty_answer() -> None:
     assert response.status_code == 422
 
 
-def test_route_reports_502_when_the_call_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_route_reports_502_when_the_call_fails(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+) -> None:
     """No degraded output: Track A has nothing to fall back to."""
-    _stub_llm(monkeypatch, llm.LLMCallError("boom"))
+    cause = RuntimeError("private upstream body")
+    cause.code = 500
+    error = llm.LLMCallError("private wrapped body")
+    error.__cause__ = cause
+    _stub_llm(monkeypatch, error)
     response = client.post("/essay/analyze", json={"essay": "자소서 본문"})
     assert response.status_code == 502
+    assert "provider=" in caplog.text
+    assert "model=" in caplog.text
+    assert "upstream_status=500" in caplog.text
+    assert "private" not in caplog.text
+    assert "private" not in response.text
 
 
 def test_route_reports_503_when_not_configured(monkeypatch: pytest.MonkeyPatch) -> None:

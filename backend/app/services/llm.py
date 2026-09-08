@@ -50,6 +50,7 @@ Effort = Literal["low", "medium", "high"]
 DEFAULT_MAX_TOKENS = 16_000
 # Single-sentence outputs (question personalization) need almost nothing.
 DEFAULT_TEXT_MAX_TOKENS = 512
+_GEMINI_MAX_OUTPUT_TOKENS = 8_192
 
 # The SDK already retries transport failures (429 / 5xx / connection) on its
 # own, so this counter only covers the one failure it cannot see: a response
@@ -61,12 +62,11 @@ def _gemini_config(system: str, max_tokens: int) -> dict[str, Any]:
     """Build the shared no-tools, no-thinking Gemini generation config."""
     return {
         "system_instruction": system,
-        "max_output_tokens": max_tokens,
+        # Gemma 4 31B intermittently returns 500 on large output reservations.
+        # The largest response used here is essay JSON, which fits comfortably.
+        "max_output_tokens": min(max_tokens, _GEMINI_MAX_OUTPUT_TOKENS),
         # Gemma 4 documents MINIMAL as the disabled-thinking setting.
         "thinking_config": {"thinking_level": "minimal"},
-        # We do not provide tools; avoid the SDK's automatic-function-calling
-        # wrapper and its warning around direct generate_content calls.
-        "automatic_function_calling": {"disable": True},
     }
 
 
@@ -112,8 +112,12 @@ def get_gemini_client() -> Any:
 
         return genai.Client(
             api_key=settings.gemini_api_key,
-            # Includes the initial request: at most two transient-error retries.
-            http_options={"retry_options": {"attempts": 3}},
+            http_options={
+                "timeout": 90_000,
+                # Includes the initial request. Gemma 4 31B can return transient
+                # 500s for an otherwise valid request, so allow four retries.
+                "retry_options": {"attempts": 5},
+            },
         )
     except Exception as error:
         raise LLMCallError(f"Gemini client를 초기화하지 못했습니다: {error}") from error

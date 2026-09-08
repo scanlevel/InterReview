@@ -7,6 +7,7 @@ documents every supported key.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -18,13 +19,14 @@ _DEFAULT_ANTHROPIC_EVAL_MODEL = "claude-sonnet-5"
 _DEFAULT_ANTHROPIC_PERSONALIZE_MODEL = "claude-haiku-4-5-20251001"
 _DEFAULT_GEMINI_EVAL_MODEL = "gemma-4-31b-it"
 _DEFAULT_GEMINI_PERSONALIZE_MODEL = "gemma-4-31b-it"
+_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
 
 class Settings(BaseSettings):
     """Application configuration resolved from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )

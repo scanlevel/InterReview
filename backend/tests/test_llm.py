@@ -289,7 +289,6 @@ def test_gemini_call_text_uses_provider_request(monkeypatch: pytest.MonkeyPatch)
         "system_instruction": "system",
         "max_output_tokens": llm.DEFAULT_TEXT_MAX_TOKENS,
         "thinking_config": {"thinking_level": "minimal"},
-        "automatic_function_calling": {"disable": True},
     }
 
 
@@ -306,7 +305,6 @@ def test_gemini_call_structured_returns_validated_model(
     assert result == _Sample(value="ok")
     config = client.models.calls[0]["config"]
     assert config["thinking_config"] == {"thinking_level": "minimal"}
-    assert config["automatic_function_calling"] == {"disable": True}
     assert "response_mime_type" not in config
     assert "response_schema" not in config
     assert '"value"' in client.models.calls[0]["contents"]
@@ -345,7 +343,10 @@ def test_gemini_api_error_is_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
         llm.call_text(model="gemini-model", system="s", user="u")
 
 
-@pytest.mark.parametrize("statuses", [(500, 503, 200), (500, 500, 500), (400,)])
+@pytest.mark.parametrize(
+    "statuses",
+    [(500, 503, 200), (500, 500, 500, 500, 500), (400,)],
+)
 def test_gemini_sdk_retries_transient_errors_only(
     monkeypatch: pytest.MonkeyPatch, statuses: tuple[int, ...],
 ) -> None:
@@ -385,3 +386,7 @@ def test_gemini_sdk_retries_transient_errors_only(
         assert len(calls) == len(statuses)
     finally:
         llm.get_gemini_client().close()
+
+
+def test_gemini_caps_large_output_reservations() -> None:
+    assert llm._gemini_config("system", 16_000)["max_output_tokens"] == 8_192
