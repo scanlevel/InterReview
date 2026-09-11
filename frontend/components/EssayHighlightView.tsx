@@ -17,29 +17,34 @@ import type { EssayAnalysis } from "@/lib/types";
 // Paint values: 1-5 = experience risk_level, CLAIM = unsupported claim.
 const CLAIM = -1;
 
+// mark: 위험도 bg + 밑줄(border-b) 위험도 line — 색약자를 위한 이중 신호.
+// 근거 없는 주장은 점선 밑줄로 구분한다.
 const HIGHLIGHT_STYLES: Record<number, string> = {
-  5: "bg-red-200 dark:bg-red-900/70",
-  4: "bg-red-200 dark:bg-red-900/70",
-  3: "bg-amber-200 dark:bg-amber-900/70",
-  2: "bg-gray-200 dark:bg-gray-700",
-  1: "bg-gray-200 dark:bg-gray-700",
-  [CLAIM]: "bg-sky-200 dark:bg-sky-900/70",
+  5: "bg-risk-high-bg border-b-2 border-risk-high-line",
+  4: "bg-risk-high-bg border-b-2 border-risk-high-line",
+  3: "bg-risk-mid-bg border-b-2 border-risk-mid-line",
+  2: "bg-risk-low-bg border-b-2 border-risk-low-line",
+  1: "bg-risk-low-bg border-b-2 border-risk-low-line",
+  [CLAIM]: "bg-claim-bg border-b-2 border-dashed border-claim-line",
 };
 
 const LEGEND: { label: string; className: string }[] = [
-  { label: "위험도 4–5", className: HIGHLIGHT_STYLES[5] },
-  { label: "위험도 3", className: HIGHLIGHT_STYLES[3] },
-  { label: "위험도 1–2", className: HIGHLIGHT_STYLES[1] },
-  { label: "근거 없는 주장", className: HIGHLIGHT_STYLES[CLAIM] },
+  { label: "위험도 4–5", className: "bg-risk-high-bg border-risk-high-line" },
+  { label: "위험도 3", className: "bg-risk-mid-bg border-risk-mid-line" },
+  { label: "위험도 1–2", className: "bg-risk-low-bg border-risk-low-line" },
+  {
+    label: "근거 없는 주장",
+    className: "bg-claim-bg border-dashed border-claim-line",
+  },
 ];
 
 /** 색상 범례 — 문항별 보기처럼 뷰가 여러 개일 때 한 번만 그리도록 분리. */
 export function HighlightLegend() {
   return (
-    <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+    <div className="flex flex-wrap gap-3 text-xs text-muted">
       {LEGEND.map((entry) => (
         <span key={entry.label} className="flex items-center gap-1">
-          <span className={`h-3 w-3 rounded-sm ${entry.className}`} />
+          <span className={`h-3 w-3 rounded-sm border ${entry.className}`} />
           {entry.label}
         </span>
       ))}
@@ -164,7 +169,7 @@ export default function EssayHighlightView({
       {showLegend && <HighlightLegend />}
 
       <div
-        className={`whitespace-pre-wrap rounded-md border border-gray-300 px-3 py-2 text-sm leading-relaxed dark:border-gray-700 dark:bg-gray-900 ${
+        className={`whitespace-pre-wrap rounded-md border border-line bg-surface px-3 py-2 text-sm leading-relaxed ${
           scrollable ? "max-h-[70vh] overflow-y-auto" : ""
         }`}
       >
@@ -176,12 +181,13 @@ export default function EssayHighlightView({
               key={segment.start}
               ref={segment.start === firstFocusedStart ? firstFocusedRef : undefined}
               className={`rounded-[2px] text-inherit ${
-                HIGHLIGHT_STYLES[segment.value] ?? "bg-gray-200 dark:bg-gray-700"
+                HIGHLIGHT_STYLES[segment.value] ??
+                "bg-risk-low-bg border-b-2 border-risk-low-line"
               } ${
                 hasFocus && !segment.focused
                   ? "opacity-40"
                   : segment.focused
-                    ? "ring-2 ring-gray-500 dark:ring-gray-300"
+                    ? "ring-2 ring-accent"
                     : ""
               }`}
             >
@@ -192,7 +198,7 @@ export default function EssayHighlightView({
       </div>
 
       {showUnmatchedHint && !hasHighlights && hasQuotes && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted">
           분석 결과와 일치하는 원문 문장을 찾지 못했습니다. 자소서를 수정했다면
           다시 분석해 주세요.
         </p>

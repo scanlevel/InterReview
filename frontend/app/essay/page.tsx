@@ -86,7 +86,7 @@ export default function EssayPage() {
   return (
     <PageShell>
       <div className="flex flex-col gap-6">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-sm text-muted">
           자기소개서에서 면접관이 파고들 약점과 예상 질문을 찾아 드립니다.
           기업이 문항을 제시하는 자소서라면 문항별 입력으로 질문까지 함께
           넣어 주세요 — 답변이 질문 의도를 비껴가는지도 분석합니다.
@@ -94,25 +94,25 @@ export default function EssayPage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">이름 (선택)</span>
+            <span className="font-medium text-ink-2">이름 (선택)</span>
             <input
               value={applicant.name}
               onChange={(e) =>
                 handleApplicantChange({ ...applicant, name: e.target.value })
               }
               placeholder="홍길동"
-              className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 focus:border-accent focus:outline-none"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">지원 직무 (선택)</span>
+            <span className="font-medium text-ink-2">지원 직무 (선택)</span>
             <input
               value={applicant.job}
               onChange={(e) =>
                 handleApplicantChange({ ...applicant, job: e.target.value })
               }
               placeholder="백엔드 개발자"
-              className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 focus:border-accent focus:outline-none"
             />
           </label>
         </div>
@@ -124,14 +124,14 @@ export default function EssayPage() {
             type="button"
             onClick={handleAnalyze}
             disabled={!canSubmit || busy}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            className="rounded-md bg-brand-2 px-[18px] py-[9px] text-[13.5px] font-semibold text-white hover:opacity-90 disabled:opacity-40"
           >
             {busy ? "분석하는 중… (1분 정도 걸립니다)" : "분석하기"}
           </button>
         </div>
 
         {error && (
-          <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40">
+          <div className="rounded-md border border-risk-high-line bg-risk-high-bg p-3 text-sm text-risk-high-text">
             {error}
           </div>
         )}

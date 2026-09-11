@@ -834,8 +834,8 @@ export default function DeviceSetupView({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-lg font-semibold">카메라·마이크 설정</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-lg font-bold text-ink">카메라·마이크 설정</h2>
+        <p className="mt-1 text-sm text-muted">
           실제 면접 전에 화면, 시선 기준점과 음성 인식을 확인합니다.
         </p>
       </div>
@@ -847,7 +847,7 @@ export default function DeviceSetupView({
             value={cameraId}
             disabled={busy || deviceState !== "ready"}
             onChange={(event) => void configureDevices(event.target.value, microphoneId)}
-            className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+            className="rounded-md border border-line bg-surface px-3 py-2 focus:border-accent focus:outline-none"
           >
             {cameras.map((device, index) => (
               <option key={device.deviceId} value={device.deviceId}>
@@ -863,7 +863,7 @@ export default function DeviceSetupView({
             value={microphoneId}
             disabled={busy || deviceState !== "ready"}
             onChange={(event) => void configureDevices(cameraId, event.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+            className="rounded-md border border-line bg-surface px-3 py-2 focus:border-accent focus:outline-none"
           >
             {microphones.map((device, index) => (
               <option key={device.deviceId} value={device.deviceId}>
@@ -885,7 +885,7 @@ export default function DeviceSetupView({
             setVoiceId(nextVoiceId);
             onVoiceChange?.(nextVoiceId);
           }}
-          className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+          className="rounded-md border border-line bg-surface px-3 py-2 focus:border-accent focus:outline-none"
         >
           {TTS_VOICE_IDS.map((id) => (
             <option key={id} value={id}>
@@ -903,7 +903,7 @@ export default function DeviceSetupView({
               voicePreviewState === "loading" ||
               voicePreviewState === "playing"
             }
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-700"
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink-2 hover:border-accent disabled:opacity-40"
           >
             {voicePreviewState === "loading"
               ? "음성 준비 중…"
@@ -912,7 +912,7 @@ export default function DeviceSetupView({
                 : "음성 미리 듣기"}
           </button>
           {voicePreviewState === "failed" && (
-            <span className="text-xs text-amber-600">{voicePreviewMessage}</span>
+            <span className="text-xs text-risk-mid-text">{voicePreviewMessage}</span>
           )}
         </div>
       </label>
@@ -976,14 +976,14 @@ export default function DeviceSetupView({
         </div>
       </div>
       {deviceError && (
-        <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40">
+        <p className="rounded-md border border-risk-high-line bg-risk-high-bg p-3 text-sm text-risk-high-text">
           {deviceError}
         </p>
       )}
 
-      <section className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-        <h3 className="font-medium">1. 시선 캘리브레이션</h3>
-        <p className="mt-1 text-sm text-gray-500">
+      <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
+        <h3 className="font-semibold text-ink">1. 시선 캘리브레이션</h3>
+        <p className="mt-1 text-sm text-muted">
           시작 후 3초 동안 준비하고, +와 X 경로를 따라간 뒤 9개의 고정점을 차례로 바라봐 주세요. 측정이 끝나면 브라우저에서 작은 보정 모델을 학습합니다.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -991,7 +991,7 @@ export default function DeviceSetupView({
             type="button"
             onClick={() => void startCalibration()}
             disabled={busy || gazeState !== "ready"}
-            className="rounded-md bg-gray-900 px-3 py-2 text-sm text-white disabled:opacity-40 dark:bg-white dark:text-gray-900"
+            className="rounded-md bg-brand-2 px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
           >
             {calibrationState === "running" ? "캘리브레이션 중…" : "캘리브레이션 시작"}
           </button>
@@ -999,12 +999,12 @@ export default function DeviceSetupView({
             type="button"
             onClick={skipCalibration}
             disabled={deviceBusy}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-40 dark:border-gray-700"
+            className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink-2 hover:border-accent disabled:opacity-40"
           >
             {calibrationState === "running" ? "중단" : "건너뛰기"}
           </button>
           {calibrationState === "success" && (
-            <span className="text-sm text-emerald-600">
+            <span className="text-sm text-accent">
               완료
               {calibration?.validationErrorPx !== null && calibration?.validationErrorPx !== undefined
                 ? " — 검증 평균 오차 " + Math.round(calibration.validationErrorPx) + "px"
@@ -1013,7 +1013,7 @@ export default function DeviceSetupView({
             </span>
           )}
           {calibrationState === "success" && calibration && (
-            <div className="mt-2 flex w-full flex-col gap-1 text-xs text-gray-500">
+            <div className="mt-2 flex w-full flex-col gap-1 text-xs text-faint">
               <span>
                 수집 샘플: + {calibration.plusSamples} · X {calibration.xSamples} · 9-point {calibration.gridSamples}
                 {" · 제외: + " + calibration.rejectedPlusSamples + " / X " + calibration.rejectedXSamples + " / 9-point " + calibration.rejectedGridSamples}
@@ -1029,20 +1029,20 @@ export default function DeviceSetupView({
             </div>
           )}
           {calibrationState === "failed" && (
-            <span className="text-sm text-amber-600">{calibrationMessage ?? "시선 보정에 실패했습니다. 다시 시도하거나 건너뛰세요."}</span>
+            <span className="text-sm text-risk-mid-text">{calibrationMessage ?? "시선 보정에 실패했습니다. 다시 시도하거나 건너뛰세요."}</span>
           )}
           {calibrationState === "skipped" && (
-            <span className="text-sm text-gray-500">보정 없이 기본 시선값을 사용합니다.</span>
+            <span className="text-sm text-muted">보정 없이 기본 시선값을 사용합니다.</span>
           )}
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-        <h3 className="font-medium">2. 마이크·STT 확인</h3>
-        <p className="mt-1 text-sm text-gray-500">
+      <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
+        <h3 className="font-semibold text-ink">2. 마이크·STT 확인</h3>
+        <p className="mt-1 text-sm text-muted">
           시작하면 3초 동안 주변 소음을 측정합니다. 이후 아래 문장을 평소 목소리로 읽어주세요.
         </p>
-        <blockquote className="mt-2 rounded bg-gray-100 p-3 text-sm dark:bg-gray-800">
+        <blockquote className="mt-2 rounded-md border border-line-soft bg-surface-soft p-3 text-sm text-ink-2">
           “{TEST_SENTENCE}”
         </blockquote>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1050,8 +1050,8 @@ export default function DeviceSetupView({
             type="button"
             onClick={() => void toggleSttTest()}
             disabled={deviceState !== "ready" || busy && sttState !== "recording"}
-            className={`rounded-md px-3 py-2 text-sm text-white disabled:opacity-40 ${
-              sttState === "recording" ? "bg-red-600" : "bg-gray-900 dark:bg-white dark:text-gray-900"
+            className={`rounded-md px-3 py-2 text-sm font-semibold disabled:opacity-40 ${
+              sttState === "recording" ? "bg-risk-high-text text-surface" : "bg-brand-2 text-white hover:opacity-90"
             }`}
           >
             {sttState === "calibrating"
@@ -1065,7 +1065,7 @@ export default function DeviceSetupView({
               type="button"
               onClick={restartVadCalibration}
               disabled={deviceState !== "ready" || busy}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink-2 hover:border-accent disabled:opacity-40"
             >
               음성 기준 다시 보정
             </button>
@@ -1079,7 +1079,7 @@ export default function DeviceSetupView({
                 sttState === "checking" ||
                 calibrationState === "running"
               }
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink-2 hover:border-accent disabled:opacity-40"
             >
               {sttState === "recording" ? "녹음 건너뛰기" : "STT 설정 건너뛰기"}
             </button>
@@ -1087,29 +1087,29 @@ export default function DeviceSetupView({
         </div>
 
         {vadCalibrationState === "running" && (
-          <p className="mt-3 text-sm text-blue-700 dark:text-blue-300" aria-live="polite">
+          <p className="mt-3 text-sm text-claim-text" aria-live="polite">
             {vadCalibrationMessage}
           </p>
         )}
         {vadCalibrationState === "success" && (
-          <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">
+          <p className="mt-3 text-sm text-accent">
             {vadCalibrationMessage}
           </p>
         )}
         {vadCalibrationState === "failed" && (
-          <p className="mt-3 text-sm text-amber-600">{vadCalibrationMessage}</p>
+          <p className="mt-3 text-sm text-risk-mid-text">{vadCalibrationMessage}</p>
         )}
         {vadCalibrationState === "skipped" && (
-          <p className="mt-3 text-sm text-gray-500">{vadCalibrationMessage}</p>
+          <p className="mt-3 text-sm text-muted">{vadCalibrationMessage}</p>
         )}
 
         {(sttState === "calibrating" || sttState === "recording") && (
           <div
-            className="mt-3 flex w-fit items-center gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"
+            className="mt-3 flex w-fit items-center gap-3 rounded-md border border-risk-high-line bg-risk-high-bg px-3 py-2 text-sm text-risk-high-text"
             aria-live="polite"
           >
             <span className="flex items-center gap-2 font-medium">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-risk-high-text" />
               {sttState === "calibrating" ? "준비 중" : "녹음 중"}
             </span>
             <span className="flex h-6 items-end gap-1" aria-hidden="true">
@@ -1125,18 +1125,18 @@ export default function DeviceSetupView({
           </div>
         )}
 
-        {sttState === "checking" && <p className="mt-3 text-sm text-gray-500">음성을 확인하고 있습니다…</p>}
+        {sttState === "checking" && <p className="mt-3 text-sm text-muted">음성을 확인하고 있습니다…</p>}
         {sttState === "review" && (
-          <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950/30">
-            <p className="font-medium">음성 인식 결과</p>
-            <output className="mt-2 block whitespace-pre-wrap rounded bg-white/70 p-2 dark:bg-gray-900/40">
+          <div className="mt-3 rounded-md border border-claim-line bg-claim-bg p-3 text-sm">
+            <p className="font-semibold text-claim-text">음성 인식 결과</p>
+            <output className="mt-2 block whitespace-pre-wrap rounded bg-surface/70 p-2 text-ink">
               {sttTranscript}
             </output>
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={() => setSttState("success")}
-                className="rounded bg-emerald-600 px-3 py-1.5 text-white"
+                className="rounded-md bg-brand-2 px-3 py-1.5 font-semibold text-white hover:opacity-90"
               >
                 잘 인식됐습니다
               </button>
@@ -1146,7 +1146,7 @@ export default function DeviceSetupView({
                   setSttTranscript(null);
                   setSttState("idle");
                 }}
-                className="rounded border border-gray-300 px-3 py-1.5 dark:border-gray-700"
+                className="rounded-md border border-line bg-surface px-3 py-1.5 text-ink-2 hover:border-accent"
               >
                 다시 테스트
               </button>
@@ -1154,15 +1154,15 @@ export default function DeviceSetupView({
           </div>
         )}
         {sttState === "success" && (
-          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm dark:border-emerald-900/60 dark:bg-emerald-950/30">
-            <p className="font-medium text-emerald-700 dark:text-emerald-300">STT 확인 완료</p>
-            <output className="mt-2 block whitespace-pre-wrap rounded bg-white/70 p-2 text-gray-900 dark:bg-gray-900/40 dark:text-gray-100">
+          <div className="mt-3 rounded-md border border-line-soft bg-accent-soft p-3 text-sm">
+            <p className="font-semibold text-accent">STT 확인 완료</p>
+            <output className="mt-2 block whitespace-pre-wrap rounded bg-surface/70 p-2 text-ink">
               {sttTranscript}
             </output>
           </div>
         )}
-        {sttState === "skipped" && <p className="mt-3 text-sm text-gray-500">STT 확인을 건너뛰었습니다.</p>}
-        {sttState === "failed" && <p className="mt-3 text-sm text-amber-600">{sttMessage}</p>}
+        {sttState === "skipped" && <p className="mt-3 text-sm text-muted">STT 확인을 건너뛰었습니다.</p>}
+        {sttState === "failed" && <p className="mt-3 text-sm text-risk-mid-text">{sttMessage}</p>}
       </section>
 
       <div className="flex items-center justify-between">
@@ -1170,7 +1170,7 @@ export default function DeviceSetupView({
           type="button"
           onClick={onCancel}
           disabled={busy}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm disabled:opacity-40 dark:border-gray-700"
+          className="rounded-md border border-line bg-surface px-4 py-2 text-sm text-ink-2 hover:border-accent disabled:opacity-40"
         >
           이전
         </button>
@@ -1184,7 +1184,7 @@ export default function DeviceSetupView({
             !sttDone ||
             busy
           }
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-white dark:text-gray-900"
+          className="rounded-md bg-brand-2 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
         >
           설정 완료 · 면접 시작
         </button>

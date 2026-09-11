@@ -22,3 +22,6 @@ backend/question_banks/ict/new/
 
 # LLM failure logs can contain prompts and model responses.
 /docs/log.txt
+
+# Local design mockups (adopted draft + design-system notes)
+/design-prototypes/

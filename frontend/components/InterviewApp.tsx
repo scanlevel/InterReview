@@ -244,14 +244,36 @@ export default function InterviewApp() {
   return (
     <main className={`mx-auto px-6 py-10 ${phase === "device-setup" || phase === "interview" ? "max-w-5xl" : "max-w-2xl"}`}>
       <header className="mb-8">
-        <Link href="/" className="inline-block">
-          <h1 className="text-2xl font-semibold">InterReview</h1>
+        <Link href="/" className="inline-flex items-center gap-2.5">
+          <span className="flex h-[26px] w-[26px] items-center justify-center rounded-md bg-brand-2">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              aria-hidden="true"
+              className="text-brand-2"
+            >
+              <path
+                d="M2 2.8A1.8 1.8 0 0 1 3.8 1h6.4A1.8 1.8 0 0 1 12 2.8v5.4A1.8 1.8 0 0 1 10.2 10H6l-2.6 2.4V10h-.2A1.8 1.8 0 0 1 2 8.2V2.8Z"
+                fill="#fff"
+                opacity=".92"
+              />
+              <path
+                d="M4.6 4.4h4.8M4.6 6.6h3.2"
+                stroke="currentColor"
+                strokeWidth="1.1"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
+          <h1 className="text-[20px] font-extrabold tracking-tight text-brand">InterReview</h1>
         </Link>
-        <p className="text-sm text-gray-500">AI 모의면접 · Next.js + FastAPI</p>
+        <p className="mt-1 text-sm text-muted">AI 모의면접 · Next.js + FastAPI</p>
       </header>
 
       {error && (
-        <div className="mb-6 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40">
+        <div className="mb-6 rounded-md border border-risk-high-line bg-risk-high-bg p-3 text-sm text-risk-high-text">
           {error}
         </div>
       )}
@@ -322,9 +344,9 @@ type ReviewRequest = {
 
 function Busy({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-gray-200 p-6 dark:border-gray-800">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-      <span className="text-sm text-gray-600 dark:text-gray-300">{label}</span>
+    <div className="flex items-center gap-3 rounded-lg border border-line bg-surface p-6 shadow-card">
+      <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      <span className="text-sm text-muted">{label}</span>
     </div>
   );
 }

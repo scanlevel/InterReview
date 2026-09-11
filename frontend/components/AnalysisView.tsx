@@ -32,9 +32,9 @@ function percent(value: number | null | undefined): string {
 
 function MetricRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between border-t border-gray-100 py-2 text-sm dark:border-gray-800">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium">{value}</span>
+    <div className="flex items-center justify-between border-t border-line-soft py-2 text-sm">
+      <span className="text-muted">{label}</span>
+      <span className="font-medium text-ink">{value}</span>
     </div>
   );
 }
@@ -46,14 +46,14 @@ function ClassificationPanel({
 }) {
   if (!classification) {
     return (
-      <p className="mt-3 text-sm text-gray-500">
+      <p className="mt-3 text-sm text-muted">
         전사·정렬 기반 발화 분류를 제공할 수 없습니다.
       </p>
     );
   }
   return (
     <div className="mt-3">
-      <p className="mb-1 text-xs text-gray-500">
+      <p className="mb-1 text-xs text-muted">
         발화 구간 분류 · 총 {fixed(classification.total_analysis_duration_sec)}초
       </p>
       <MetricRow
@@ -89,17 +89,17 @@ function SpeechPanel({
     return (
       <div>
         <MetricRow label="STT 상태" value={STT_STATUS_LABELS[sttStatus]} />
-        {sttError && <p className="mt-2 text-xs text-amber-600">{sttError}</p>}
-        <p className="text-sm text-gray-500">녹음 측정값이 없습니다.</p>
+        {sttError && <p className="mt-2 text-xs text-risk-mid-text">{sttError}</p>}
+        <p className="text-sm text-muted">녹음 측정값이 없습니다.</p>
       </div>
     );
   }
   return (
     <div>
       <MetricRow label="STT 상태" value={STT_STATUS_LABELS[sttStatus]} />
-      {sttError && <p className="mb-2 text-xs text-amber-600">{sttError}</p>}
+      {sttError && <p className="mb-2 text-xs text-risk-mid-text">{sttError}</p>}
       <div className="mt-3">
-        <p className="mb-2 text-xs text-gray-500">오디오 활동</p>
+        <p className="mb-2 text-xs text-muted">오디오 활동</p>
         <AudioActivityTimeline timeline={metrics.audio_timeline} />
       </div>
       <ClassificationPanel classification={metrics.speech_classification} />
@@ -123,7 +123,7 @@ function Heatmap({
   imageSrc?: string | null;
 }) {
   if (!heatmap || !heatmap.counts.length) {
-    return <p className="text-sm text-gray-500">유효한 시선 프레임이 없습니다.</p>;
+    return <p className="text-sm text-muted">유효한 시선 프레임이 없습니다.</p>;
   }
   const peak = Math.max(...heatmap.counts, 1);
   return (
@@ -160,7 +160,7 @@ function GazePanel({
   imageSrc?: string | null;
 }) {
   if (!summary) {
-    return <p className="text-sm text-gray-500">시선 측정값이 없습니다.</p>;
+    return <p className="text-sm text-muted">시선 측정값이 없습니다.</p>;
   }
   return (
     <Heatmap heatmap={summary.gaze_heatmap} imageSrc={imageSrc} />
@@ -169,9 +169,9 @@ function GazePanel({
 
 function SessionMeasurementPanel({ summary }: { summary: MeasurementSummary }) {
   return (
-    <div className="mt-4 rounded-md border border-gray-200 p-3 dark:border-gray-800">
-      <h3 className="font-medium">최종 측정 요약</h3>
-      <p className="mt-1 text-xs text-gray-500">
+    <div className="mt-4 rounded-md border border-line-soft bg-surface-soft p-3">
+      <h3 className="font-semibold text-ink">최종 측정 요약</h3>
+      <p className="mt-1 text-xs text-muted">
         음성은 질문별 활동 타임라인과 중립적인 측정값으로, 시선은 질문별 Heatmap으로 표시합니다.
       </p>
       <div className="mt-2 grid gap-x-6 md:grid-cols-2">
@@ -196,23 +196,23 @@ function SessionMeasurementPanel({ summary }: { summary: MeasurementSummary }) {
 function ContentPanel({ result }: { result: QuestionResult }) {
   if (!result.content) {
     return (
-      <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
-        <h3 className="font-medium">답변 피드백</h3>
-        <p className="mt-2 text-sm text-gray-500">
+      <div className="rounded-md border border-line-soft bg-surface-soft p-3">
+        <h3 className="font-semibold text-ink">답변 피드백</h3>
+        <p className="mt-2 text-sm text-muted">
           답변 피드백을 사용할 수 없습니다. 세션은 유지됩니다.
         </p>
       </div>
     );
   }
   return (
-    <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
-      <h3 className="font-medium">답변 피드백</h3>
-      <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+    <div className="rounded-md border border-line-soft bg-surface-soft p-3">
+      <h3 className="font-semibold text-ink">답변 피드백</h3>
+      <p className="mt-2 text-sm text-ink-2">
         {result.content.summary}
       </p>
       {result.content.strengths.length > 0 && (
         <div className="mt-3 text-sm">
-          <p className="text-gray-500">답변에서 확인된 강점</p>
+          <p className="text-muted">답변에서 확인된 강점</p>
           <ul className="mt-1 list-disc pl-5">
             {result.content.strengths.map((strength) => (
               <li key={strength}>{strength}</li>
@@ -222,7 +222,7 @@ function ContentPanel({ result }: { result: QuestionResult }) {
       )}
       {result.content.improvements.length > 0 && (
         <div className="mt-3 text-sm">
-          <p className="text-gray-500">다음 답변에서 시도할 보완</p>
+          <p className="text-muted">다음 답변에서 시도할 보완</p>
           <ul className="mt-1 list-disc pl-5">
             {result.content.improvements.map((improvement) => (
               <li key={improvement}>{improvement}</li>
@@ -245,16 +245,16 @@ export default function AnalysisView({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-lg border border-gray-200 p-5 dark:border-gray-800">
+      <section className="rounded-lg border border-line bg-surface p-5 shadow-card">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">면접 결과</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <h2 className="text-lg font-bold text-brand">면접 결과</h2>
+            <p className="mt-1 text-sm text-muted">
               시선과 음성은 측정값으로 표시합니다.
             </p>
           </div>
         </div>
-        <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+        <p className="mt-3 text-sm text-ink-2">
           {report.summary_feedback}
         </p>
         <SessionMeasurementPanel summary={report.measurement_summary} />
@@ -263,20 +263,21 @@ export default function AnalysisView({
       {report.results.map((result, index) => (
         <section
           key={result.question_id ?? `${result.question}-${index}`}
-          className="rounded-lg border border-gray-200 p-5 dark:border-gray-800"
+          className="rounded-lg border border-line bg-surface p-5 shadow-card"
         >
-          <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
-            <span>질문 {index + 1} · {result.category}</span>
+          <div className="mb-1 flex items-center gap-2 text-xs">
+            <span className="font-semibold text-faint">질문 {index + 1}</span>
+            <span className="rounded-full bg-accent-soft px-2 py-0.5 font-semibold text-accent">{result.category}</span>
           </div>
-          <p className="text-sm font-medium leading-relaxed">{result.question}</p>
+          <p className="text-sm font-semibold leading-relaxed text-ink">{result.question}</p>
           {result.original_question && result.original_question !== result.question && (
-            <p className="mt-1 text-xs text-gray-500">질문은행 원문: {result.original_question}</p>
+            <p className="mt-1 text-xs text-muted">질문은행 원문: {result.original_question}</p>
           )}
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <ContentPanel result={result} />
-            <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
-              <h3 className="font-medium">음성</h3>
+            <div className="rounded-md border border-line-soft bg-surface-soft p-3">
+              <h3 className="font-semibold text-ink">음성</h3>
               <SpeechPanel
                 metrics={result.speech_metrics}
                 sttStatus={result.stt_status}
@@ -285,8 +286,8 @@ export default function AnalysisView({
             </div>
           </div>
 
-          <div className="mt-4 rounded-md border border-gray-200 p-3 dark:border-gray-800">
-            <h3 className="mb-3 font-medium">시선</h3>
+          <div className="mt-4 rounded-md border border-line-soft bg-surface-soft p-3">
+            <h3 className="mb-3 font-semibold text-ink">시선</h3>
             <GazePanel
               summary={result.eye_tracking}
               imageSrc={interviewerImageSrc}
@@ -298,7 +299,7 @@ export default function AnalysisView({
       <button
         type="button"
         onClick={onReset}
-        className="self-start rounded-md border border-gray-300 px-4 py-2 text-sm dark:border-gray-700"
+        className="self-start rounded-md border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-2 hover:border-accent"
       >
         새 면접 시작
       </button>

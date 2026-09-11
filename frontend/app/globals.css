@@ -2,9 +2,38 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ============================================================
+ * InterReview 디자인 토큰 — design-prototypes/draft-1-professional.html
+ * "차분한 프로페셔널": 오프화이트 바탕, 딥 네이비/슬레이트 블루 포인트.
+ * 색은 전부 여기 토큰으로만 정의하고, 컴포넌트는 @theme이 만들어 주는
+ * 유틸리티(bg-surface, text-ink, border-line, bg-risk-high-bg …)를 쓴다.
+ * 다크 모드는 토큰 값 교체로 처리 — 컴포넌트에 색상 dark: 변형이 필요 없다.
+ * ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f5f7;
+  --surface: #ffffff;
+  --surface-soft: #f8f9fb;
+
+  --brand: #16283f;      /* 딥 네이비 — 로고·큰 헤딩 */
+  --brand-2: #1f3a5f;    /* 주요 버튼·활성 상태 */
+  --accent: #44618f;     /* 슬레이트 블루 — 보조 강조 */
+  --accent-soft: #e8edf5;
+
+  --foreground: #1c2433; /* ink — 본문 */
+  --ink-2: #3d4a5e;      /* 준본문 */
+  --muted: #6b7686;      /* 설명 텍스트 */
+  --faint: #98a2b1;      /* 희미한 라벨 */
+  --line: #dde2ea;       /* 보더 */
+  --line-soft: #e9edf3;
+
+  /* 위험도 하이라이트 (r-high = 위험도 4–5, r-mid = 3, r-low = 1–2) */
+  --risk-high-bg: #fdeaea; --risk-high-line: #e5b3b3; --risk-high-text: #a02c2c;
+  --risk-mid-bg: #fdf3df;  --risk-mid-line: #e3c78f;  --risk-mid-text: #96660e;
+  --risk-low-bg: #eef0f3;  --risk-low-line: #c9cfd8;  --risk-low-text: #5a6474;
+  --claim-bg: #e3f1fa;     --claim-line: #a3cbe4;     --claim-text: #1d6a9b;
+
+  --shadow-card: 0 1px 2px rgba(22, 40, 63, 0.06), 0 4px 14px rgba(22, 40, 63, 0.05);
 }
 
 html {
@@ -13,25 +42,85 @@ html {
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: var(--foreground);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-risk-high-bg: var(--risk-high-bg);
+  --color-risk-high-line: var(--risk-high-line);
+  --color-risk-high-text: var(--risk-high-text);
+  --color-risk-mid-bg: var(--risk-mid-bg);
+  --color-risk-mid-line: var(--risk-mid-line);
+  --color-risk-mid-text: var(--risk-mid-text);
+  --color-risk-low-bg: var(--risk-low-bg);
+  --color-risk-low-line: var(--risk-low-line);
+  --color-risk-low-text: var(--risk-low-text);
+  --color-claim-bg: var(--claim-bg);
+  --color-claim-line: var(--claim-line);
+  --color-claim-text: var(--claim-text);
+  --shadow-card: var(--shadow-card);
+  --font-sans: var(--font-app), "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
 }
 
+/* 다크: 같은 역할 토큰을 네이비 계열 다크 값으로 교체 */
 html.dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #0e1621;
+  --surface: #16202e;
+  --surface-soft: #121c29;
+  --brand: #d3deee;
+  --brand-2: #3f5f8f;
+  --accent: #8fb0dd;
+  --accent-soft: #1d2c42;
+  --foreground: #e7ecf3;
+  --ink-2: #c3cddc;
+  --muted: #8fa0b6;
+  --faint: #64748b;
+  --line: #253347;
+  --line-soft: #1e2b3d;
+  --risk-high-bg: #3a1d1f; --risk-high-line: #6e3a3a; --risk-high-text: #f1a9a9;
+  --risk-mid-bg: #3a2f16;  --risk-mid-line: #77602c;  --risk-mid-text: #e8c98a;
+  --risk-low-bg: #232b37;  --risk-low-line: #3d4a5c;  --risk-low-text: #aab6c6;
+  --claim-bg: #14293a;     --claim-line: #2c567a;     --claim-text: #8fc1e9;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0e1621;
+    --surface: #16202e;
+    --surface-soft: #121c29;
+    --brand: #d3deee;
+    --brand-2: #3f5f8f;
+    --accent: #8fb0dd;
+    --accent-soft: #1d2c42;
+    --foreground: #e7ecf3;
+    --ink-2: #c3cddc;
+    --muted: #8fa0b6;
+    --faint: #64748b;
+    --line: #253347;
+    --line-soft: #1e2b3d;
+    --risk-high-bg: #3a1d1f; --risk-high-line: #6e3a3a; --risk-high-text: #f1a9a9;
+    --risk-mid-bg: #3a2f16;  --risk-mid-line: #77602c;  --risk-mid-text: #e8c98a;
+    --risk-low-bg: #232b37;  --risk-low-line: #3d4a5c;  --risk-low-text: #aab6c6;
+    --claim-bg: #14293a;     --claim-line: #2c567a;     --claim-text: #8fc1e9;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-app), "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }

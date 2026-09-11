@@ -47,7 +47,7 @@ export default function ThemeToggle() {
       aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}
       disabled={!mounted}
       onClick={toggleTheme}
-      className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white/95 px-3 py-2 text-sm font-medium text-gray-700 shadow-lg backdrop-blur transition hover:bg-gray-50 disabled:cursor-wait disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/95 dark:text-gray-200 dark:hover:bg-gray-800"
+      className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-full border border-line bg-surface/95 px-3 py-2 text-sm font-medium text-ink-2 shadow-card backdrop-blur transition hover:bg-surface-soft disabled:cursor-wait disabled:opacity-70"
     >
       <span aria-hidden="true">{isDark ? "☀" : "☾"}</span>
       <span>{isDark ? "라이트" : "다크"}</span>

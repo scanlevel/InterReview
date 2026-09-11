@@ -32,37 +32,37 @@ export default function SetupView({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <p className="text-sm text-gray-600 dark:text-gray-300">
+      <p className="text-sm text-muted">
         질문은행에서 항목별로 한 문항씩 무작위 선택합니다. 아래 정보를 넣으면 선택된 질문만 개인화됩니다.
       </p>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">이름 (선택)</span>
+        <span className="font-semibold text-ink">이름 (선택)</span>
         <input
           value={applicant.name}
           onChange={(event) =>
             onApplicantChange({ ...applicant, name: event.target.value })
           }
           placeholder="홍길동"
-          className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+          className="rounded-md border border-line bg-surface px-3 py-2 focus:border-accent focus:outline-none"
         />
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">지원 직무 (선택)</span>
+        <span className="font-semibold text-ink">지원 직무 (선택)</span>
         <input
           value={applicant.job}
           onChange={(event) =>
             onApplicantChange({ ...applicant, job: event.target.value })
           }
           placeholder="백엔드 개발자"
-          className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+          className="rounded-md border border-line bg-surface px-3 py-2 focus:border-accent focus:outline-none"
         />
       </label>
 
       <div className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">자기소개서 (선택)</span>
-        <p className="mb-1 text-xs text-gray-500">
+        <span className="font-semibold text-ink">자기소개서 (선택)</span>
+        <p className="mb-1 text-xs text-faint">
           자소서 첨삭 탭과 같은 자소서를 공유합니다 — 여기서 수정하면 첨삭
           탭에도 반영됩니다. 입력하면 이 내용으로 질문을 개인화합니다.
         </p>
@@ -71,7 +71,7 @@ export default function SetupView({
 
       <button
         type="submit"
-        className="mt-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+        className="mt-2 rounded-md bg-brand-2 px-[18px] py-[9px] text-[13.5px] font-semibold text-white hover:opacity-90 disabled:opacity-40"
       >
         다음: 카메라·마이크 설정
       </button>

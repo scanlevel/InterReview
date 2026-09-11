@@ -10,7 +10,7 @@ import { ESSAY_MAX_LENGTH } from "@/lib/types";
  * 실제로 분석에 보낼 합쳐진 텍스트(composeEssay) 기준으로 센다. */
 
 const FIELD_CLASS =
-  "rounded-md border border-gray-300 px-3 py-2 leading-relaxed dark:border-gray-700 dark:bg-gray-900";
+  "rounded-md border border-line bg-surface px-3 py-2 leading-relaxed focus:border-accent focus:outline-none";
 
 export default function EssayDraftEditor({
   draft,
@@ -30,7 +30,7 @@ export default function EssayDraftEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-1 self-start rounded-md border border-gray-300 p-0.5 text-sm dark:border-gray-700">
+      <div className="flex items-center gap-1 self-start rounded-md border border-line bg-surface p-0.5 text-sm">
         {(
           [
             ["qa", "문항별 입력"],
@@ -41,10 +41,10 @@ export default function EssayDraftEditor({
             key={mode}
             type="button"
             onClick={() => onChange({ ...draft, mode })}
-            className={`rounded px-3 py-1 ${
+            className={`rounded px-3 py-1 font-medium ${
               draft.mode === mode
-                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                : "text-gray-500"
+                ? "bg-brand-2 text-white"
+                : "text-muted"
             }`}
           >
             {label}
@@ -57,10 +57,12 @@ export default function EssayDraftEditor({
           {draft.items.map((item, index) => (
             <fieldset
               key={index}
-              className="flex flex-col gap-2 rounded-lg border border-gray-200 p-4 dark:border-gray-800"
+              className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4 shadow-card"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">문항 {index + 1}</span>
+                <span className="rounded bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">
+                  문항 {index + 1}
+                </span>
                 {draft.items.length > 1 && (
                   <button
                     type="button"
@@ -70,7 +72,7 @@ export default function EssayDraftEditor({
                         items: draft.items.filter((_, i) => i !== index),
                       })
                     }
-                    className="text-xs text-gray-500 hover:text-red-600"
+                    className="text-xs text-muted hover:text-risk-high-text"
                   >
                     삭제
                   </button>
@@ -99,7 +101,7 @@ export default function EssayDraftEditor({
                 items: [...draft.items, { question: "", answer: "" }],
               })
             }
-            className="self-start rounded-md border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-500 hover:border-gray-500 hover:text-gray-700 dark:border-gray-700 dark:hover:text-gray-300"
+            className="self-start rounded-md border border-dashed border-line px-4 py-2 text-sm text-muted hover:border-accent hover:text-ink-2"
           >
             + 문항 추가
           </button>
@@ -118,7 +120,7 @@ export default function EssayDraftEditor({
 
       <span
         className={`self-end text-xs ${
-          composedLength > ESSAY_MAX_LENGTH ? "text-red-600" : "text-gray-500"
+          composedLength > ESSAY_MAX_LENGTH ? "font-semibold text-risk-high-text" : "text-muted"
         }`}
       >
         {composedLength.toLocaleString()} / {ESSAY_MAX_LENGTH.toLocaleString()}자

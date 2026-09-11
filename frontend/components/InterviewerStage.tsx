@@ -18,7 +18,7 @@ export default function InterviewerStage({
   const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
 
   return (
-    <div className={["relative aspect-video overflow-hidden rounded-lg border border-slate-700 bg-slate-950 shadow-inner", className].filter(Boolean).join(" ")}>
+    <div className={["relative aspect-video overflow-hidden rounded-lg border border-[#2c405a] bg-[#16283f] shadow-inner", className].filter(Boolean).join(" ")}>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(59,130,246,0.2),transparent_58%)]" />
       {showLabel && (
         <div className="absolute left-3 top-3 z-10 rounded-full bg-slate-900/75 px-2.5 py-1 text-xs font-medium text-slate-200">

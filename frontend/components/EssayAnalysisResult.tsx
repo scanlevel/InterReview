@@ -21,11 +21,11 @@ interface InteractionProps {
 }
 
 const RISK_STYLES: Record<RiskLevel, string> = {
-  5: "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300",
-  4: "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300",
-  3: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
-  2: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-  1: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+  5: "border border-risk-high-line bg-risk-high-bg text-risk-high-text",
+  4: "border border-risk-high-line bg-risk-high-bg text-risk-high-text",
+  3: "border border-risk-mid-line bg-risk-mid-bg text-risk-mid-text",
+  2: "border border-risk-low-line bg-risk-low-bg text-risk-low-text",
+  1: "border border-risk-low-line bg-risk-low-bg text-risk-low-text",
 };
 
 /** Every quote belonging to an experience, weakness quotes included. */
@@ -46,26 +46,28 @@ function ExperienceCard({
 
   return (
     <section
-      className={`rounded-lg border border-gray-200 p-5 dark:border-gray-800 ${
-        interactive ? "cursor-pointer" : ""
+      className={`rounded-lg border border-line bg-surface p-5 shadow-card transition-colors ${
+        interactive ? "cursor-pointer hover:border-accent" : ""
       }`}
       onMouseEnter={() => onFocusQuotes?.(cardQuotes)}
       onMouseLeave={() => onFocusQuotes?.(null)}
       onClick={() => onSelectQuotes?.(cardQuotes)}
     >
       <div className="mb-2 flex items-start justify-between gap-4">
-        <p className="text-sm font-medium leading-relaxed">{item.experience}</p>
+        <p className="text-sm font-semibold leading-relaxed text-ink">
+          {item.experience}
+        </p>
         <span
-          className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${RISK_STYLES[item.risk_level]}`}
+          className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${RISK_STYLES[item.risk_level]}`}
         >
           위험도 {item.risk_level}
         </span>
       </div>
-      <p className="text-xs text-gray-500">{item.risk_reason}</p>
+      <p className="text-xs text-faint">{item.risk_reason}</p>
 
       {item.claims.length > 0 && (
-        <p className="mt-3 text-xs text-gray-500">
-          <span className="font-medium">뒷받침하는 주장</span>{" "}
+        <p className="mt-3 text-xs text-muted">
+          <span className="font-semibold">뒷받침하는 주장</span>{" "}
           {item.claims.join(" · ")}
         </p>
       )}
@@ -79,7 +81,7 @@ function ExperienceCard({
           return (
             <div
               key={index}
-              className="rounded-md bg-gray-50 p-3 dark:bg-gray-900"
+              className="rounded-md border border-line-soft bg-surface-soft p-3"
               onMouseEnter={() => onFocusQuotes?.(quotes)}
               onMouseLeave={() => onFocusQuotes?.(cardQuotes)}
               onClick={(event) => {
@@ -88,15 +90,20 @@ function ExperienceCard({
                 onSelectQuotes(quotes);
               }}
             >
-              <p className="text-sm font-medium">{weakness.description}</p>
+              <p className="text-sm font-medium text-ink-2">
+                {weakness.description}
+              </p>
               {weakness.expected_questions.length > 0 && (
-                <ul className="mt-2 flex flex-col gap-1">
+                <ul className="mt-2 flex flex-col gap-1.5 border-t border-dashed border-line pt-2">
                   {weakness.expected_questions.map((question, qIndex) => (
                     <li
                       key={qIndex}
-                      className="text-xs leading-relaxed text-gray-600 dark:text-gray-300"
+                      className="flex gap-1.5 text-xs font-semibold leading-relaxed text-brand-2"
                     >
-                      Q. {question}
+                      <span className="shrink-0 font-extrabold text-accent">
+                        Q.
+                      </span>{" "}
+                      {question}
                     </li>
                   ))}
                 </ul>
@@ -118,12 +125,12 @@ export default function EssayAnalysisResult({
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-sm font-semibold">
+      <h2 className="text-sm font-bold text-brand">
         경험 {analysis.experiences.length}건 · 위험도가 높은 순
       </h2>
 
       {analysis.experiences.length === 0 && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted">
           분석할 경험을 찾지 못했습니다. 구체적인 경험을 담아 다시 작성해
           보세요.
         </p>
@@ -139,20 +146,20 @@ export default function EssayAnalysisResult({
       ))}
 
       {analysis.unsupported_claims.length > 0 && (
-        <section className="rounded-lg border border-gray-200 p-5 dark:border-gray-800">
-          <h3 className="mb-1 text-sm font-medium">
+        <section className="rounded-lg border border-claim-line bg-surface p-5 shadow-card">
+          <h3 className="mb-1 text-sm font-bold text-claim-text">
             근거가 되는 경험이 없는 주장
           </h3>
-          <p className="mb-3 text-xs text-gray-500">
+          <p className="mb-3 text-xs text-faint">
             면접에서 &ldquo;그렇게 생각하는 근거가 무엇인가요?&rdquo;라는
             질문을 받기 쉬운 문장입니다.
           </p>
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col gap-2">
             {analysis.unsupported_claims.map((claim, index) => (
               <li
                 key={index}
-                className={`text-sm text-gray-600 dark:text-gray-300 ${
-                  interactive ? "cursor-pointer" : ""
+                className={`rounded-md border border-claim-line bg-claim-bg px-3 py-2 text-sm leading-relaxed text-ink-2 transition-colors ${
+                  interactive ? "cursor-pointer hover:border-claim-text" : ""
                 }`}
                 onMouseEnter={() => onFocusQuotes?.([claim])}
                 onMouseLeave={() => onFocusQuotes?.(null)}

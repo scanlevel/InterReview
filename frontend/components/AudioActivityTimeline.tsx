@@ -1,13 +1,13 @@
 import type { AudioTimeline, SpeechClassificationKind } from "@/lib/types";
 
 const BIN_COLORS = {
-  speech: "bg-sky-500",
-  silence: "bg-gray-300 dark:bg-gray-700",
-  longPause: "bg-amber-500",
-  transcribed_speech: "bg-sky-500",
-  untranscribed_speech: "bg-violet-500",
-  vad_silence: "bg-gray-300 dark:bg-gray-700",
-  pending: "bg-amber-500",
+  speech: "bg-accent",
+  silence: "bg-line",
+  longPause: "bg-risk-high-text",
+  transcribed_speech: "bg-accent",
+  untranscribed_speech: "bg-claim-text",
+  vad_silence: "bg-line",
+  pending: "bg-risk-mid-text",
 } as const;
 
 const CLASSIFICATION_LABELS: Record<SpeechClassificationKind, string> = {
@@ -37,13 +37,13 @@ export default function AudioActivityTimeline({
   );
 
   if (!timeline || binCount === 0) {
-    return <p className="text-sm text-gray-500">오디오 시각화 데이터가 없습니다.</p>;
+    return <p className="text-sm text-muted">오디오 시각화 데이터가 없습니다.</p>;
   }
 
   return (
     <div className="space-y-2">
       <div
-        className="flex h-16 items-end gap-px rounded border border-gray-200 bg-gray-50 px-2 py-2 dark:border-gray-700 dark:bg-gray-900"
+        className="flex h-16 items-end gap-px rounded border border-line-soft bg-surface-soft px-2 py-2"
         role="img"
         aria-label="질문별 오디오 활동 타임라인"
       >
@@ -73,7 +73,7 @@ export default function AudioActivityTimeline({
         })}
       </div>
       {hasClassification ? (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-faint">
           {(Object.keys(CLASSIFICATION_LABELS) as SpeechClassificationKind[]).map((kind) => (
             <span key={kind} className="inline-flex items-center gap-1.5">
               <span className={`h-2.5 w-2.5 rounded-sm ${BIN_COLORS[kind]}`} />
@@ -82,15 +82,15 @@ export default function AudioActivityTimeline({
           ))}
         </div>
       ) : (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-faint">
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-sky-500" />발화
+            <span className="h-2.5 w-2.5 rounded-sm bg-accent" />발화
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-gray-300 dark:bg-gray-700" />무음
+            <span className="h-2.5 w-2.5 rounded-sm bg-line" />무음
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-amber-500" />긴 무음
+            <span className="h-2.5 w-2.5 rounded-sm bg-risk-high-text" />긴 무음
           </span>
         </div>
       )}
