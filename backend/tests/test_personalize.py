@@ -148,6 +148,41 @@ def test_fallback_on_multiple_sentences(monkeypatch: pytest.MonkeyPatch) -> None
     assert result == ORIGINAL_TEXT
 
 
+def test_fallback_on_meta_preamble(monkeypatch: pytest.MonkeyPatch) -> None:
+    """E2E 발견 버그: 메타 설명 + 질문이 물음표 검증을 통과해 TTS로 읽혔다."""
+    _stub_llm(
+        monkeypatch,
+        "자기소개서와 프로필 정보가 제공되지 않아 원본 질문을 그대로 반환합니다. "
+        "가장 기억에 남는 프로젝트 경험은 무엇인가요?",
+    )
+    result = personalize_service.personalize_question({}, None, _question())
+    assert result == ORIGINAL_TEXT
+
+
+def test_fallback_on_meta_phrase_without_period(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """마침표 없이 이어 붙인 메타 문구도 잡는다."""
+    _stub_llm(
+        monkeypatch,
+        "관련 정보를 찾을 수 없어 여쭤봅니다만 프로젝트 경험은 무엇인가요?",
+    )
+    result = personalize_service.personalize_question({}, None, _question())
+    assert result == ORIGINAL_TEXT
+
+
+def test_decimal_number_is_not_a_meta_preamble(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """숫자 소수점("1.8초")은 평서문 마침으로 오인하지 않는다."""
+    personalized = "응답 시간을 1.8초에서 어떻게 개선하셨나요?"
+    _stub_llm(monkeypatch, personalized)
+    result = personalize_service.personalize_question(
+        {"job": "백엔드"}, "응답 시간을 1.8초에서 0.4초로 줄였습니다.", _question()
+    )
+    assert result == personalized
+
+
 def test_logs_validation_failure_reason(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:

@@ -7,6 +7,7 @@ the original text so personalization can never interrupt an interview session.
 from __future__ import annotations
 
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from time import perf_counter
@@ -31,6 +32,22 @@ _MAX_LENGTH = 200
 _QUOTE_PAIRS = {'"': '"', "'": "'", "“": "”", "‘": "’"}
 # Half-width and full-width question marks are both fine sentence endings.
 _QUESTION_MARKS = ("?", "？")
+# A Korean declarative sentence ending mid-text ("…합니다. ") means the model
+# prepended meta commentary before the question. A digit before the period
+# ("1.8초") is not a sentence ending, so this stays safe for metrics.
+_DECLARATIVE_BREAK = re.compile(r"[가-힣]\.\s")
+# Meta phrases the model uses to narrate a failed personalization. None of
+# these belong in a real interview question.
+_META_PHRASES = (
+    "반환합니",
+    "다듬을 수 없",
+    "개인화할 수 없",
+    "제공되지 않",
+    "정보가 없",
+    "찾을 수 없",
+    "명시되어 있지 않",
+    "원본 질문",
+)
 
 
 def _strip_outer_quotes(text: str) -> str:
@@ -151,6 +168,13 @@ def personalize_question(
             validation_reasons.append("multiple_question_marks")
         if any(mark in personalized[:-1] for mark in ("!", "！", "。")):
             validation_reasons.append("inner_sentence_punctuation")
+        # E2E에서 확인된 누출 경로: "…정보가 없어 원본 질문을 그대로 반환합니다.
+        # <질문>?" 형태가 물음표 검증을 통과해 TTS로 읽혔다. 질문 앞의 평서문과
+        # 메타 문구 둘 다 잡는다 — 걸리면 원문 질문으로 fallback.
+        if _DECLARATIVE_BREAK.search(personalized):
+            validation_reasons.append("meta_preamble")
+        if any(phrase in personalized for phrase in _META_PHRASES):
+            validation_reasons.append("meta_phrase")
         if relevance_gate and _has_new_registered_token(original, personalized, essay):
             validation_reasons.append("new_registered_token")
 

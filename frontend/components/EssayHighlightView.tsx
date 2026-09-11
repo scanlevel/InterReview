@@ -85,9 +85,6 @@ function buildSegments(
   focusQuotes: string[] | null,
 ): Segment[] {
   const marks = new Array<number>(essay.length).fill(0);
-  for (const claim of analysis.unsupported_claims) {
-    paint(essay, claim, marks, CLAIM);
-  }
   // 기본 하이라이트는 "위험한 문장"만 — 약점의 인용과 근거 없는 주장.
   // 경험 전체의 source_quotes는 칠하지 않는다 (자소서 대부분이 칠해져 표시가
   // 무의미해진다). 경험 범위는 카드 hover의 focus 마스크로만 드러난다.
@@ -102,6 +99,12 @@ function buildSegments(
     for (const quote of quotes) {
       paint(essay, quote, marks, experience.risk_level);
     }
+  }
+  // 근거 없는 주장은 마지막에 칠한다 — 같은 문장이 약점 인용이기도 하면
+  // (흔한 경우) 위험도 색이 claim 색을 덮어써서 범례의 "근거 없는 주장"
+  // 스타일이 화면에 나타나지 않던 버그(E2E 발견)의 수정. 주장 판정이 이긴다.
+  for (const claim of analysis.unsupported_claims) {
+    paint(essay, claim, marks, CLAIM);
   }
 
   const focus = new Array<boolean>(essay.length).fill(false);
