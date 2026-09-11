@@ -43,7 +43,6 @@ import type {
   SttStatus,
 } from "@/lib/types";
 import InterviewerStage from "@/components/InterviewerStage";
-import AudioActivityTimeline from "@/components/AudioActivityTimeline";
 import {
   transitionInterviewStep,
   waitForAnswerAndGuide,
@@ -339,6 +338,14 @@ export default function InterviewView({
   const speechCancellationRef = useRef<SpeechCancellationRef["current"]>(null);
   const autoRunRef = useRef(0);
   const processingAnswerIdsRef = useRef(new Set<string>());
+  // 수동 모드 백그라운드 답변 처리 (A): 답변 종료 즉시 대기 화면으로 넘어가고
+  // 변환+STT는 뒤에서 돈다. revision은 재답변 시 옛 처리 결과를 폐기하는 기준,
+  // snapshot은 제출 시 React state 반영 타이밍과 무관하게 쓰는 확정 답변이다.
+  const answerRevisionRef = useRef<Record<string, number>>({});
+  const pendingAnswerTasksRef = useRef<Map<string, Promise<void>>>(new Map());
+  const answerSnapshotsRef = useRef<Record<string, AnswerItem>>({});
+  const indexRef = useRef(0);
+  const [finishing, setFinishing] = useState(false);
   const answerSegmentsRef = useRef<Record<string, Blob[]>>({});
   const answerGazeSegmentsRef = useRef<Record<string, EyeTrackingSummary[]>>({});
   const activeQuestionSpeechRef = useRef<CachedQuestionSpeech | null>(null);
@@ -356,7 +363,10 @@ export default function InterviewView({
   const isRecording = step === "recording";
   const isTranscribing = step === "processing";
   const micLevel = useMicLevel(stream, isRecording);
-  const currentMetrics = speechMetrics[question.question_id] ?? null;
+
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
 
   function stopSpeech() {
     speechCancellationRef.current?.();
@@ -469,6 +479,12 @@ export default function InterviewView({
     const recorder = recorderRef.current;
     if (!recorder || sttRequestInFlightRef.current || recorder.isRecording()) return false;
     if (!preserve) {
+      // 재답변 시작 — 진행 중이던 백그라운드 처리 결과는 이 시점부터 무효.
+      answerRevisionRef.current[questionId] =
+        (answerRevisionRef.current[questionId] ?? 0) + 1;
+      delete answerSnapshotsRef.current[questionId];
+      processingAnswerIdsRef.current.delete(questionId);
+      pendingAnswerTasksRef.current.delete(questionId);
       answerSegmentsRef.current[questionId] = [];
       answerGazeSegmentsRef.current[questionId] = [];
       setTranscripts((previous) => ({ ...previous, [questionId]: "" }));
@@ -656,15 +672,15 @@ export default function InterviewView({
       } else {
         setNotice(`음성 인식 실패: ${processed.error ?? processed.status}. 세션을 유지합니다.`);
       }
-      onAnswerFinalized(
-        buildAnswer(item, {
-          transcript: processed.transcript,
-          stt_status: processed.status,
-          stt_error: processed.error,
-          eye_tracking: processed.eyeTracking,
-          speech_metrics: processed.speechMetrics,
-        }),
-      );
+      const answer = buildAnswer(item, {
+        transcript: processed.transcript,
+        stt_status: processed.status,
+        stt_error: processed.error,
+        eye_tracking: processed.eyeTracking,
+        speech_metrics: processed.speechMetrics,
+      });
+      answerSnapshotsRef.current[questionId] = answer;
+      onAnswerFinalized(answer);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const snapshot: AnswerSnapshot = {
@@ -679,7 +695,9 @@ export default function InterviewView({
         [questionId]: { status: "error", error: message },
       }));
       setNotice("음성 처리 중 오류가 발생했습니다. 내용 판단 없이 세션을 유지합니다.");
-      onAnswerFinalized(buildAnswer(item, snapshot));
+      const answer = buildAnswer(item, snapshot);
+      answerSnapshotsRef.current[questionId] = answer;
+      onAnswerFinalized(answer);
     } finally {
       answerSegmentsRef.current[questionId] = [];
       answerGazeSegmentsRef.current[questionId] = [];
@@ -687,6 +705,93 @@ export default function InterviewView({
       processingAnswerIdsRef.current.delete(questionId);
       setStep("waiting_next");
     }
+  }
+
+  /** 수동 모드 전용: 녹음만 멈추고 즉시 대기 화면으로 전환한 뒤, 변환+STT는
+   * 백그라운드에서 처리한다. 재답변으로 revision이 바뀌면 결과를 버리고,
+   * 제출 시에는 pendingAnswerTasksRef의 미완료 작업을 기다린다. */
+  async function finalizeAnswerInBackground() {
+    const item = question;
+    const questionId = item.question_id;
+    if (!claimAnswerProcessing(
+      questionId,
+      processingAnswerIdsRef.current,
+      sttRequestInFlightRef.current,
+    )) return;
+    cancelAutomaticRun();
+    try {
+      if (recorderRef.current?.isRecording()) {
+        await stopRecordingSegment(questionId);
+      } else {
+        stopRealtimeVad();
+      }
+    } catch (error) {
+      console.warn("recording stop failed", error);
+    }
+    const revision = answerRevisionRef.current[questionId] ?? 0;
+    setStep("waiting_next");
+
+    const task = (async () => {
+      const isCurrent = () =>
+        (answerRevisionRef.current[questionId] ?? 0) === revision;
+      try {
+        const processed = await processAnswer(item);
+        if (!isCurrent()) return;
+        setTranscripts((previous) => ({ ...previous, [questionId]: processed.transcript }));
+        setSttStates((previous) => ({
+          ...previous,
+          [questionId]: { status: processed.status, error: processed.error },
+        }));
+        setEyeTracking((previous) => ({ ...previous, [questionId]: processed.eyeTracking }));
+        setSpeechMetrics((previous) => ({ ...previous, [questionId]: processed.speechMetrics }));
+        // 실패 안내는 사용자가 아직 이 질문에 머물러 있을 때만 — 다음 질문으로
+        // 넘어간 뒤 엉뚱한 질문 밑에 뜨지 않게 한다.
+        if (questions[indexRef.current]?.question_id === questionId) {
+          if (processed.status === "ok" && processed.transcript) {
+            setNotice(null);
+          } else if (processed.status === "no_speech") {
+            setNotice("음성이 인식되지 않았습니다. 내용 판단 없이 세션을 유지합니다.");
+          } else if (processed.status === "not_configured") {
+            setNotice("STT가 설정되지 않았습니다. 내용 판단 없이 세션을 유지합니다.");
+          } else if (processed.status !== "ok") {
+            setNotice(`음성 인식 실패: ${processed.error ?? processed.status}. 세션을 유지합니다.`);
+          }
+        }
+        const answer = buildAnswer(item, {
+          transcript: processed.transcript,
+          stt_status: processed.status,
+          stt_error: processed.error,
+          eye_tracking: processed.eyeTracking,
+          speech_metrics: processed.speechMetrics,
+        });
+        answerSnapshotsRef.current[questionId] = answer;
+        onAnswerFinalized(answer);
+      } catch (error) {
+        if (!isCurrent()) return;
+        const message = error instanceof Error ? error.message : String(error);
+        setSttStates((previous) => ({
+          ...previous,
+          [questionId]: { status: "error", error: message },
+        }));
+        const answer = buildAnswer(item, {
+          transcript: "",
+          stt_status: "error",
+          stt_error: message,
+          eye_tracking: mergeEyeTracking(answerGazeSegmentsRef.current[questionId] ?? []),
+          speech_metrics: null,
+        });
+        answerSnapshotsRef.current[questionId] = answer;
+        onAnswerFinalized(answer);
+      } finally {
+        if (isCurrent()) {
+          answerSegmentsRef.current[questionId] = [];
+          answerGazeSegmentsRef.current[questionId] = [];
+          processingAnswerIdsRef.current.delete(questionId);
+          pendingAnswerTasksRef.current.delete(questionId);
+        }
+      }
+    })();
+    pendingAnswerTasksRef.current.set(questionId, task);
   }
 
   function buildAnswer(item: Question, snapshot?: AnswerSnapshot): AnswerItem {
@@ -826,12 +931,26 @@ export default function InterviewView({
     if (step !== "waiting_next" || finishRequestedRef.current) return;
     finishRequestedRef.current = true;
     cancelAutomaticRun(true);
+    // 백그라운드 처리가 남아 있으면 그것만 마저 기다린다 (finishing 표시).
+    const pending = [...pendingAnswerTasksRef.current.values()];
+    if (pending.length > 0) {
+      setFinishing(true);
+      try {
+        await Promise.all(pending);
+      } finally {
+        setFinishing(false);
+      }
+    }
     const run = autoRunRef.current;
     setStep((currentStep) =>
       transitionInterviewStep(currentStep, "finish", true),
     );
     if (autoRunRef.current !== run) return;
-    onFinish(questions.map((item) => buildAnswer(item)));
+    onFinish(
+      questions.map(
+        (item) => answerSnapshotsRef.current[item.question_id] ?? buildAnswer(item),
+      ),
+    );
   }
 
   function toggleRecording() {
@@ -849,6 +968,11 @@ export default function InterviewView({
         sttRequestInFlightRef.current,
       )
     ) return;
+    // 수동 모드는 처리 대기 없이 즉시 대기 화면으로 — 처리는 백그라운드.
+    if (!autoMode) {
+      void finalizeAnswerInBackground();
+      return;
+    }
     void finalizeAnswer(question, true, true);
   }
 
@@ -883,11 +1007,11 @@ export default function InterviewView({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>
+      <div className="flex items-center justify-between text-sm text-muted">
+        <span className="font-bold text-brand">
           질문 {index + 1} / {questions.length}
         </span>
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800">
+        <span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
           {question.category}
         </span>
       </div>
@@ -902,28 +1026,31 @@ export default function InterviewView({
           />
           자동 면접 진행
         </label>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-faint">
           질문이 끝나면 답변을 시작하세요, 답변이 끝나면 다음 질문으로 넘어갑니다
         </span>
       </div>
 
       {!autoMode && step === "waiting_next" && (
-        <div className="flex flex-col items-center gap-6 rounded-lg border border-gray-200 p-10 text-center dark:border-gray-800">
+        <div className="flex flex-col items-center gap-6 rounded-lg border border-line bg-surface p-10 text-center shadow-card">
           <div>
-            <p className="text-lg font-medium">
+            <p className="text-lg font-bold text-ink">
               질문 {index + 1} 답변이 끝났습니다.
             </p>
-            <p className="mt-2 text-sm text-gray-500">
-              {isLast
-                ? "마지막 질문입니다. 제출하기 전에 이 질문에 다시 답변할 수 있습니다."
-                : "다음 질문으로 넘어가기 전에 이 질문에 다시 답변할 수 있습니다."}
+            <p className="mt-2 text-sm text-muted">
+              {finishing
+                ? "답변을 정리하는 중입니다… 잠시만 기다려 주세요."
+                : isLast
+                  ? "마지막 질문입니다. 제출하기 전에 이 질문에 다시 답변할 수 있습니다."
+                  : "다음 질문으로 넘어가기 전에 이 질문에 다시 답변할 수 있습니다."}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
               onClick={retryAnswer}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium hover:border-gray-500 dark:border-gray-700 dark:hover:border-gray-500"
+              disabled={finishing}
+              className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-2 hover:border-accent disabled:opacity-40"
             >
               다시 답변하기
             </button>
@@ -931,7 +1058,8 @@ export default function InterviewView({
               <button
                 type="button"
                 onClick={() => void submit()}
-                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+                disabled={finishing}
+                className="rounded-md bg-brand-2 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
               >
                 제출하고 결과 보기
               </button>
@@ -939,7 +1067,8 @@ export default function InterviewView({
               <button
                 type="button"
                 onClick={goToNextQuestion}
-                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+                disabled={finishing}
+                className="rounded-md bg-brand-2 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
               >
                 다음 질문으로
               </button>
@@ -952,11 +1081,11 @@ export default function InterviewView({
         className="flex flex-col gap-5"
         style={{ display: !autoMode && step === "waiting_next" ? "none" : undefined }}
       >
-      <p className="text-lg leading-relaxed">{question.text}</p>
+      <p className="text-lg font-bold leading-relaxed tracking-[-0.01em] text-brand">{question.text}</p>
       {question.original_text && question.original_text !== question.text && (
-        <details className="text-xs text-gray-500">
+        <details className="text-xs text-faint">
           <summary className="cursor-pointer">질문은행 원문 보기</summary>
-          <p className="mt-1 rounded bg-gray-50 p-2 dark:bg-gray-900">
+          <p className="mt-1 rounded bg-surface-soft p-2 text-ink-2">
             {question.original_text}
           </p>
         </details>
@@ -998,7 +1127,7 @@ export default function InterviewView({
           </div>
         </div>
       </div>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-faint">
         {gazeStatus === "loading" && "시선 분석을 준비하고 있습니다."}
         {gazeStatus === "ready" && "녹음 중 시선 데이터를 함께 기록합니다."}
         {gazeStatus === "unavailable" &&
@@ -1006,7 +1135,7 @@ export default function InterviewView({
       </p>
 
       {mediaError && (
-        <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/40">
+        <p className="rounded-md border border-risk-mid-line bg-risk-mid-bg p-3 text-xs text-risk-mid-text">
           {mediaError}
         </p>
       )}
@@ -1017,10 +1146,10 @@ export default function InterviewView({
             type="button"
             onClick={toggleRecording}
             disabled={!!mediaError || gazeStatus === "loading" || autoMode && step === "question_ready"}
-            className={`rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-40 ${
+            className={`rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-40 ${
               isRecording
-                ? "bg-red-600 hover:bg-red-500"
-                : "bg-gray-900 hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+                ? "bg-risk-high-text text-surface hover:opacity-90"
+                : "bg-brand-2 text-white hover:opacity-90"
             }`}
           >
             {isRecording ? "■ 답변 종료" : "● 녹음 시작"}
@@ -1032,14 +1161,14 @@ export default function InterviewView({
               type="button"
               onClick={startAnswerImmediately}
               disabled={!!mediaError || gazeStatus === "loading"}
-              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-white dark:text-gray-900"
+              className="rounded-md bg-brand-2 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
             >
               바로 답변 시작
             </button>
             <button
               type="button"
               onClick={() => handleAutoModeChange(false)}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm dark:border-gray-700"
+              className="rounded-md border border-line bg-surface px-4 py-2 text-sm text-ink-2 hover:border-accent"
             >
               자동 진행 중단
             </button>
@@ -1047,11 +1176,11 @@ export default function InterviewView({
         )}
         {isRecording && (
           <div
-            className="flex items-center gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"
+            className="flex items-center gap-3 rounded-md border border-risk-high-line bg-risk-high-bg px-3 py-2 text-sm text-risk-high-text"
             aria-live="polite"
           >
             <span className="flex items-center gap-2 font-medium">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-risk-high-text" />
               녹음 중
             </span>
             <span className="flex h-6 items-end gap-1" aria-hidden="true">
@@ -1067,12 +1196,12 @@ export default function InterviewView({
           </div>
         )}
         {isTranscribing && (
-          <span className="text-sm text-gray-500" aria-live="polite">
+          <span className="text-sm text-muted" aria-live="polite">
             답변을 처리하고 있습니다…
           </span>
         )}
         {step === "waiting_next" && (
-          <span className="text-sm text-gray-600 dark:text-gray-300" aria-live="polite">
+          <span className="text-sm text-ink-2" aria-live="polite">
             {isLast
               ? "마지막 답변 처리가 끝났습니다. 결과 보기 버튼을 눌러 주세요."
               : "답변 처리가 끝났습니다. 다음 질문을 눌러 진행하세요."}
@@ -1080,14 +1209,7 @@ export default function InterviewView({
         )}
       </div>
 
-      {notice && <p className="text-xs text-amber-600">{notice}</p>}
-
-      {currentMetrics && (
-        <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
-          <p className="mb-2 text-xs font-medium">현재 답변 오디오 활동</p>
-          <AudioActivityTimeline timeline={currentMetrics.audio_timeline} />
-        </div>
-      )}
+      {notice && <p className="text-xs text-risk-mid-text">{notice}</p>}
 
       <div className="flex items-center justify-between">
         <button
@@ -1099,7 +1221,7 @@ export default function InterviewView({
             setStep("question_ready");
           }}
           disabled={index === 0 || step !== "question_ready"}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm disabled:opacity-40 dark:border-gray-700"
+          className="rounded-md border border-line bg-surface px-4 py-2 text-sm text-ink-2 hover:border-accent disabled:opacity-40"
         >
           이전
         </button>
@@ -1108,7 +1230,7 @@ export default function InterviewView({
           <button
             type="button"
             onClick={() => void submit()}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            className="rounded-md bg-brand-2 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
           >
             제출하고 결과 보기
           </button>
@@ -1116,7 +1238,7 @@ export default function InterviewView({
           <button
             type="button"
             onClick={goToNextQuestion}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            className="rounded-md bg-brand-2 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
           >
             다음 질문
           </button>
@@ -1125,7 +1247,7 @@ export default function InterviewView({
             type="button"
             onClick={goToNextQuestion}
             disabled={step !== "question_ready" || autoMode}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm disabled:opacity-40 dark:border-gray-700"
+            className="rounded-md border border-line bg-surface px-4 py-2 text-sm text-ink-2 hover:border-accent disabled:opacity-40"
           >
             답변 없이 건너뛰기
           </button>
