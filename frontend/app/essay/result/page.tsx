@@ -8,6 +8,7 @@ import { ESSAY_MAX_LENGTH, type EssayAnalysis } from "@/lib/types";
 import {
   activeItems,
   composeEssay,
+  DEFAULT_APPLICANT,
   loadAnalysis,
   loadApplicant,
   loadDraft,
@@ -45,6 +46,12 @@ export default function EssayResultPage() {
   const [freshAnalysis, setFreshAnalysis] = useState<EssayAnalysis | null>(null);
   const draft = edited ?? storedDraft;
   const analysis = freshAnalysis ?? storedAnalysis;
+  // 페이지 헤딩의 메타(직무)용 — 첨삭·면접 탭과 공유되는 지원자 정보.
+  const applicant = useSyncExternalStore(
+    subscribeToStore,
+    loadApplicant,
+    () => DEFAULT_APPLICANT,
+  );
   const [mode, setMode] = useState<"highlight" | "edit">("highlight");
   // Edited since the analysis currently on screen was produced?
   const [dirty, setDirty] = useState(false);
@@ -127,6 +134,22 @@ export default function EssayResultPage() {
 
   return (
     <PageShell wide>
+      {/* 시안의 essay-head: 페이지 좌상단 제목 + 메타. */}
+      <div className="mb-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="text-xl font-extrabold tracking-[-0.02em] text-brand">
+          자소서 분석 결과
+        </h2>
+        <span className="text-[12.5px] text-faint">
+          {[
+            applicant.job.trim() || null,
+            draft.mode === "qa" ? `문항 ${activeItems(draft).length}개` : null,
+            `${essayText.length.toLocaleString()}자`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </div>
+
       {/* 시안 비율 변형: 원문 패널이 남는 폭을 다 쓰고 분석 카드는 고정 폭.
           (372px 시안값에서 소폭 확장 — 카드 가독성 요청 반영) */}
       <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_485px]">

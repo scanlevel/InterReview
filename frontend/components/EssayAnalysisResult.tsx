@@ -28,6 +28,15 @@ const RISK_STYLES: Record<RiskLevel, string> = {
   1: "border border-risk-low-line bg-risk-low-bg text-risk-low-text",
 };
 
+/** 시안의 exp-card 왼쪽 컬러 스파인 — 카드만 훑어도 위험 서열이 보인다. */
+const SPINE_STYLES: Record<RiskLevel, string> = {
+  5: "border-l-risk-high-text",
+  4: "border-l-risk-high-text",
+  3: "border-l-risk-mid-text",
+  2: "border-l-risk-low-text",
+  1: "border-l-risk-low-text",
+};
+
 /** Every quote belonging to an experience, weakness quotes included. */
 function experienceQuotes(item: EssayExperience): string[] {
   return [
@@ -46,22 +55,22 @@ function ExperienceCard({
 
   return (
     <section
-      className={`rounded-lg border border-line bg-surface p-5 shadow-card transition-colors ${
-        interactive ? "cursor-pointer hover:border-accent" : ""
+      className={`rounded-lg border border-line border-l-[3px] bg-surface p-5 shadow-card transition-shadow ${SPINE_STYLES[item.risk_level]} ${
+        interactive ? "cursor-pointer hover:ring-1 hover:ring-accent" : ""
       }`}
       onMouseEnter={() => onFocusQuotes?.(cardQuotes)}
       onMouseLeave={() => onFocusQuotes?.(null)}
       onClick={() => onSelectQuotes?.(cardQuotes)}
     >
-      <div className="mb-2 flex items-start justify-between gap-4">
-        <p className="text-sm font-semibold leading-relaxed text-ink">
-          {item.experience}
-        </p>
+      <div className="mb-2 flex items-start gap-2.5">
         <span
-          className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${RISK_STYLES[item.risk_level]}`}
+          className={`mt-0.5 shrink-0 rounded px-2 py-0.5 text-[11px] font-bold ${RISK_STYLES[item.risk_level]}`}
         >
           위험도 {item.risk_level}
         </span>
+        <p className="text-sm font-semibold leading-relaxed text-ink">
+          {item.experience}
+        </p>
       </div>
       <p className="text-xs text-faint">{item.risk_reason}</p>
 
