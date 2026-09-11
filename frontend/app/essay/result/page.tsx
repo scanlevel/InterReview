@@ -127,7 +127,9 @@ export default function EssayResultPage() {
 
   return (
     <PageShell wide>
-      <div className="grid gap-8 lg:grid-cols-2">
+      {/* 시안 비율 변형: 원문 패널이 남는 폭을 다 쓰고 분석 카드는 고정 폭.
+          (372px 시안값에서 소폭 확장 — 카드 가독성 요청 반영) */}
+      <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_485px]">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1 rounded-md border border-line bg-surface p-0.5 text-sm">
@@ -181,14 +183,25 @@ export default function EssayResultPage() {
           {mode === "highlight" && draft.mode === "qa" && (
             <div className="flex flex-col gap-2">
               <HighlightLegend />
-              <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+              {/* 시안의 doc-panel: 문항들이 하나의 흰 패널 안에 들어가고,
+                  문항 헤더는 번호 칩 + 질문 + 글자수로 구성된다. */}
+              <div className="max-h-[70vh] overflow-y-auto rounded-md border border-line bg-surface px-6 py-5">
                 {draft.items.map((item, index) =>
                   item.answer.trim() ? (
-                    <section key={index} className="flex flex-col gap-1">
-                      <p className="text-xs font-semibold text-accent">
-                        문항 {index + 1}
-                        {item.question.trim() ? `. ${item.question.trim()}` : ""}
-                      </p>
+                    <section key={index} className="mb-7 last:mb-0">
+                      <div className="mb-3 flex items-baseline gap-2.5 border-b border-line-soft pb-2.5">
+                        <span className="flex-none rounded bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">
+                          문항 {index + 1}
+                        </span>
+                        {item.question.trim() && (
+                          <span className="text-sm font-bold text-brand">
+                            {item.question.trim()}
+                          </span>
+                        )}
+                        <span className="ml-auto flex-none text-[11.5px] font-medium text-faint">
+                          {item.answer.trim().length.toLocaleString()}자
+                        </span>
+                      </div>
                       <EssayHighlightView
                         essay={item.answer}
                         analysis={analysis}
@@ -197,6 +210,7 @@ export default function EssayResultPage() {
                         showLegend={false}
                         scrollable={false}
                         showUnmatchedHint={false}
+                        framed={false}
                       />
                     </section>
                   ) : null,

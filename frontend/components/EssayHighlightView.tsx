@@ -88,6 +88,9 @@ function buildSegments(
   for (const claim of analysis.unsupported_claims) {
     paint(essay, claim, marks, CLAIM);
   }
+  // 기본 하이라이트는 "위험한 문장"만 — 약점의 인용과 근거 없는 주장.
+  // 경험 전체의 source_quotes는 칠하지 않는다 (자소서 대부분이 칠해져 표시가
+  // 무의미해진다). 경험 범위는 카드 hover의 focus 마스크로만 드러난다.
   // Ascending risk so that when quotes overlap, the riskier color wins.
   // ?? []: sessionStorage may hold an analysis saved before source_quotes
   // existed in the schema.
@@ -95,10 +98,7 @@ function buildSegments(
     (a, b) => a.risk_level - b.risk_level,
   );
   for (const experience of byRiskAscending) {
-    const quotes = [
-      ...(experience.source_quotes ?? []),
-      ...experience.weaknesses.flatMap((item) => item.source_quotes ?? []),
-    ];
+    const quotes = experience.weaknesses.flatMap((item) => item.source_quotes ?? []);
     for (const quote of quotes) {
       paint(essay, quote, marks, experience.risk_level);
     }
@@ -129,6 +129,7 @@ export default function EssayHighlightView({
   showLegend = true,
   scrollable = true,
   showUnmatchedHint = true,
+  framed = true,
 }: {
   essay: string;
   analysis: EssayAnalysis;
@@ -140,6 +141,8 @@ export default function EssayHighlightView({
   scrollable?: boolean;
   /** 인용이 다른 문항에 있을 수 있으면 뷰 단위 매칭 실패 안내는 끈다. */
   showUnmatchedHint?: boolean;
+  /** false면 테두리·배경 없이 본문만 — 바깥에서 한 패널로 감쌀 때 사용. */
+  framed?: boolean;
 }) {
   const segments = useMemo(
     () => buildSegments(essay, analysis, focusQuotes),
@@ -149,10 +152,8 @@ export default function EssayHighlightView({
   const hasHighlights = segments.some((segment) => segment.value !== 0);
   const hasQuotes =
     analysis.unsupported_claims.length > 0 ||
-    analysis.experiences.some(
-      (item) =>
-        (item.source_quotes ?? []).length > 0 ||
-        item.weaknesses.some((weakness) => (weakness.source_quotes ?? []).length > 0),
+    analysis.experiences.some((item) =>
+      item.weaknesses.some((weakness) => (weakness.source_quotes ?? []).length > 0),
     );
 
   const firstFocusedRef = useRef<HTMLElement | null>(null);
@@ -168,10 +169,12 @@ export default function EssayHighlightView({
     <div className="flex flex-col gap-2">
       {showLegend && <HighlightLegend />}
 
+      {/* 시안(draft-1) 원문 패널: 13.5px / line-height 1.95 / keep-all에
+          넉넉한 안쪽 여백 — 읽는 문서라는 느낌이 나야 한다. */}
       <div
-        className={`whitespace-pre-wrap rounded-md border border-line bg-surface px-3 py-2 text-sm leading-relaxed ${
-          scrollable ? "max-h-[70vh] overflow-y-auto" : ""
-        }`}
+        className={`whitespace-pre-wrap break-keep text-[13.5px] leading-[1.95] text-ink-2 ${
+          framed ? "rounded-md border border-line bg-surface px-6 py-5" : ""
+        } ${scrollable ? "max-h-[70vh] overflow-y-auto" : ""}`}
       >
         {segments.map((segment) =>
           segment.value === 0 && !segment.focused ? (
@@ -180,7 +183,7 @@ export default function EssayHighlightView({
             <mark
               key={segment.start}
               ref={segment.start === firstFocusedStart ? firstFocusedRef : undefined}
-              className={`rounded-[2px] text-inherit ${
+              className={`mx-[1px] rounded-[3px] px-[3px] py-px text-inherit [-webkit-box-decoration-break:clone] [box-decoration-break:clone] ${
                 HIGHLIGHT_STYLES[segment.value] ??
                 "bg-risk-low-bg border-b-2 border-risk-low-line"
               } ${

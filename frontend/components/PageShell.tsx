@@ -12,7 +12,7 @@ export default function PageShell({
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-background">
       <header className="border-b border-line-soft bg-surface">
-        <div className="mx-auto flex h-[58px] w-full max-w-5xl items-center px-6">
+        <div className="mx-auto flex h-[58px] w-full max-w-6xl items-center px-4 sm:px-5">
           <Link
             href="/"
             className="inline-flex items-center gap-2 text-[17px] font-extrabold tracking-[-0.02em] text-brand"
@@ -40,7 +40,9 @@ export default function PageShell({
         </div>
       </header>
       <main
-        className={`mx-auto w-full flex-1 px-6 py-10 ${wide ? "max-w-5xl" : "max-w-2xl"}`}
+        className={`mx-auto w-full flex-1 py-10 ${
+          wide ? "max-w-6xl px-4 sm:px-5" : "max-w-2xl px-6"
+        }`}
       >
         {children}
       </main>
