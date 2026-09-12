@@ -224,6 +224,21 @@ class AnswerReview(BaseModel):
     improvements: list[str] = Field(default_factory=list, max_length=10)
 
 
+class RubricJudgement(BaseModel):
+    """One internal 0/1/2 judgement used to constrain answer coaching."""
+
+    score: Literal[0, 1, 2]
+    reason: str = Field(min_length=1, max_length=1_000)
+
+
+class AnswerRubricEvaluation(BaseModel):
+    """Internal rubric result; this model is never returned by the API."""
+
+    question_alignment: RubricJudgement
+    evidence_specificity: RubricJudgement
+    logic_clarity: RubricJudgement
+
+
 class MeasurementSummary(BaseModel):
     """Descriptive session averages; these are never converted to scores."""
 
