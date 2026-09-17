@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, File, Form, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from app.schemas import TranscriptResponse
 from app.services.stt import transcribe_audio
@@ -17,7 +18,8 @@ async def transcribe(
 ) -> TranscriptResponse:
     """Accept a browser-recorded audio file and return its transcript."""
     content = await file.read()
-    result = transcribe_audio(
+    result = await run_in_threadpool(
+        transcribe_audio,
         content,
         filename=file.filename or "answer",
         content_type=file.content_type or "application/octet-stream",

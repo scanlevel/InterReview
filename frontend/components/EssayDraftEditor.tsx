@@ -15,9 +15,11 @@ const FIELD_CLASS =
 export default function EssayDraftEditor({
   draft,
   onChange,
+  disabled = false,
 }: {
   draft: EssayDraft;
   onChange: (next: EssayDraft) => void;
+  disabled?: boolean;
 }) {
   const composedLength = composeEssay(draft).length;
 
@@ -40,6 +42,7 @@ export default function EssayDraftEditor({
           <button
             key={mode}
             type="button"
+            disabled={disabled}
             onClick={() => onChange({ ...draft, mode })}
             className={`rounded px-3 py-1 font-medium ${
               draft.mode === mode
@@ -66,6 +69,7 @@ export default function EssayDraftEditor({
                 {draft.items.length > 1 && (
                   <button
                     type="button"
+                    disabled={disabled}
                     onClick={() =>
                       onChange({
                         ...draft,
@@ -80,12 +84,14 @@ export default function EssayDraftEditor({
               </div>
               <input
                 value={item.question}
+                disabled={disabled}
                 onChange={(e) => updateItem(index, { question: e.target.value })}
                 placeholder="기업 질문 (예: 지원 동기를 말해 주세요) — 없으면 비워 두세요"
                 className={`text-sm ${FIELD_CLASS}`}
               />
               <textarea
                 value={item.answer}
+                disabled={disabled}
                 onChange={(e) => updateItem(index, { answer: e.target.value })}
                 rows={8}
                 placeholder="이 문항에 대한 답변을 입력해 주세요."
@@ -95,6 +101,7 @@ export default function EssayDraftEditor({
           ))}
           <button
             type="button"
+            disabled={disabled}
             onClick={() =>
               onChange({
                 ...draft,
@@ -111,6 +118,7 @@ export default function EssayDraftEditor({
       {draft.mode === "free" && (
         <textarea
           value={draft.free}
+          disabled={disabled}
           onChange={(e) => onChange({ ...draft, free: e.target.value })}
           rows={16}
           placeholder="자기소개서 전문을 붙여넣어 주세요."

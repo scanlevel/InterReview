@@ -243,7 +243,7 @@ export default function EssayResultPage() {
           )}
 
           {mode === "edit" && (
-            <EssayDraftEditor draft={draft} onChange={handleChange} />
+            <EssayDraftEditor draft={draft} onChange={handleChange} disabled={busy} />
           )}
 
           <div className="flex flex-wrap items-center gap-3">

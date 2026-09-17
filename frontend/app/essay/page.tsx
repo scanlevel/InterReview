@@ -74,7 +74,6 @@ export default function EssayPage() {
         },
         items,
       );
-      saveDraft(draft);
       saveAnalysis(analysis);
       router.push("/essay/result");
     } catch (e) {
@@ -97,6 +96,7 @@ export default function EssayPage() {
             <span className="font-medium text-ink-2">이름 (선택)</span>
             <input
               value={applicant.name}
+              disabled={busy}
               onChange={(e) =>
                 handleApplicantChange({ ...applicant, name: e.target.value })
               }
@@ -108,6 +108,7 @@ export default function EssayPage() {
             <span className="font-medium text-ink-2">지원 직무 (선택)</span>
             <input
               value={applicant.job}
+              disabled={busy}
               onChange={(e) =>
                 handleApplicantChange({ ...applicant, job: e.target.value })
               }
@@ -117,7 +118,7 @@ export default function EssayPage() {
           </label>
         </div>
 
-        <EssayDraftEditor draft={draft} onChange={handleChange} />
+        <EssayDraftEditor draft={draft} onChange={handleChange} disabled={busy} />
 
         <div className="flex items-center gap-4">
           <button
