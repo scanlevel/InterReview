@@ -52,6 +52,7 @@ type Phase =
   | "device-setup"
   | "interview"
   | "measuring"
+  | "measurement-error"
   | "analysis";
 
 const UNAVAILABLE_CONTENT: AnswerReview = {
@@ -98,6 +99,8 @@ export default function InterviewApp() {
   const deviceStreamRef = useRef<MediaStream | null>(null);
   const reviewRequestsRef = useRef<Map<string, ReviewRequest>>(new Map());
   const ttsPrewarmRunRef = useRef(0);
+  const submittedAnswersRef = useRef<AnswerItem[] | null>(null);
+  const measurementInFlightRef = useRef(false);
 
   function handleDraftChange(next: EssayDraft) {
     setEditedDraft(next);
@@ -128,6 +131,7 @@ export default function InterviewApp() {
     ttsPrewarmRunRef.current += 1;
     questionSpeechCache.clear();
     reviewRequestsRef.current.clear();
+    submittedAnswersRef.current = null;
     setInterviewerImages([]);
     setInterviewerImageSrc(null);
     setProfile(nextProfile);
@@ -191,9 +195,12 @@ export default function InterviewApp() {
     void startAnswerReview(answer);
   }
 
-  async function handleFinish(answers: AnswerItem[]) {
+  async function requestMeasurement(answers: AnswerItem[]) {
+    if (measurementInFlightRef.current) return;
+    measurementInFlightRef.current = true;
     setError(null);
     setPhase("measuring");
+    stopDevices();
     try {
       const reviewPromises = answers.map((answer) => getExistingAnswerReview(answer));
       const [measurementReport, reviewResults] = await Promise.all([
@@ -213,18 +220,26 @@ export default function InterviewApp() {
             : UNAVAILABLE_CONTENT,
         })),
       };
-      stopDevices();
       setReport(result);
       setPhase("analysis");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      setPhase("interview");
+      setPhase("measurement-error");
+    } finally {
+      measurementInFlightRef.current = false;
     }
+  }
+
+  function handleFinish(answers: AnswerItem[]) {
+    submittedAnswersRef.current ??= answers.map((answer) => ({ ...answer }));
+    void requestMeasurement(submittedAnswersRef.current);
   }
 
   function handleReset() {
     stopDevices();
     setReport(null);
+    submittedAnswersRef.current = null;
+    measurementInFlightRef.current = false;
     setQuestions([]);
     setEssayItems([]);
     setInterviewerImages([]);
@@ -324,6 +339,34 @@ export default function InterviewApp() {
       )}
 
       {phase === "measuring" && <Busy label="측정값을 정리하는 중입니다…" />}
+
+      {phase === "measurement-error" && (
+        <section className="flex flex-col gap-4 rounded-lg border border-risk-high-line bg-risk-high-bg p-5">
+          <p className="text-sm text-risk-high-text">
+            완료한 답변은 유지되고 있습니다. 결과 요청을 다시 시도해 주세요.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (submittedAnswersRef.current) {
+                  void requestMeasurement(submittedAnswersRef.current);
+                }
+              }}
+              className="rounded-md bg-brand-2 px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+            >
+              결과 다시 불러오기
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-2 hover:border-accent"
+            >
+              새 면접 준비하기
+            </button>
+          </div>
+        </section>
+      )}
 
       {phase === "analysis" && report && (
         <AnalysisView

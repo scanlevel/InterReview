@@ -405,7 +405,7 @@ def resolve_question_duplicates(
     earlier current GROUPS order wins. Replacements are iterated so a generated
     winner that collides with another domain's bank fallback is also safely
     reverted. Existing bank-bank collisions caused by personalization restore
-    the later item to its original text.
+    the personalized items to their original text.
     """
     current = list(questions)
     active_generated = set(generated_domains)
@@ -433,9 +433,10 @@ def resolve_question_duplicates(
             ]
 
             if bank_indexes:
-                # Keep the first bank item. If personalization made another
-                # bank item collide, restore its own original text.
-                for index in bank_indexes[1:]:
+                # Restore every personalized bank item in the collision. This
+                # preserves an unchanged original even when an earlier slot was
+                # personalized into the later slot's original question.
+                for index in bank_indexes:
                     question = current[index]
                     original = question.original_text or question.text
                     if normalize_text(question.text) != normalize_text(original):

@@ -876,6 +876,7 @@ let offlineVadCache: {
   key: string;
   promise: Promise<NonRealTimeVAD>;
 } | null = null;
+let offlineVadRunQueue: Promise<void> = Promise.resolve();
 
 async function getOfflineVad(calibration?: VadCalibration | null): Promise<NonRealTimeVAD> {
   const key = getSileroVadCacheKey(calibration);
@@ -906,10 +907,18 @@ async function analyzeSileroVad(
     return analysisFromSpeechFrames(samples, sampleRate, [], 1);
   }
   const vad = await getOfflineVad(calibration);
-  const segments: Array<{ start: number; end: number }> = [];
-  for await (const segment of vad.run(samples, sampleRate)) {
-    segments.push({ start: segment.start, end: segment.end });
-  }
+  const segmentRun = offlineVadRunQueue.then(async () => {
+    const segments: Array<{ start: number; end: number }> = [];
+    for await (const segment of vad.run(samples, sampleRate)) {
+      segments.push({ start: segment.start, end: segment.end });
+    }
+    return segments;
+  });
+  offlineVadRunQueue = segmentRun.then(
+    () => undefined,
+    () => undefined,
+  );
+  const segments = await segmentRun;
   const frameSamples = Math.max(1, Math.round((sampleRate * VAD_FRAME_MS) / 1000));
   const speechFrames = Array.from(
     { length: Math.ceil(samples.length / frameSamples) },
