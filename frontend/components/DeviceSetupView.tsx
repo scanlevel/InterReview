@@ -114,6 +114,7 @@ export default function DeviceSetupView({
   onCancel: () => void;
   onVoiceChange?: (voiceId: TtsVoiceId) => void;
 }) {
+  const [setupStep, setSetupStep] = useState<"audio" | "camera">("audio");
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [cameraId, setCameraId] = useState("");
   const [microphoneId, setMicrophoneId] = useState("");
@@ -237,7 +238,8 @@ export default function DeviceSetupView({
     });
   }, []);
 
-  const configureDevices = useCallback(async (nextCameraId = "", nextMicrophoneId = "") => {
+  const configureDevices = useCallback(async (nextCameraId = "", nextMicrophoneId = "", preserveAudio = false) => {
+    const retainedAudio = preserveAudio ? streamRef.current?.getAudioTracks() ?? [] : [];
     cancelVoicePreview();
     stopVadCalibration();
     setDeviceState("loading");
@@ -272,17 +274,21 @@ export default function DeviceSetupView({
       cancelAnimationFrame(calibrationAnimationRef.current);
       calibrationAnimationRef.current = null;
     }
-    setSttState("idle");
-    setSttMessage(null);
-    setSttTranscript(null);
-    setVadCalibrationState("idle");
-    setVadCalibration(null);
-    setVadCalibrationMessage(null);
-    recorderRef.current = null;
+    if (!preserveAudio) {
+      setSttState("idle");
+      setSttMessage(null);
+      setSttTranscript(null);
+      setVadCalibrationState("idle");
+      setVadCalibration(null);
+      setVadCalibrationMessage(null);
+      recorderRef.current = null;
+    }
 
     gazeTrackerRef.current?.close();
     gazeTrackerRef.current = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current?.getTracks().forEach((track) => {
+      if (!retainedAudio.includes(track)) track.stop();
+    });
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setDeviceState("failed");
@@ -307,7 +313,7 @@ export default function DeviceSetupView({
               height: { ideal: 720 },
               frameRate: { ideal: 30, max: 30 },
             },
-        audio: {
+        audio: preserveAudio ? false : {
           ...(nextMicrophoneId ? { deviceId: { exact: nextMicrophoneId } } : {}),
           channelCount: { ideal: 1 },
           echoCancellation: { ideal: true },
@@ -315,6 +321,7 @@ export default function DeviceSetupView({
           autoGainControl: { ideal: false },
         },
       });
+      retainedAudio.forEach((track) => stream.addTrack(track));
       if (disposedRef.current) {
         stream.getTracks().forEach((track) => track.stop());
         return;
@@ -806,6 +813,7 @@ export default function DeviceSetupView({
     const stream = streamRef.current;
     if (
       !stream ||
+      setupStep !== "camera" ||
       !(calibrationState === "success" || calibrationState === "skipped") ||
       !(vadCalibrationState === "success" || vadCalibrationState === "skipped") ||
       !(sttState === "success" || sttState === "skipped") ||
@@ -832,21 +840,21 @@ export default function DeviceSetupView({
 
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={setupStep === "camera" ? "session-controls flex flex-col gap-3" : "audio-setup"}>
       <div>
-        <h2 className="text-lg font-bold text-ink">카메라·마이크 설정</h2>
+        <h2 className="text-lg font-bold text-ink">{setupStep === "audio" ? "1 / 2 · 음성 설정" : "2 / 2 · 카메라·시선 보정"}</h2>
         <p className="mt-1 text-sm text-muted">
-          실제 면접 전에 화면, 시선 기준점과 음성 인식을 확인합니다.
+          {setupStep === "audio" ? "면접관 음성을 고르고 마이크와 음성 인식을 확인하세요." : "실제 면접과 같은 화면입니다. 자세를 유지하며 시선을 보정하세요."}
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm">
+      <div className="grid gap-3">
+        <label className={setupStep === "camera" ? "flex flex-col gap-1 text-sm" : "hidden"}>
           <span className="font-medium">카메라</span>
           <select
             value={cameraId}
             disabled={busy || deviceState !== "ready"}
-            onChange={(event) => void configureDevices(event.target.value, microphoneId)}
+            onChange={(event) => void configureDevices(event.target.value, microphoneId, true)}
             className="rounded-md border border-line bg-surface px-3 py-2 focus:border-accent focus:outline-none"
           >
             {cameras.map((device, index) => (
@@ -857,7 +865,7 @@ export default function DeviceSetupView({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={setupStep === "audio" ? "flex flex-col gap-1 text-sm" : "hidden"}>
           <span className="font-medium">마이크</span>
           <select
             value={microphoneId}
@@ -874,7 +882,7 @@ export default function DeviceSetupView({
         </label>
       </div>
 
-      <label className="flex max-w-sm flex-col gap-1 text-sm">
+      <label className={setupStep === "audio" ? "flex max-w-sm flex-col gap-1 text-sm" : "hidden"}>
         <span className="font-medium">면접관 음성</span>
         <select
           value={voiceId}
@@ -917,11 +925,11 @@ export default function DeviceSetupView({
         </div>
       </label>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
+      <div className="session-stage" style={{ display: setupStep === "audio" ? "none" : undefined }}>
         <div className="flex min-w-0 flex-col gap-2 lg:items-center">
-          <div ref={calibrationStageRef} className="w-full max-w-full lg:max-w-[50vw]">
+          <div ref={calibrationStageRef} className="w-full">
             <InterviewerStage
-              className="w-full"
+              className="session-interviewer w-full"
               showLabel={calibrationState !== "running"}
               imageSrc={interviewerImageSrc}
             >
@@ -945,7 +953,7 @@ export default function DeviceSetupView({
               />
             </InterviewerStage>
           </div>
-          <div className="w-full max-w-full lg:max-w-[50vw]">
+          <div className="absolute inset-x-0 top-full mt-2">
             <CalibrationStatus
               path={calibrationPath}
               pathSegmentIndex={calibrationPathSegmentIndex}
@@ -981,10 +989,10 @@ export default function DeviceSetupView({
         </p>
       )}
 
-      <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
-        <h3 className="font-semibold text-ink">1. 시선 캘리브레이션</h3>
+      <section hidden={setupStep !== "camera"} className="rounded-lg border border-line bg-surface p-4 shadow-card">
+        <h3 className="font-semibold text-ink">시선 캘리브레이션</h3>
         <p className="mt-1 text-sm text-muted">
-          시작 후 3초 동안 준비하고, +와 X 경로를 따라간 뒤 9개의 고정점을 차례로 바라봐 주세요. 측정이 끝나면 브라우저에서 작은 보정 모델을 학습합니다.
+          3초 뒤 나타나는 +와 X 경로를 따라간 뒤, 9개의 고정점을 차례로 바라봐 주세요.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
@@ -1012,8 +1020,9 @@ export default function DeviceSetupView({
               . 면접 중에는 왼쪽 가상 면접관의 눈을 바라보세요.
             </span>
           )}
-          {calibrationState === "success" && calibration && (
-            <div className="mt-2 flex w-full flex-col gap-1 text-xs text-faint">
+          {CAN_DEBUG_GAZE && calibrationState === "success" && calibration && (
+            <details className="mt-2 w-full text-xs text-faint">
+              <summary className="cursor-pointer">보정 진단 상세</summary>
               <span>
                 수집 샘플: + {calibration.plusSamples} · X {calibration.xSamples} · 9-point {calibration.gridSamples}
                 {" · 제외: + " + calibration.rejectedPlusSamples + " / X " + calibration.rejectedXSamples + " / 9-point " + calibration.rejectedGridSamples}
@@ -1026,7 +1035,7 @@ export default function DeviceSetupView({
                   9-point 점별 검증: {calibration.gridPointErrors.map((point) => String(point.pointId + 1) + " " + formatCalibrationPx(point.meanErrorPx)).join(" · ")}
                 </span>
               )}
-            </div>
+            </details>
           )}
           {calibrationState === "failed" && (
             <span className="text-sm text-risk-mid-text">{calibrationMessage ?? "시선 보정에 실패했습니다. 다시 시도하거나 건너뛰세요."}</span>
@@ -1037,8 +1046,8 @@ export default function DeviceSetupView({
         </div>
       </section>
 
-      <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
-        <h3 className="font-semibold text-ink">2. 마이크·STT 확인</h3>
+      <section hidden={setupStep !== "audio"} className="rounded-lg border border-line bg-surface p-4 shadow-card">
+        <h3 className="font-semibold text-ink">마이크·STT 확인</h3>
         <p className="mt-1 text-sm text-muted">
           시작하면 3초 동안 주변 소음을 측정합니다. 이후 아래 문장을 평소 목소리로 읽어주세요.
         </p>
@@ -1168,7 +1177,14 @@ export default function DeviceSetupView({
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={onCancel}
+          onClick={() => {
+            if (setupStep === "audio") onCancel();
+            else {
+              skipCalibration();
+              setCalibrationState("idle");
+              setSetupStep("audio");
+            }
+          }}
           disabled={busy}
           className="rounded-md border border-line bg-surface px-4 py-2 text-sm text-ink-2 hover:border-accent disabled:opacity-40"
         >
@@ -1176,17 +1192,23 @@ export default function DeviceSetupView({
         </button>
         <button
           type="button"
-          onClick={continueToInterview}
+          onClick={() => {
+            if (setupStep === "camera") continueToInterview();
+            else {
+              cancelVoicePreview();
+              setSetupStep("camera");
+            }
+          }}
           disabled={
             deviceState !== "ready" ||
-            !calibrationDone ||
+            (setupStep === "camera" && !calibrationDone) ||
             !vadCalibrationDone ||
             !sttDone ||
             busy
           }
           className="rounded-md bg-brand-2 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
         >
-          설정 완료 · 면접 시작
+          {setupStep === "audio" ? "다음 · 카메라·시선 보정" : "설정 완료 · 면접 시작"}
         </button>
       </div>
     </div>

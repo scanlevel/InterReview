@@ -1,5 +1,72 @@
 @import "tailwindcss";
 
+/* The calibration target and interview occupy the same viewport coordinates. */
+.session-shell {
+  --session-stage-width: 65vw;
+  --session-stage-height: min(calc((var(--session-stage-width) - 16px) * 0.45), max(160px, calc(100dvh - 440px)));
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--background);
+  padding: 72px 17.5vw 24px;
+}
+
+.session-header {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 64px;
+  padding: 12px 17.5vw;
+  background: var(--background);
+  z-index: 10;
+}
+
+.session-header > p { display: none; }
+
+.session-controls {
+  padding-top: calc(var(--session-stage-height) + 48px);
+}
+
+.session-stage {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--session-stage-width);
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  z-index: 5;
+  background: var(--background);
+}
+
+.session-stage > :first-child { position: relative; }
+.session-stage video { aspect-ratio: 16 / 9; }
+.session-stage .session-interviewer { height: var(--session-stage-height); aspect-ratio: auto; }
+.feedback-shell { width: 65%; margin-inline: auto; padding-block: 40px; }
+
+@media (max-width: 767px) {
+  .session-shell { --session-stage-width: calc(100vw - 32px); padding-inline: 16px; }
+  .session-header { padding-inline: 16px; }
+  .feedback-shell { width: calc(100% - 32px); }
+}
+
+.audio-setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.audio-setup > :first-child,
+.audio-setup > section,
+.audio-setup > p,
+.audio-setup > :last-child { grid-column: 1 / -1; }
+
+.audio-setup output {
+  max-height: 4rem;
+  overflow-y: auto;
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================

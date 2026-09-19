@@ -257,8 +257,8 @@ export default function InterviewApp() {
   }
 
   return (
-    <main className={`mx-auto px-6 py-10 ${phase === "device-setup" || phase === "interview" ? "max-w-5xl" : "max-w-2xl"}`}>
-      <header className="mb-8">
+    <main className={phase === "device-setup" || phase === "interview" ? "session-shell" : phase === "analysis" ? "feedback-shell" : "mx-auto max-w-2xl px-6 py-10"}>
+      <header className={phase === "device-setup" || phase === "interview" ? "session-header" : "mb-8"}>
         <Link href="/" className="inline-flex items-center gap-2.5">
           <span className="flex h-[26px] w-[26px] items-center justify-center rounded-md bg-brand-2">
             <svg

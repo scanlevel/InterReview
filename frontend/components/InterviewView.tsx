@@ -1006,7 +1006,7 @@ export default function InterviewView({
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="session-controls flex flex-col gap-3">
       <div className="flex items-center justify-between text-sm text-muted">
         <span className="font-bold text-brand">
           질문 {index + 1} / {questions.length}
@@ -1078,7 +1078,7 @@ export default function InterviewView({
       )}
 
       <div
-        className="flex flex-col gap-5"
+        className="flex flex-col gap-3"
         style={{ display: !autoMode && step === "waiting_next" ? "none" : undefined }}
       >
       <p className="text-lg font-bold leading-relaxed tracking-[-0.01em] text-brand">{question.text}</p>
@@ -1091,10 +1091,10 @@ export default function InterviewView({
         </details>
       )}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
+      <div className="session-stage">
         <div className="flex min-w-0 justify-center">
           <InterviewerStage
-            className="w-full max-w-full lg:w-[48rem]"
+            className="session-interviewer w-full"
             imageSrc={interviewerImageSrc}
           >
             <div className="absolute inset-x-4 bottom-4 rounded-md bg-slate-950/75 px-3 py-2 text-center text-sm text-slate-100">

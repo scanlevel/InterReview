@@ -52,25 +52,18 @@ function ClassificationPanel({
     );
   }
   return (
-    <div className="mt-3">
-      <p className="mb-1 text-xs text-muted">
-        발화 구간 분류 · 총 {fixed(classification.total_analysis_duration_sec)}초
-      </p>
+    <div className="mt-4 grid gap-x-6 sm:grid-cols-3">
       <MetricRow
-        label="전사 기반 발화"
-        value={`${fixed(classification.transcribed_speech_duration_sec)}초 · ${classification.transcribed_speech_segment_count}구간`}
+        label="발화 구간"
+        value={`${fixed(classification.transcribed_speech_duration_sec + classification.pending_duration_sec)}초`}
       />
       <MetricRow
         label="미전사 발화"
-        value={`${fixed(classification.untranscribed_speech_duration_sec)}초 · ${classification.untranscribed_speech_segment_count}구간`}
+        value={`${fixed(classification.untranscribed_speech_duration_sec)}초`}
       />
       <MetricRow
-        label="VAD 기준 무음"
-        value={`${fixed(classification.vad_silence_duration_sec)}초 · ${classification.vad_silence_segment_count}구간`}
-      />
-      <MetricRow
-        label="판정 보류"
-        value={`${fixed(classification.pending_duration_sec)}초 · ${classification.pending_segment_count}구간`}
+        label="무음"
+        value={`${fixed(classification.vad_silence_duration_sec)}초`}
       />
     </div>
   );
@@ -100,16 +93,22 @@ function SpeechPanel({
       {sttError && <p className="mb-2 text-xs text-risk-mid-text">{sttError}</p>}
       <div className="mt-3">
         <p className="mb-2 text-xs text-muted">오디오 활동</p>
-        <AudioActivityTimeline timeline={metrics.audio_timeline} />
+        <AudioActivityTimeline timeline={metrics.audio_timeline} duration={metrics.total_duration_sec} />
       </div>
       <ClassificationPanel classification={metrics.speech_classification} />
-      <div className="mt-3">
+      <p className="mt-2 text-xs text-muted">{metrics.speech_classification
+        ? "발화 구간: 전사된 단어가 있는 구간 · 미전사 발화: 음성이 감지됐지만 전사되지 않은 구간 · 무음: 둘 다 없는 구간"
+        : "전사 구간 정보가 없어 음성 감지 기준으로 발화와 무음만 표시합니다."}</p>
+      <div className="mt-3 grid gap-x-6 sm:grid-cols-2">
         <MetricRow
           label="발화 속도"
           value={`${fixed(metrics.speech_rate_eojeol_per_min, 1)}어절/분`}
         />
-        <MetricRow label="무음 비율" value={percent(metrics.silence_ratio)} />
-        <MetricRow label="긴 무음 횟수" value={`${metrics.long_pause_count}회`} />
+        <MetricRow label="무음 비율" value={percent(metrics.speech_classification
+          ? metrics.speech_classification.total_analysis_duration_sec > 0
+            ? metrics.speech_classification.vad_silence_duration_sec / metrics.speech_classification.total_analysis_duration_sec
+            : null
+          : metrics.silence_ratio)} />
       </div>
     </div>
   );
@@ -184,10 +183,6 @@ function SessionMeasurementPanel({ summary }: { summary: MeasurementSummary }) {
           value={`${fixed(summary.average_answer_length_eojeol, 1)}어절`}
         />
         <MetricRow label="내 평균 무음 비율" value={percent(summary.average_silence_ratio)} />
-        <MetricRow
-          label="내 평균 긴 무음 횟수"
-          value={`${fixed(summary.average_long_pause_count, 1)}회`}
-        />
       </div>
     </div>
   );
@@ -274,7 +269,7 @@ export default function AnalysisView({
             <p className="mt-1 text-xs text-muted">질문은행 원문: {result.original_question}</p>
           )}
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-4">
             <ContentPanel result={result} />
             <div className="rounded-md border border-line-soft bg-surface-soft p-3">
               <h3 className="font-semibold text-ink">음성</h3>

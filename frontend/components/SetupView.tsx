@@ -73,7 +73,7 @@ export default function SetupView({
         type="submit"
         className="mt-2 rounded-md bg-brand-2 px-[18px] py-[9px] text-[13.5px] font-semibold text-white hover:opacity-90 disabled:opacity-40"
       >
-        다음: 카메라·마이크 설정
+        다음: 음성 설정
       </button>
     </form>
   );
