@@ -1144,20 +1144,24 @@ export default function DeviceSetupView({
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
-                onClick={() => setSttState("success")}
-                className="rounded-md bg-brand-2 px-3 py-1.5 font-semibold text-white hover:opacity-90"
+                onClick={restartVadCalibration}
+                className="rounded-md border border-line bg-surface px-3 py-1.5 text-ink-2 hover:border-accent"
               >
-                잘 인식됐습니다
+                다시 캘리브레이션하기
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setSttTranscript(null);
-                  setSttState("idle");
-                }}
+                onClick={skipSttTest}
                 className="rounded-md border border-line bg-surface px-3 py-1.5 text-ink-2 hover:border-accent"
               >
-                다시 테스트
+                건너뛰기
+              </button>
+              <button
+                type="button"
+                onClick={() => setSttState("success")}
+                className="rounded-md bg-brand-2 px-3 py-1.5 font-semibold text-white hover:opacity-90"
+              >
+                확정
               </button>
             </div>
           </div>
